@@ -1,0 +1,124 @@
+version: "2"
+
+# NOTE: This baseline references linters introduced after golangci-lint v2.4.
+# Use golangci-lint v2.11.4+ for local runs; CI is pinned to v2.11.4.
+
+run:
+  allow-parallel-runners: true
+
+issues:
+
+linters:
+  default: all
+  disable:
+    - containedctx
+    - copyloopvar
+    - cyclop
+    - dupl
+    - embeddedstructfieldcheck
+    - err113
+    - errname
+    - exhaustive
+    - exhaustruct
+    - funcorder
+    - funlen
+    - gochecknoglobals
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godoclint
+    - godot
+    - godox
+    - intrange
+    - ireturn
+    - lll
+    - maintidx
+    - mnd
+    - modernize
+    - musttag
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - nlreturn
+    - noinlineerr
+    - nonamedreturns
+    - paralleltest
+    - perfsprint
+    - prealloc
+    - predeclared
+    - recvcheck
+    - revive
+    - tagalign
+    - tagliatelle
+    - testifylint
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - usetesting
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - wsl_v5
+
+  settings:
+    gosec:
+      excludes:
+        # Triaged as high-noise in this codebase:
+        # - G301/G306 flag broad file-mode patterns in tests and non-secret files.
+        # - G304 flags dynamic path usage across controlled config/workspace paths.
+        - G301
+        - G304
+        - G306
+    varnamelen:
+      ignore-decls:
+        - io IO
+      ignore-names:
+        - ws # workspace
+        - ok
+        - i
+    depguard:
+      rules:
+        main:
+          list-mode: lax
+          allow:
+            - $gostd
+    testpackage:
+      allow-packages:
+        - cli
+        - testutils
+        - internal
+        - agentlauncher
+        - configfile
+        - docker
+        - github
+        - jira
+        - llm
+        - prompts
+        - session
+        - util
+
+  # Keep prior broad lint configuration here for staged reintroduction.
+  # default: all
+  # disable:
+  #   - wsl
+  #   - wsl_v5
+  #   - noinlineerr
+  #   - wrapcheck
+  # settings:
+  #   varnamelen:
+  #     ignore-decls:
+  #       - io IO
+  #     ignore-names:
+  #       - ws # workspace
+  #       - ok
+  #       - i
+  #   depguard:
+  #     rules:
+  #       main:
+  #         list-mode: lax
+  #         allow:
+  #           - $gostd
