@@ -86,7 +86,7 @@ func TestClaudeLauncher_Metadata(t *testing.T) {
 	l := Claude("", false, "")
 	require.Equal(t, "claude", l.Name())
 	require.Equal(t, "", l.MinimumVersion())
-	require.Equal(t, []string{"sonnet", "opus", "claude-sonnet-4-6", "claude-opus-4-7", "claude-opus-4-8"}, l.SupportedModels())
+	require.Equal(t, []string{"sonnet", "opus", "claude-fable-5", "claude-sonnet-4-6", "claude-opus-4-7", "claude-opus-4-8"}, l.SupportedModels())
 }
 
 func TestClaudeLauncher_Command_ModelIsShellQuoted(t *testing.T) {
