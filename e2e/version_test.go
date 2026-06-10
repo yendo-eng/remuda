@@ -52,6 +52,7 @@ func buildRemudaBinary(t *testing.T, repoRoot, outputPath string, baseEnv map[st
 
 	var cmd *exec.Cmd
 	if stamped {
+		//nolint:gosec // Test intentionally invokes local `go build` against fixed args to produce a test binary.
 		cmd = exec.CommandContext(
 			t.Context(),
 			"go",
@@ -63,6 +64,7 @@ func buildRemudaBinary(t *testing.T, repoRoot, outputPath string, baseEnv map[st
 			"./cmd/remuda",
 		)
 	} else {
+		//nolint:gosec // Test intentionally invokes local `go build` against fixed args to produce a test binary.
 		cmd = exec.CommandContext(
 			t.Context(),
 			"go",
