@@ -48,8 +48,10 @@ remuda session kill --close-pr acme-org/example-repo/feature-login-audit
 remuda session kill --close-pr="closing this PR from remuda" acme-org/example-repo/feature-login-audit
 # optionally close the beads issue associated with the session branch
 remuda session kill --close-bd acme-org/example-repo/feature-login-audit
-# rebase-and-merge the associated PR before killing the session
+# merge the associated PR before killing the session
 remuda session kill --merge acme-org/example-repo/feature-login-audit
+# override merge flags for this run (replaces config defaults)
+remuda session kill --merge --merge-flag=--squash --merge-flag=--delete-branch acme-org/example-repo/feature-login-audit
 
 # List all Remuda-managed workspaces (active + inactive)
 remuda workspaces list
@@ -83,6 +85,11 @@ If `REMUDA_AGENT=claude` or your selected profile/config default agent is
 `claude`, Remuda resumes with `claude --continue` (directory-scoped latest
 conversation). Remuda intentionally does not use `claude --resume` because
 that command opens an interactive picker.
+
+For `session kill --merge`, merge flags are selected with this precedence:
+1. CLI `--merge-flag` values (repeatable; replaces config list)
+2. `defaults.merge.gh_flags` in config
+3. built-in default `--rebase`
 
 ## Resume Ignore Patterns
 

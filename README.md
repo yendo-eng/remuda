@@ -99,6 +99,14 @@ For detailed usage information, see:
 - [Container Mode](docs/container-mode.md) – running agents in Docker
 - [Configuration](docs/configuration.md) – environment variables and config file
 
+### Session Merge Flags
+
+`remuda session kill --merge` uses `gh pr merge` under the hood.
+
+- Configure default merge flags in config: `defaults.merge.gh_flags`
+- Override per run with repeatable `--merge-flag` (replaces config list)
+- If neither is set, Remuda keeps the current default behavior: `--rebase`
+
 ---
 
 ## License

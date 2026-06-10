@@ -131,6 +131,8 @@ defaults:
   skip_version_check: false
   use_prompts: ["small-commits"]
   no_use: ["make-pr"]
+  merge:
+    gh_flags: ["--rebase"]
   container:      # or: container: true|false (shorthand for container.enabled)
     enabled: false
     image: ghcr.io/acme/remuda-agent:latest
@@ -214,6 +216,8 @@ profiles:
     no_use: [string]
     experiments: [string]
     yolo: bool
+    merge:
+      gh_flags: [string]
     container:
       enabled: bool
       image: string
@@ -298,6 +302,7 @@ workspaces:
 - `per_repo.<slug>.clone_hooks` validates that `argv` is non-empty and `argv[0]` is non-blank at parse time; runtime exec/exit errors still surface when hooks run.
 - `session.prune.ignore` (used by `session resume --pick`) applies globally (not per-repo).
 - `workspaces.ignore` applies globally (not per-repo).
+- `defaults.merge.gh_flags` configures flags appended to `gh pr merge <number>` for `remuda session kill --merge`; `session kill --merge-flag` replaces this list for that invocation.
 - Unknown keys and invalid enum values (eg. `session.manager`, `defaults.agent`) are rejected with clear errors.
 
 ### Migration to XDG Path
