@@ -38,20 +38,20 @@ remuda session edit acme-org/example-repo/feature-login-audit
 remuda session edit --pick                    # fzf flow; requires $REMUDA_EDITOR/$VISUAL/$EDITOR
 
 # Kill one or multiple sessions
-remuda session kill acme-org/example-repo/feature-login-audit
+remuda session kill --name acme-org/example-repo/feature-login-audit
 remuda session kill --pick                # multi-select via fzf
 # optionally also remove the associated workspace
-remuda session kill --cleanup acme-org/example-repo/feature-login-audit
+remuda session kill --cleanup --name acme-org/example-repo/feature-login-audit
 # optionally close the associated PR, if there is one
-remuda session kill --close-pr acme-org/example-repo/feature-login-audit
+remuda session kill --close-pr --name acme-org/example-repo/feature-login-audit
 # optionally close the PR with a closing comment
-remuda session kill --close-pr="closing this PR from remuda" acme-org/example-repo/feature-login-audit
+remuda session kill --close-pr="closing this PR from remuda" --name acme-org/example-repo/feature-login-audit
 # optionally close the beads issue associated with the session branch
-remuda session kill --close-bd acme-org/example-repo/feature-login-audit
+remuda session kill --close-bd --name acme-org/example-repo/feature-login-audit
 # merge the associated PR before killing the session
-remuda session kill --merge acme-org/example-repo/feature-login-audit
+remuda session kill --merge --name acme-org/example-repo/feature-login-audit
 # override merge flags for this run (replaces config defaults)
-remuda session kill --merge --merge-flag=--squash --merge-flag=--delete-branch acme-org/example-repo/feature-login-audit
+remuda session kill --merge --merge-flag=--squash --merge-flag=--delete-branch --name acme-org/example-repo/feature-login-audit
 
 # List all Remuda-managed workspaces (active + inactive)
 remuda workspaces list
