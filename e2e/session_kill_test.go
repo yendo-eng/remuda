@@ -271,5 +271,4 @@ defaults:
 		require.Equal(t, []string{workspacePath}, mockGitHub.MergedWorkspaces)
 		require.Equal(t, [][]string{{"--merge", "--auto"}}, mockGitHub.MergedFlags)
 	})
-
 }
