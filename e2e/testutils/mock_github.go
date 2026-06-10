@@ -14,6 +14,7 @@ type MockGitHub struct {
 	ClosedWorkspaces []string
 	ClosedComments   []string
 	MergedWorkspaces []string
+	MergedFlags      [][]string
 	MergeErr         error
 	Issues           map[string]*github.Issue
 	Env              map[string]string
@@ -30,8 +31,9 @@ func (m *MockGitHub) ClosePullRequest(sessionName string, comment string) (*gith
 	}, nil
 }
 
-func (m *MockGitHub) MergePullRequest(workspace string, strategy github.MergeStrategy) (*github.PRMergeResult, error) {
+func (m *MockGitHub) MergePullRequest(workspace string, mergeFlags []string) (*github.PRMergeResult, error) {
 	m.MergedWorkspaces = append(m.MergedWorkspaces, workspace)
+	m.MergedFlags = append(m.MergedFlags, append([]string(nil), mergeFlags...))
 	if m.MergeErr != nil {
 		return nil, m.MergeErr
 	}

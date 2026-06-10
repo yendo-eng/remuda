@@ -151,6 +151,7 @@ func TestSessionKill(t *testing.T) {
 		require.Contains(t, res.Stdout, "Closed beads issue")
 
 		require.Equal(t, []string{workspacePath}, mockGitHub.MergedWorkspaces)
+		require.Equal(t, [][]string{{"--rebase"}}, mockGitHub.MergedFlags)
 		require.Empty(t, mockGitHub.ClosedWorkspaces)
 		require.DirExists(t, workspacePath)
 
@@ -212,4 +213,63 @@ func TestSessionKill(t *testing.T) {
 		require.Equal(t, []string{workspacePath}, mockGitHub.MergedWorkspaces)
 		require.Empty(t, mockGitHub.ClosedWorkspaces)
 	})
+
+	t.Run("merges PR with flags from config defaults", func(t *testing.T) {
+		mockGitHub := &testutils.MockGitHub{}
+		h, remoteURL := setup(t, mockGitHub)
+		baseDir := h.RemudaConfig.ReposBaseDir
+		mockGitHub.RepoURL = remoteURL
+
+		writeConfigFile(t, h, `
+version: 1
+defaults:
+  merge:
+    gh_flags:
+      - --squash
+      - --delete-branch
+`)
+
+		name := "test-session"
+		org, repo, _ := github.ParseRepo(remoteURL)
+		workspacePath := filepath.Join(baseDir, org, repo, name)
+		sessionName := session.SessionNameFromWorkspaceName(workspacePath)
+
+		h.RunOK("vibe", "--name", name, "--repo-url", remoteURL)
+		h.RunOK("session", "kill", "--name", sessionName, "--merge")
+
+		require.Equal(t, []string{workspacePath}, mockGitHub.MergedWorkspaces)
+		require.Equal(t, [][]string{{"--squash", "--delete-branch"}}, mockGitHub.MergedFlags)
+	})
+
+	t.Run("merge flags from CLI replace config defaults", func(t *testing.T) {
+		mockGitHub := &testutils.MockGitHub{}
+		h, remoteURL := setup(t, mockGitHub)
+		baseDir := h.RemudaConfig.ReposBaseDir
+		mockGitHub.RepoURL = remoteURL
+
+		writeConfigFile(t, h, `
+version: 1
+defaults:
+  merge:
+    gh_flags:
+      - --squash
+      - --delete-branch
+`)
+
+		name := "test-session"
+		org, repo, _ := github.ParseRepo(remoteURL)
+		workspacePath := filepath.Join(baseDir, org, repo, name)
+		sessionName := session.SessionNameFromWorkspaceName(workspacePath)
+
+		h.RunOK("vibe", "--name", name, "--repo-url", remoteURL)
+		h.RunOK(
+			"session", "kill", "--name", sessionName, "--merge",
+			"--merge-flag=--merge",
+			"--merge-flag=--auto",
+		)
+
+		require.Equal(t, []string{workspacePath}, mockGitHub.MergedWorkspaces)
+		require.Equal(t, [][]string{{"--merge", "--auto"}}, mockGitHub.MergedFlags)
+	})
+
 }

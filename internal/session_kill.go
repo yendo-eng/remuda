@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/util"
 )
@@ -17,9 +16,10 @@ func (k Remuda) SessionKill(
 	cleanup bool,
 	closePRComment *string,
 	mergePR bool,
+	mergeFlags []string,
 	closeBD bool,
 ) error {
-	return k.killOne(name, cleanup, closePRComment, mergePR, closeBD)
+	return k.killOne(name, cleanup, closePRComment, mergePR, mergeFlags, closeBD)
 }
 
 func (k Remuda) killOne(
@@ -27,6 +27,7 @@ func (k Remuda) killOne(
 	cleanup bool,
 	closePRComment *string,
 	mergePR bool,
+	mergeFlags []string,
 	closeBD bool,
 ) error {
 	var workspacePath string
@@ -40,7 +41,10 @@ func (k Remuda) killOne(
 	}
 
 	if mergePR {
-		res, err := k.GitHub.MergePullRequest(workspacePath, github.MergeStrategyRebase)
+		if len(mergeFlags) == 0 {
+			mergeFlags = []string{"--rebase"}
+		}
+		res, err := k.GitHub.MergePullRequest(workspacePath, mergeFlags)
 		if err != nil {
 			return err
 		}
@@ -48,7 +52,7 @@ func (k Remuda) killOne(
 			return errors.Errorf("no pull request associated with session %q; cannot merge", name)
 		}
 		if res.Merged {
-			k.IO.Outf("Merged PR #%d for session %q (%s) using rebase merge\n", res.Number, name, res.URL)
+			k.IO.Outf("Merged PR #%d for session %q (%s) with flags: %s\n", res.Number, name, res.URL, strings.Join(mergeFlags, " "))
 		} else {
 			return errors.Errorf("failed to merge PR #%d for session %q", res.Number, name)
 		}

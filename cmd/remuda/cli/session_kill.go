@@ -1,6 +1,10 @@
 package cli
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 type SessionKillNamePickOption struct {
 	Name string `kong:"name='name',help='Session name (org/repo/<name>).',predictor='session-name'"`
@@ -29,6 +33,33 @@ type SessionKillCmd struct {
 	CloseBD                   bool               `name:"close-bd" help:"Close the beads issue associated with the session branch."`
 	ClosePR                   OptionalStringFlag `name:"close-pr" help:"Close the GitHub PR associated with the session via gh, if present. Optionally provide a closing comment via --close-pr=COMMENT."`
 	MergePR                   bool               `name:"merge" help:"Rebase-and-merge the GitHub PR associated with the session via gh before killing."`
+	MergeFlag                 []string           `name:"merge-flag" help:"Flag to pass to gh pr merge when --merge is set. Repeatable; when provided, replaces defaults.merge.gh_flags config."`
+}
+
+func (c SessionKillCmd) Validate() error {
+	if err := c.SessionKillNamePickOption.Validate(); err != nil {
+		return err
+	}
+	for i, mergeFlag := range c.MergeFlag {
+		if strings.TrimSpace(mergeFlag) == "" {
+			return fmt.Errorf("--merge-flag[%d] cannot be empty", i)
+		}
+	}
+	return nil
+}
+
+func (c SessionKillCmd) configuredMergeFlags(ctx Context) []string {
+	if len(c.MergeFlag) > 0 {
+		return append([]string(nil), c.MergeFlag...)
+	}
+	if ctx.ConfigFile != nil &&
+		ctx.ConfigFile.Defaults != nil &&
+		ctx.ConfigFile.Defaults.Merge != nil &&
+		ctx.ConfigFile.Defaults.Merge.GHFlags != nil &&
+		len(*ctx.ConfigFile.Defaults.Merge.GHFlags) > 0 {
+		return append([]string(nil), (*ctx.ConfigFile.Defaults.Merge.GHFlags)...)
+	}
+	return []string{"--rebase"}
 }
 
 func (c *SessionKillCmd) Run(ctx Context) error {
@@ -36,6 +67,7 @@ func (c *SessionKillCmd) Run(ctx Context) error {
 	if err != nil {
 		return err
 	}
+	mergeFlags := c.configuredMergeFlags(ctx)
 
 	for _, name := range names {
 		var closePRComment *string
@@ -44,7 +76,7 @@ func (c *SessionKillCmd) Run(ctx Context) error {
 			closePRComment = &comment
 		}
 
-		if err := ctx.Remuda.SessionKill(name, c.Cleanup, closePRComment, c.MergePR, c.CloseBD); err != nil {
+		if err := ctx.Remuda.SessionKill(name, c.Cleanup, closePRComment, c.MergePR, mergeFlags, c.CloseBD); err != nil {
 			return err
 		}
 
