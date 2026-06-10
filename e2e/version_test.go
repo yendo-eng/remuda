@@ -21,7 +21,7 @@ func TestVersionFlag(t *testing.T) {
 		t.Parallel()
 
 		binPath := filepath.Join(t.TempDir(), "remuda-local")
-		buildRemudaBinary(t, repoRoot, binPath, baseEnv)
+		buildRemudaBinary(t, repoRoot, binPath, baseEnv, false)
 
 		version := runRemudaVersion(t, repoRoot, binPath, baseEnv)
 		require.NotEmpty(t, version)
@@ -31,7 +31,7 @@ func TestVersionFlag(t *testing.T) {
 		t.Parallel()
 
 		binPath := filepath.Join(t.TempDir(), "remuda-stamped")
-		buildRemudaBinary(t, repoRoot, binPath, baseEnv, "-buildvcs=false", "-ldflags=-X main.buildVersion=v0.1.0-test")
+		buildRemudaBinary(t, repoRoot, binPath, baseEnv, true)
 
 		version := runRemudaVersion(t, repoRoot, binPath, baseEnv)
 		require.Equal(t, "v0.1.0-test", version)
@@ -47,13 +47,31 @@ func repoRootDir(t *testing.T) string {
 	return filepath.Clean(filepath.Join(wd, ".."))
 }
 
-func buildRemudaBinary(t *testing.T, repoRoot, outputPath string, baseEnv map[string]string, extraArgs ...string) {
+func buildRemudaBinary(t *testing.T, repoRoot, outputPath string, baseEnv map[string]string, stamped bool) {
 	t.Helper()
 
-	args := []string{"build", "-o", outputPath}
-	args = append(args, extraArgs...)
-	args = append(args, "./cmd/remuda")
-	cmd := exec.Command("go", args...)
+	var cmd *exec.Cmd
+	if stamped {
+		cmd = exec.CommandContext(
+			t.Context(),
+			"go",
+			"build",
+			"-o",
+			outputPath,
+			"-buildvcs=false",
+			"-ldflags=-X main.buildVersion=v0.1.0-test",
+			"./cmd/remuda",
+		)
+	} else {
+		cmd = exec.CommandContext(
+			t.Context(),
+			"go",
+			"build",
+			"-o",
+			outputPath,
+			"./cmd/remuda",
+		)
+	}
 	cmd.Dir = repoRoot
 	require.NoError(t, testutils.ApplyE2EEnvIsolationToCmd(cmd, baseEnv, nil))
 
@@ -64,7 +82,7 @@ func buildRemudaBinary(t *testing.T, repoRoot, outputPath string, baseEnv map[st
 func runRemudaVersion(t *testing.T, repoRoot, binPath string, baseEnv map[string]string) string {
 	t.Helper()
 
-	cmd := exec.Command(binPath, "--version")
+	cmd := exec.CommandContext(t.Context(), binPath, "--version")
 	cmd.Dir = repoRoot
 	require.NoError(t, testutils.ApplyE2EEnvIsolationToCmd(cmd, baseEnv, nil))
 
