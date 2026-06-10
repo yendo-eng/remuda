@@ -22,10 +22,6 @@ type httpSlack struct {
 	env    env.Provider
 }
 
-func NewHTTPSlack(client http.Client) Slack {
-	return NewHTTPSlackWithEnv(client, env.Default())
-}
-
 func NewHTTPSlackWithEnv(client http.Client, provider env.Provider) Slack {
 	return &httpSlack{client: client, env: env.OrDefault(provider)}
 }
