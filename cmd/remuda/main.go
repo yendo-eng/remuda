@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"runtime/debug"
 
 	clipkg "github.com/yendo-eng/remuda/cmd/remuda/cli"
 	"github.com/yendo-eng/remuda/internal"
@@ -13,8 +14,11 @@ import (
 	"github.com/yendo-eng/remuda/internal/logging"
 )
 
+var buildVersion string
+
 func main() {
 	cfg := internal.ConfigFromEnv()
+	version := resolveVersion(buildVersion, debug.ReadBuildInfo)
 
 	k := internal.NewRemuda(
 		cfg,
@@ -26,7 +30,11 @@ func main() {
 		github.NewGhCLI(),
 	)
 
-	err := clipkg.RunWithName(clipkg.NewContext(context.Background(), k), os.Args[0], os.Args[1:])
+	err := clipkg.RunWithName(
+		clipkg.NewContext(context.Background(), k, clipkg.WithVersion(version)),
+		os.Args[0],
+		os.Args[1:],
+	)
 	if err != nil {
 		logger := logging.DefaultLogger()
 		logger.Error().Err(err).Msg("command failed")
