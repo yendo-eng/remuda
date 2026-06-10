@@ -810,6 +810,9 @@ func mergeOverlayV1IntoConfig(cfg *configfile.V1, overlay configfile.OverlayV1, 
 		if overlay.Defaults.Yolo != nil {
 			cfg.Defaults.Yolo = overlay.Defaults.Yolo
 		}
+		if overlay.Defaults.Merge != nil {
+			cfg.Defaults.Merge = overlay.Defaults.Merge
+		}
 		if overlay.Defaults.Container != nil {
 			if cfg.Defaults.Container == nil {
 				cfg.Defaults.Container = &configfile.ContainerV1{}

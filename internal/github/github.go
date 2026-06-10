@@ -20,7 +20,7 @@ type GitHub interface {
 	// ClosePullRequest closes the GitHub pull request associated with the given session name.
 	// It returns the URL of the closed pull request or an error if the operation fails.
 	ClosePullRequest(sessionName string, comment string) (*PRCloseResult, error)
-	MergePullRequest(sessionName string, strategy MergeStrategy) (*PRMergeResult, error)
+	MergePullRequest(sessionName string, mergeFlags []string) (*PRMergeResult, error)
 
 	CheckAuthStatus() error
 
@@ -105,7 +105,7 @@ func (gh *ghCLI) ClosePullRequest(workspacePath string, comment string) (*PRClos
 	return res, nil
 }
 
-func (gh *ghCLI) MergePullRequest(workspacePath string, strategy MergeStrategy) (*PRMergeResult, error) {
+func (gh *ghCLI) MergePullRequest(workspacePath string, mergeFlags []string) (*PRMergeResult, error) {
 	info, err := os.Stat(workspacePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -134,7 +134,10 @@ func (gh *ghCLI) MergePullRequest(workspacePath string, strategy MergeStrategy) 
 		}, nil
 	}
 
-	if err := mergePRWithGh(gh.logger, workspacePath, prInfo.Number, strategy, gh.env); err != nil {
+	if len(mergeFlags) == 0 {
+		mergeFlags = []string{"--rebase"}
+	}
+	if err := mergePRWithGh(gh.logger, workspacePath, prInfo.Number, mergeFlags, gh.env); err != nil {
 		return nil, err
 	}
 
@@ -250,14 +253,6 @@ type PRMergeResult struct {
 	Merged bool
 }
 
-type MergeStrategy string
-
-const (
-	MergeStrategyMerge  MergeStrategy = "merge"
-	MergeStrategySquash MergeStrategy = "squash"
-	MergeStrategyRebase MergeStrategy = "rebase"
-)
-
 type ghPRInfo struct {
 	Number   int        `json:"number"`
 	State    string     `json:"state"`
@@ -305,18 +300,16 @@ func closePRWithGh(logger zerolog.Logger, workspace string, number int, comment 
 	return nil
 }
 
-func mergePRWithGh(logger zerolog.Logger, workspace string, number int, strategy MergeStrategy, provider env.Provider) error {
+func mergePRWithGh(logger zerolog.Logger, workspace string, number int, mergeFlags []string, provider env.Provider) error {
 	args := []string{"pr", "merge", strconv.Itoa(number)}
-	switch strategy {
-	case MergeStrategyRebase:
-		args = append(args, "--rebase")
-	case MergeStrategySquash:
-		args = append(args, "--squash")
-	case MergeStrategyMerge:
-		args = append(args, "--merge")
-	default:
-		return fmt.Errorf("unsupported merge strategy %q", strategy)
+
+	for i, mergeFlag := range mergeFlags {
+		if strings.TrimSpace(mergeFlag) == "" {
+			return fmt.Errorf("merge flag at index %d cannot be empty", i)
+		}
+		args = append(args, mergeFlag)
 	}
+
 	cmd := util.CmdWithLogger(logger, "gh", args...)
 	cmd.Dir = workspace
 	cmd.Env = append(env.Environ(provider), "GH_PROMPT_DISABLED=true")

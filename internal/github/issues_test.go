@@ -12,7 +12,7 @@ type issueOnlyGitHub struct {
 }
 
 func (m issueOnlyGitHub) ClosePullRequest(string, string) (*PRCloseResult, error) { return nil, nil }
-func (m issueOnlyGitHub) MergePullRequest(string, MergeStrategy) (*PRMergeResult, error) {
+func (m issueOnlyGitHub) MergePullRequest(string, []string) (*PRMergeResult, error) {
 	return nil, nil
 }
 func (m issueOnlyGitHub) CheckAuthStatus() error                        { return nil }

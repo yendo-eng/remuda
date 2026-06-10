@@ -79,7 +79,7 @@ func (k Remuda) SessionReap(
 		if dryRun {
 			continue
 		}
-		if err := k.SessionKill(name, cleanupAllowed, nil, false, false); err != nil {
+		if err := k.SessionKill(name, cleanupAllowed, nil, false, nil, false); err != nil {
 			return results, err
 		}
 	}
