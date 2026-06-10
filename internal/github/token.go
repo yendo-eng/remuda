@@ -7,12 +7,6 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-// EnsureTokenInEnv tries to ensure GH_TOKEN/GITHUB_TOKEN are available via the
-// default environment provider. It is best-effort.
-func EnsureTokenInEnv() {
-	EnsureTokenInEnvWithProvider(env.Default())
-}
-
 // EnsureTokenInEnvWithProvider tries to ensure GH_TOKEN/GITHUB_TOKEN are available
 // via the provided environment provider. It is best-effort.
 func EnsureTokenInEnvWithProvider(provider env.Provider) {
