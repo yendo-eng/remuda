@@ -97,12 +97,6 @@ func WithJira(j jira.Jira) HarnessOption {
 	}
 }
 
-func WithGit(g git.Git) HarnessOption {
-	return func(h *Harness) {
-		h.Git = g
-	}
-}
-
 func WithSlack(s slack.Slack) HarnessOption {
 	return func(h *Harness) {
 		h.Slack = s
@@ -275,14 +269,6 @@ func (h *Harness) SetEnv(key, value string) {
 			h.Remuda.Env = provider
 		}
 		provider.Values[key] = value
-	}
-}
-
-func (h *Harness) UnsetEnv(key string) {
-	h.t.Helper()
-	delete(h.Env, key)
-	if provider, ok := h.Remuda.Env.(env.StaticProvider); ok {
-		delete(provider.Values, key)
 	}
 }
 

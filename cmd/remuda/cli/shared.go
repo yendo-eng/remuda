@@ -24,18 +24,6 @@ type NameWizardOption struct {
 	Wizard bool   `name:"wizard" help:"Launch interactive wizard for this command (requires a TTY)." xor:"name_or_wizard"`
 }
 
-func (o NameWizardOption) requireNameUnlessWizard() error {
-	if o.Wizard {
-		return nil
-	}
-
-	if strings.TrimSpace(o.Name) == "" {
-		return errors.New("--name is required unless --wizard is provided")
-	}
-
-	return nil
-}
-
 // CloneRepoOption groups the CLI switches for selecting which repo to clone.
 type CloneRepoOption struct {
 	Repo             *string `kong:"env=REMUDA_DEFAULT_REPO,help='Shorthand repository alias to clone; expands to a full URL. Alias values come from config (repos.aliases) or environment-resolved defaults. If omitted and no defaults are set, interactive TTY runs may prompt to choose a default repo (skipped for --wizard/--in or non-interactive).',predictor='repo-alias'"`
