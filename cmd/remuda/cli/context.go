@@ -17,6 +17,7 @@ type Context struct {
 	Remuda                internal.Remuda
 	KongCtx               *kong.Context
 	ConfigFile            *configfile.V1
+	Version               string
 	Env                   EnvProvider
 	SessionManagerFactory SessionManagerFactory
 	WorkingDir            string
@@ -95,6 +96,13 @@ func WithEnv(env EnvProvider) func(*Context) {
 func WithSessionManagerFactory(factory SessionManagerFactory) func(*Context) {
 	return func(ctx *Context) {
 		ctx.SessionManagerFactory = factory
+	}
+}
+
+// WithVersion injects the version string used by --version output.
+func WithVersion(version string) func(*Context) {
+	return func(ctx *Context) {
+		ctx.Version = version
 	}
 }
 

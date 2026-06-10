@@ -28,6 +28,7 @@ type CLI struct {
 	LLM         LLMRootCmd                   `cmd:"" help:"LLM utilities (experimental)."`
 	Completions kongplete.InstallCompletions `cmd:"" help:"Install shell completions for remuda."`
 
+	Version        kong.VersionFlag                `name:"version" help:"Print version and exit."`
 	Verbose        bool                            `short:"v" help:"Enable verbose logging."`
 	SessionManager session.SupportedSessionManager `help:"Session manager to use." env:"REMUDA_SESSION_MANAGER" default:"tmux"`
 }
@@ -35,6 +36,7 @@ type CLI struct {
 type SessionManagerFactory func(session.SupportedSessionManager, zerolog.Logger) session.SessionManager
 
 const defaultCLIName = "remuda"
+const defaultCLIVersion = "unknown"
 
 func normalizeCLIName(raw string) string {
 	trimmed := strings.TrimSpace(raw)
@@ -192,7 +194,12 @@ func RunWithName(kctx Context, cliName string, args []string) error {
 	applyReposBaseDirFromConfig(&kctx, cfg)
 
 	// Build parser first so kongplete can hook completion handling.
-	parserOpts := []kong.Option{kong.UsageOnError(), kong.Name(cliName)}
+	version := strings.TrimSpace(kctx.Version)
+	if version == "" {
+		version = defaultCLIVersion
+	}
+
+	parserOpts := []kong.Option{kong.UsageOnError(), kong.Name(cliName), kong.Vars{"version": version}}
 	parserOpts = append(parserOpts, kongOptionsFromConfig(cfg, env)...)
 	parserOpts = append(parserOpts, kong.Bind(&kctx))
 	parser := kong.Must(&cli, parserOpts...)
