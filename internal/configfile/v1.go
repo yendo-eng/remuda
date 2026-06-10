@@ -64,7 +64,12 @@ type DefaultsV1 struct {
 	NoUse                 *[]string    `yaml:"no_use,omitempty"`
 	Experiments           *[]string    `yaml:"experiments,omitempty"`
 	Yolo                  *bool        `yaml:"yolo,omitempty"`
+	Merge                 *MergeV1     `yaml:"merge,omitempty"`
 	Container             *ContainerV1 `yaml:"container,omitempty"`
+}
+
+type MergeV1 struct {
+	GHFlags *[]string `yaml:"gh_flags,omitempty"`
 }
 
 type ContainerV1 struct {
@@ -378,9 +383,27 @@ func (d DefaultsV1) validate(path string) error {
 			}
 		}
 	}
+	if d.Merge != nil {
+		if err := d.Merge.validate(path + ".merge"); err != nil {
+			return err
+		}
+	}
 	if d.Container != nil {
 		if err := d.Container.validate(path + ".container"); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (m MergeV1) validate(path string) error {
+	if m.GHFlags == nil {
+		return nil
+	}
+	for i, flag := range *m.GHFlags {
+		flagPath := fmt.Sprintf("%s.gh_flags[%d]", path, i)
+		if strings.TrimSpace(flag) == "" {
+			return fmt.Errorf("%s: merge flag cannot be empty", flagPath)
 		}
 	}
 	return nil
