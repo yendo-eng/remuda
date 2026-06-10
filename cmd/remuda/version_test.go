@@ -1,4 +1,4 @@
-package main
+package main //nolint:testpackage // White-box tests verify unexported version-resolution paths from build metadata.
 
 import (
 	"runtime/debug"
