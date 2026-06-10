@@ -212,7 +212,40 @@ func TestParseV1_PointerFields(t *testing.T) {
 	require.Nil(t, cfg.Defaults.ReasoningLevel)
 	require.Nil(t, cfg.Defaults.SlugifyReasoningLevel)
 	require.Nil(t, cfg.Defaults.Yolo)
+	require.Nil(t, cfg.Defaults.Merge)
 	require.Nil(t, cfg.Defaults.Container)
+}
+
+func TestParseV1_DefaultsMergeGHFlagsRoundTrip(t *testing.T) {
+	yaml := `version: 1
+defaults:
+  merge:
+    gh_flags:
+      - --squash
+      - --delete-branch
+`
+
+	cfg, err := ParseV1([]byte(yaml))
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Defaults)
+	require.NotNil(t, cfg.Defaults.Merge)
+	require.NotNil(t, cfg.Defaults.Merge.GHFlags)
+	require.Equal(t, []string{"--squash", "--delete-branch"}, *cfg.Defaults.Merge.GHFlags)
+}
+
+func TestParseV1_DefaultsMergeGHFlagsRejectsEmptyFlags(t *testing.T) {
+	yaml := `version: 1
+defaults:
+  merge:
+    gh_flags:
+      - --squash
+      - " "
+`
+
+	_, err := ParseV1([]byte(yaml))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "defaults.merge.gh_flags[1]")
+	require.Contains(t, err.Error(), "cannot be empty")
 }
 
 func TestParseV1_UnknownTopLevelKey(t *testing.T) {
