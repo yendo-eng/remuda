@@ -87,11 +87,3 @@ func RequireDirExists(t *testing.T, path string) {
 	_, err := os.Stat(path)
 	require.NoError(t, err, "expected directory %s to exist", path)
 }
-
-func Must[T any](val T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-
-	return val
-}
