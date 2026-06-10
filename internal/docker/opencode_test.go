@@ -8,42 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/logging"
-	"github.com/yendo-eng/remuda/internal/util"
 )
-
-func TestBuildOpenCodeAuthMountOpts_LinuxPath(t *testing.T) {
-	tmp := t.TempDir()
-	authPath := filepath.Join(tmp, ".local", "share", "opencode", "auth.json")
-	require.NoError(t, os.MkdirAll(filepath.Dir(authPath), 0o755))
-	require.NoError(t, os.WriteFile(authPath, []byte(`{"token":"abc"}`), 0o600))
-
-	restore := util.SetGOOSForTest("linux")
-	t.Cleanup(restore)
-
-	opts := buildOpenCodeAuthMountOpts(tmp)
-	require.Equal(
-		t,
-		[]string{fmt.Sprintf("-v %q:%q:ro", authPath, "/root/.local/share/opencode/auth.json")},
-		opts,
-	)
-}
-
-func TestBuildOpenCodeAuthMountOpts_MacPath(t *testing.T) {
-	tmp := t.TempDir()
-	authPath := filepath.Join(tmp, "Library", "Application Support", "opencode", "auth.json")
-	require.NoError(t, os.MkdirAll(filepath.Dir(authPath), 0o755))
-	require.NoError(t, os.WriteFile(authPath, []byte(`{"token":"def"}`), 0o600))
-
-	restore := util.SetGOOSForTest("darwin")
-	t.Cleanup(restore)
-
-	opts := buildOpenCodeAuthMountOpts(tmp)
-	require.Equal(
-		t,
-		[]string{fmt.Sprintf("-v %q:%q:ro", authPath, "/root/.local/share/opencode/auth.json")},
-		opts,
-	)
-}
 
 func TestBuildOpenCodeStateMountOpts_LinuxPath(t *testing.T) {
 	tmp := t.TempDir()

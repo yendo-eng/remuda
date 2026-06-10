@@ -228,65 +228,6 @@ func ContainerNameFromSession(session string) string {
 	return name
 }
 
-// BuildOpenCodeAuthMountOpts returns docker mount options that expose the host's
-// OpenCode auth file inside the container at /root/.local/share/opencode/auth.json.
-// If the file cannot be located, it returns nil.
-func BuildOpenCodeAuthMountOpts() []string {
-	return BuildOpenCodeAuthMountOptsWithProvider(env.Default())
-}
-
-// BuildOpenCodeAuthMountOptsWithProvider returns docker mount options that expose the host's
-// OpenCode auth file inside the container at /root/.local/share/opencode/auth.json.
-// If the file cannot be located, it returns nil.
-func BuildOpenCodeAuthMountOptsWithProvider(provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, err := provider.UserHomeDir()
-	if err != nil || strings.TrimSpace(home) == "" {
-		return nil
-	}
-
-	return buildOpenCodeAuthMountOpts(home)
-}
-
-func buildOpenCodeAuthMountOpts(home string) []string {
-	candidates := opencodeAuthCandidates(util.CurrentGOOS(), home)
-	target := "/root/.local/share/opencode/auth.json"
-	for _, path := range candidates {
-		if st, err := os.Stat(path); err == nil && !st.IsDir() {
-			return []string{"-v " + quote(path) + ":" + quote(target) + ":ro"}
-		}
-	}
-	return nil
-}
-
-func opencodeAuthCandidates(goos, home string) []string {
-	macPath := filepath.Join(home, "Library", "Application Support", "opencode", "auth.json")
-	linuxPath := filepath.Join(home, ".local", "share", "opencode", "auth.json")
-
-	var candidates []string
-	if strings.EqualFold(goos, "darwin") {
-		candidates = append(candidates, macPath, linuxPath)
-	} else {
-		candidates = append(candidates, linuxPath, macPath)
-	}
-	return candidates
-}
-
-// BuildOpenCodeStateMountOpts returns docker mount options that expose the host's
-// OpenCode state directory inside the container at /root/.local/share/opencode.
-//
-// When no existing state directory is found, it creates the OS-preferred host
-// state directory before mounting it.
-func BuildOpenCodeStateMountOpts() []string {
-	return BuildOpenCodeStateMountOptsWithProvider(env.Default())
-}
-
-// BuildOpenCodeStateMountOptsWithProvider returns docker mount options that expose the host's
-// OpenCode state directory inside the container at /root/.local/share/opencode.
-func BuildOpenCodeStateMountOptsWithProvider(provider env.Provider) []string {
-	return BuildOpenCodeStateMountOptsWithLogger(logging.DefaultLogger(), provider)
-}
-
 func BuildOpenCodeStateMountOptsWithLogger(logger zerolog.Logger, provider env.Provider) []string {
 	provider = env.OrDefault(provider)
 	home, err := provider.UserHomeDir()
