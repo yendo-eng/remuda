@@ -113,11 +113,7 @@ Update the team's container image build pipeline to include `@mariozechner/pi-co
 | `SupportedModels()` returns `nil` | Avoids false warnings for valid models |
 | Session resume: directory-scoped | Pi's `-c` continues recent session for current cwd; defer to v2 via `remuda session resume` |
 
-## 8. Open Questions
-
-1. **Version output format**: What does `pi --version` output? Need for version parsing.
-
-## 9. Acceptance Criteria
+## 8. Acceptance Criteria
 
 - [ ] `remuda vibe --agent pi "hello"` launches pi in tmux session
 - [ ] `remuda vibe --agent pi --container "hello"` runs with state persistence

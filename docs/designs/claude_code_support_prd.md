@@ -75,7 +75,6 @@ Constraints:
 Add `internal/agentlauncher/claude.go` implementing `AgentLauncher`:
 - `Name() string` returns `"claude"`.
 - `Command(prompt string)` builds the Claude launch command.
-- `Version()` detects installed version via `claude --version`.
 - `SupportedModels()` returns `nil` to avoid false warnings from partial model lists.
 
 Command composition (v1):
@@ -112,7 +111,7 @@ Ensure the container image used by `--container` includes Claude Code CLI.
 
 Requirements:
 - installation must work in the team's chosen image build workflow,
-- resulting image should allow `claude --version` successfully,
+- resulting image should allow Claude Code CLI commands to run successfully,
 - keep build reproducibility conventions in that external image pipeline.
 
 ### FR-6: Container OAuth/session propagation
