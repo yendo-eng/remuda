@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -258,6 +259,76 @@ defaults:
 
 		name := "test-session"
 		org, repo, _ := github.ParseRepo(remoteURL)
+		workspacePath := filepath.Join(baseDir, org, repo, name)
+		sessionName := session.SessionNameFromWorkspaceName(workspacePath)
+
+		h.RunOK("vibe", "--name", name, "--repo-url", remoteURL)
+		h.RunOK(
+			"session", "kill", "--name", sessionName, "--merge",
+			"--merge-flag=--merge",
+			"--merge-flag=--auto",
+		)
+
+		require.Equal(t, []string{workspacePath}, mockGitHub.MergedWorkspaces)
+		require.Equal(t, [][]string{{"--merge", "--auto"}}, mockGitHub.MergedFlags)
+	})
+
+	t.Run("merges PR with flags from per-repo config defaults", func(t *testing.T) {
+		mockGitHub := &testutils.MockGitHub{}
+		h, remoteURL := setup(t, mockGitHub)
+		baseDir := h.RemudaConfig.ReposBaseDir
+		mockGitHub.RepoURL = remoteURL
+
+		org, repo, _ := github.ParseRepo(remoteURL)
+		writeConfigFile(t, h, fmt.Sprintf(`
+version: 1
+defaults:
+  merge:
+    gh_flags:
+      - --squash
+per_repo:
+  "%s/%s":
+    defaults:
+      merge:
+        gh_flags:
+          - --rebase
+          - --admin
+`, org, repo))
+
+		name := "test-session"
+		workspacePath := filepath.Join(baseDir, org, repo, name)
+		sessionName := session.SessionNameFromWorkspaceName(workspacePath)
+
+		h.RunOK("vibe", "--name", name, "--repo-url", remoteURL)
+		h.RunOK("session", "kill", "--name", sessionName, "--merge")
+
+		require.Equal(t, []string{workspacePath}, mockGitHub.MergedWorkspaces)
+		require.Equal(t, [][]string{{"--rebase", "--admin"}}, mockGitHub.MergedFlags)
+	})
+
+	t.Run("merge flags from CLI replace per-repo defaults", func(t *testing.T) {
+		mockGitHub := &testutils.MockGitHub{}
+		h, remoteURL := setup(t, mockGitHub)
+		baseDir := h.RemudaConfig.ReposBaseDir
+		mockGitHub.RepoURL = remoteURL
+
+		org, repo, _ := github.ParseRepo(remoteURL)
+		writeConfigFile(t, h, fmt.Sprintf(`
+version: 1
+defaults:
+  merge:
+    gh_flags:
+      - --rebase
+per_repo:
+  "%s/%s":
+    defaults:
+      merge:
+        gh_flags:
+          - --rebase
+          - --admin
+`, org, repo))
+
+		name := "test-session"
 		workspacePath := filepath.Join(baseDir, org, repo, name)
 		sessionName := session.SessionNameFromWorkspaceName(workspacePath)
 
