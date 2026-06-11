@@ -14,8 +14,6 @@ func (b bashLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool
 	return b, false
 }
 
-func (b bashLauncher) MinimumVersion() string { return "" }
-
 func (b bashLauncher) SupportedModels() []string { return nil }
 
 func (b bashLauncher) Version() (string, error) { return "", nil }

@@ -85,7 +85,6 @@ func TestClaudeLauncher_Command_WithRemoteControlSession(t *testing.T) {
 func TestClaudeLauncher_Metadata(t *testing.T) {
 	l := Claude("", false, "")
 	require.Equal(t, "claude", l.Name())
-	require.Equal(t, "", l.MinimumVersion())
 	require.Equal(t, []string{"sonnet", "opus", "fable", "claude-fable-5", "claude-sonnet-4-6", "claude-opus-4-7", "claude-opus-4-8"}, l.SupportedModels())
 }
 

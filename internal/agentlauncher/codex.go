@@ -53,8 +53,6 @@ func (c codexLauncher) WithRemoteControl(sessionName string) (AgentLauncher, boo
 	return c, false
 }
 
-func (c codexLauncher) MinimumVersion() string { return "v0.22.0" }
-
 // Not an exhaustive list, nor is this guaranteed to be up to date.
 func (c codexLauncher) SupportedModels() []string {
 	return []string{

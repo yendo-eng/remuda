@@ -9,7 +9,6 @@ import (
 func TestBashLauncher_CommandAndVersion(t *testing.T) {
 	b := Bash()
 	require.Equal(t, "bash -l", b.Command("ignored"))
-	require.Equal(t, "", b.MinimumVersion())
 }
 
 func TestParse_Bash_PropagatesModel(t *testing.T) {
