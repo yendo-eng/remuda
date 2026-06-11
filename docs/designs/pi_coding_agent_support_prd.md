@@ -92,7 +92,7 @@ Update the team's container image build pipeline to include `@mariozechner/pi-co
 - Pi startup latency comparable to Codex/OpenCode
 - Works on macOS and Linux, Docker Desktop and Docker Engine
 - Clear error if pi not installed
-- No minimum version required
+- Keep launch behavior consistent with existing agent defaults
 
 ## 6. Security
 
