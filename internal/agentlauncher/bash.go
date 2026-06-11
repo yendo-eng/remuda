@@ -15,5 +15,3 @@ func (b bashLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool
 }
 
 func (b bashLauncher) SupportedModels() []string { return nil }
-
-func (b bashLauncher) Version() (string, error) { return "", nil }
