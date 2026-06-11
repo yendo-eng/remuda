@@ -43,16 +43,18 @@ from there.
 
 Requirements:
 
-- Go 1.24+ (any platform supported by the Go tool-chain)
-- golangci-lint v2.11.4+ for local lint checks (matches CI pin at v2.11.4)
-- Git
-- tmux (default) or zellij (if configured) for detached sessions
-- An agent harness. Currently supported:
-  - [Codex](https://github.com/openai/codex)
-  - [OpenCode](https://github.com/anomalyco/opencode)
-  - [Claude Code](https://code.claude.com/docs/en/overview)
-  - You can craft your own agent command if you want too
-- [fzf](https://github.com/junegunn/fzf) (for some interactive features)
+- Required to build/install (via `go install`):
+  - Go 1.24+ (any platform supported by the Go toolchain)
+  - Git
+- Strongly recommended:
+  - `tmux` for the default detached-session flow (`zellij` is a supported alternative when configured)
+- Optional (feature-dependent):
+  - [fzf](https://github.com/junegunn/fzf) for interactive selection flows
+  - Agent harness (at least one is required to actually run an agent). Currently supported:
+    - [Codex](https://github.com/openai/codex)
+    - [OpenCode](https://github.com/anomalyco/opencode)
+    - [Claude Code](https://code.claude.com/docs/en/overview)
+    - You can also provide a custom agent command
 
 ### Build from source
 
