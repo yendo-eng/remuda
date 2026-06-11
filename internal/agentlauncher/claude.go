@@ -3,6 +3,7 @@ package agentlauncher
 import (
 	"strings"
 
+	"github.com/yendo-eng/remuda/internal/util"
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
@@ -75,4 +76,8 @@ func (c claudeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bo
 
 func (c claudeLauncher) SupportedModels() []string {
 	return append([]string(nil), claudeSupportedModels...)
+}
+
+func (c claudeLauncher) Version() (string, error) {
+	return util.RunCmdOutput("claude", "--version")
 }

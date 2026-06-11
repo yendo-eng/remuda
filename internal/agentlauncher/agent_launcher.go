@@ -19,6 +19,9 @@ type AgentLauncher interface {
 	// launcher. Unsupported launchers must return (self, false).
 	WithRemoteControl(sessionName string) (AgentLauncher, bool)
 
+	// Returns the installed version of the underlying agent CLI, if detectable.
+	Version() (string, error)
+
 	// List of models supported by this agent. If nil, all models are supported.
 	SupportedModels() []string
 }

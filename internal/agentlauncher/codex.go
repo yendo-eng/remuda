@@ -3,6 +3,7 @@ package agentlauncher
 import (
 	"strings"
 
+	"github.com/yendo-eng/remuda/internal/util"
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
@@ -69,4 +70,21 @@ func (c codexLauncher) SupportedModels() []string {
 		"gpt-5.1",
 		"codex-mini-latest",
 	}
+}
+
+func (c codexLauncher) Version() (string, error) {
+	out, err := util.RunCmdOutput("codex", "--version")
+	if err != nil {
+		return "", err
+	}
+
+	// The output may have junk in it like "codex" - just extract the semver.
+	found := util.SemverRegex.FindString(out)
+
+	// Add a "v" prefix if missing.
+	if !strings.HasPrefix(found, "v") {
+		found = "v" + found
+	}
+
+	return found, nil
 }
