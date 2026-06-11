@@ -14,8 +14,6 @@ func (b debugLauncher) WithRemoteControl(sessionName string) (AgentLauncher, boo
 	return b, false
 }
 
-func (b debugLauncher) MinimumVersion() string { return "" }
-
 func (b debugLauncher) SupportedModels() []string { return nil }
 
 func (b debugLauncher) Version() (string, error) { return "", nil }

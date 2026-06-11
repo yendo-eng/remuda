@@ -184,19 +184,18 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	}
 
 	logctx := launchingAgentLogContext{
-		Workspace:          workspace,
-		Session:            sessionName,
-		Agent:              agentName,
-		Model:              cmd.Model,
-		Yolo:               cmd.Yolo,
-		Detached:           cmd.Detached,
-		Container:          cmd.Container,
-		ContainerImage:     containerImage,
-		ContainerName:      containerName,
-		BeforePrompt:       cmd.BeforePrompt,
-		AfterPrompt:        cmd.AfterPrompt,
-		LauncherMinVersion: strings.TrimSpace(agent.MinimumVersion()),
-		SkipVersionCheck:   cmd.SkipVersionCheck,
+		Workspace:        workspace,
+		Session:          sessionName,
+		Agent:            agentName,
+		Model:            cmd.Model,
+		Yolo:             cmd.Yolo,
+		Detached:         cmd.Detached,
+		Container:        cmd.Container,
+		ContainerImage:   containerImage,
+		ContainerName:    containerName,
+		BeforePrompt:     cmd.BeforePrompt,
+		AfterPrompt:      cmd.AfterPrompt,
+		SkipVersionCheck: cmd.SkipVersionCheck,
 	}
 	if !logctx.Container {
 		logctx.ContainerImage = ""
@@ -569,19 +568,18 @@ func ensureRegularFile(path string, perm os.FileMode) error {
 }
 
 type launchingAgentLogContext struct {
-	Workspace          string
-	Session            string
-	Agent              string
-	Model              string
-	Yolo               bool
-	Detached           bool
-	Container          bool
-	ContainerImage     string
-	ContainerName      string
-	BeforePrompt       []string
-	AfterPrompt        []string
-	LauncherMinVersion string
-	SkipVersionCheck   bool
+	Workspace        string
+	Session          string
+	Agent            string
+	Model            string
+	Yolo             bool
+	Detached         bool
+	Container        bool
+	ContainerImage   string
+	ContainerName    string
+	BeforePrompt     []string
+	AfterPrompt      []string
+	SkipVersionCheck bool
 }
 
 func logLaunchingAgent(logger zerolog.Logger, ctx launchingAgentLogContext) {
@@ -608,9 +606,6 @@ func logLaunchingAgent(logger zerolog.Logger, ctx launchingAgentLogContext) {
 	}
 	if len(ctx.AfterPrompt) > 0 {
 		event = event.Strs("after_prompt", ctx.AfterPrompt)
-	}
-	if ctx.LauncherMinVersion != "" {
-		event = event.Str("launcher_min_version", ctx.LauncherMinVersion)
 	}
 	event.Msg("agent debug info")
 }

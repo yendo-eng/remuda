@@ -74,8 +74,6 @@ func (c claudeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bo
 	return c, true
 }
 
-func (c claudeLauncher) MinimumVersion() string { return "" }
-
 func (c claudeLauncher) SupportedModels() []string {
 	return append([]string(nil), claudeSupportedModels...)
 }

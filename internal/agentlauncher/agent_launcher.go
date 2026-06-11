@@ -22,10 +22,6 @@ type AgentLauncher interface {
 	// Returns the installed version of the underlying agent CLI, if detectable.
 	Version() (string, error)
 
-	// MinimumVersion returns the minimum supported version of the underlying
-	// agent CLI. Empty string means no minimum is enforced (stub/default).
-	MinimumVersion() string
-
 	// List of models supported by this agent. If nil, all models are supported.
 	SupportedModels() []string
 }

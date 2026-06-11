@@ -151,8 +151,6 @@ func (o opencodeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, 
 	return o, false
 }
 
-func (o opencodeLauncher) MinimumVersion() string { return "v0.4.0" }
-
 func (o opencodeLauncher) Version() (string, error) {
 	out, err := util.RunCmdOutput("opencode", "--version")
 	if err != nil {

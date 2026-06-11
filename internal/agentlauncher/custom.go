@@ -36,8 +36,6 @@ func (c customLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bo
 	return c, false
 }
 
-func (c customLauncher) MinimumVersion() string { return "" }
-
 func (c customLauncher) SupportedModels() []string { return nil }
 
 func (c customLauncher) Version() (string, error) {
