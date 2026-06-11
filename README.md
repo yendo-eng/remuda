@@ -48,13 +48,13 @@ Requirements:
   - Git
 - Strongly recommended:
   - `tmux` for the default detached-session flow (`zellij` is a supported alternative when configured)
-- Optional (feature-dependent):
-  - [fzf](https://github.com/junegunn/fzf) for interactive selection flows
   - Agent harness (at least one is required to actually run an agent). Currently supported:
     - [Codex](https://github.com/openai/codex)
     - [OpenCode](https://github.com/anomalyco/opencode)
     - [Claude Code](https://code.claude.com/docs/en/overview)
     - You can also provide a custom agent command
+- Optional (feature-dependent):
+  - [fzf](https://github.com/junegunn/fzf) for interactive selection flows
 
 ### Build from source
 
