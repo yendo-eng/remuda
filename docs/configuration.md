@@ -128,7 +128,6 @@ workspaces:
 defaults:
   agent: codex    # codex|opencode|claude|bash
   model: ""
-  skip_version_check: false
   use_prompts: ["small-commits"]
   no_use: ["make-pr"]
   merge:
@@ -211,7 +210,6 @@ profiles:
     reasoning_level: string
     slugify_reasoning_level: string
     agent_cmd: string
-    skip_version_check: bool
     use_prompts: [string]
     no_use: [string]
     experiments: [string]
