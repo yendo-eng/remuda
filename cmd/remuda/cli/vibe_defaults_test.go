@@ -26,7 +26,6 @@ func TestApplyPerRepoDefaultsToVibe_AppliesDefaults(t *testing.T) {
 			ReasoningLevel:        strptr("high"),
 			SlugifyReasoningLevel: strptr("medium"),
 			AgentCmd:              strptr("custom-agent"),
-			SkipVersionCheck:      boolptr(true),
 			UsePrompts:            &usePrompts,
 			NoUse:                 &noUsePrompts,
 			Experiments:           &experiments,
@@ -42,10 +41,9 @@ func TestApplyPerRepoDefaultsToVibe_AppliesDefaults(t *testing.T) {
 
 	cmd := VibeCmd{
 		AgentSessionOptions: AgentSessionOptions{
-			Agent:            "codex",
-			Model:            "gpt-3.5",
-			AgentCmd:         "old-agent",
-			SkipVersionCheck: false,
+			Agent:    "codex",
+			Model:    "gpt-3.5",
+			AgentCmd: "old-agent",
 		},
 		VibeContainerOptions: VibeContainerOptions{
 			Container:           false,
@@ -61,7 +59,6 @@ func TestApplyPerRepoDefaultsToVibe_AppliesDefaults(t *testing.T) {
 	require.Equal(t, "high", cmd.ReasoningLevel)
 	require.Equal(t, "medium", cmd.SlugifyReasoningLevel)
 	require.Equal(t, "custom-agent", cmd.AgentCmd)
-	require.True(t, cmd.SkipVersionCheck)
 	require.Equal(t, "exp-a,exp-b", cmd.Experiments)
 	require.True(t, cmd.Yolo)
 	require.True(t, cmd.Container)

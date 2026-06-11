@@ -156,16 +156,15 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	}
 
 	cmd := internal.VibeCommand{
-		Name:             c.Name,
-		Agent:            c.Agent,
-		Model:            c.Model,
-		ReasoningLevel:   c.ReasoningLevel,
-		AgentCmd:         c.AgentCmd,
-		SkipVersionCheck: c.SkipVersionCheck,
-		Detached:         c.DetachedMode(),
-		Attach:           c.Attach,
-		UsePromptIDs:     usePromptIDs,
-		Prompt:           buildVibeCheckPrompt(headBranch, baseBranch, prMeta),
+		Name:           c.Name,
+		Agent:          c.Agent,
+		Model:          c.Model,
+		ReasoningLevel: c.ReasoningLevel,
+		AgentCmd:       c.AgentCmd,
+		Detached:       c.DetachedMode(),
+		Attach:         c.Attach,
+		UsePromptIDs:   usePromptIDs,
+		Prompt:         buildVibeCheckPrompt(headBranch, baseBranch, prMeta),
 		Clone: internal.CloneCommand{
 			Name:           c.Name,
 			RepoURL:        derefString(c.RepoURL),
