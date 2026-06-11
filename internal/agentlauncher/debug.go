@@ -15,3 +15,5 @@ func (b debugLauncher) WithRemoteControl(sessionName string) (AgentLauncher, boo
 }
 
 func (b debugLauncher) SupportedModels() []string { return nil }
+
+func (b debugLauncher) Version() (string, error) { return "", nil }
