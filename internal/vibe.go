@@ -51,9 +51,6 @@ type VibeCommand struct {
 	// Reasoning effort level (codex only).
 	ReasoningLevel string
 
-	// Do not check agent version before launching.
-	SkipVersionCheck bool
-
 	// Run the agent in the background
 	Detached bool
 
@@ -184,18 +181,17 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	}
 
 	logctx := launchingAgentLogContext{
-		Workspace:        workspace,
-		Session:          sessionName,
-		Agent:            agentName,
-		Model:            cmd.Model,
-		Yolo:             cmd.Yolo,
-		Detached:         cmd.Detached,
-		Container:        cmd.Container,
-		ContainerImage:   containerImage,
-		ContainerName:    containerName,
-		BeforePrompt:     cmd.BeforePrompt,
-		AfterPrompt:      cmd.AfterPrompt,
-		SkipVersionCheck: cmd.SkipVersionCheck,
+		Workspace:      workspace,
+		Session:        sessionName,
+		Agent:          agentName,
+		Model:          cmd.Model,
+		Yolo:           cmd.Yolo,
+		Detached:       cmd.Detached,
+		Container:      cmd.Container,
+		ContainerImage: containerImage,
+		ContainerName:  containerName,
+		BeforePrompt:   cmd.BeforePrompt,
+		AfterPrompt:    cmd.AfterPrompt,
 	}
 	if !logctx.Container {
 		logctx.ContainerImage = ""
@@ -568,18 +564,17 @@ func ensureRegularFile(path string, perm os.FileMode) error {
 }
 
 type launchingAgentLogContext struct {
-	Workspace        string
-	Session          string
-	Agent            string
-	Model            string
-	Yolo             bool
-	Detached         bool
-	Container        bool
-	ContainerImage   string
-	ContainerName    string
-	BeforePrompt     []string
-	AfterPrompt      []string
-	SkipVersionCheck bool
+	Workspace      string
+	Session        string
+	Agent          string
+	Model          string
+	Yolo           bool
+	Detached       bool
+	Container      bool
+	ContainerImage string
+	ContainerName  string
+	BeforePrompt   []string
+	AfterPrompt    []string
 }
 
 func logLaunchingAgent(logger zerolog.Logger, ctx launchingAgentLogContext) {
@@ -593,8 +588,7 @@ func logLaunchingAgent(logger zerolog.Logger, ctx launchingAgentLogContext) {
 		Bool("container", ctx.Container).
 		Str("container_name", ctx.ContainerName).
 		Bool("yolo", ctx.Yolo).
-		Bool("detached", ctx.Detached).
-		Bool("skip_version_check", ctx.SkipVersionCheck)
+		Bool("detached", ctx.Detached)
 	if ctx.Model != "" {
 		event = event.Str("model", ctx.Model)
 	}

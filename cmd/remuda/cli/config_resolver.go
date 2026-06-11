@@ -110,7 +110,6 @@ func (r *ConfigResolver) Resolve(_ *kong.Context, _ *kong.Path, flag *kong.Flag)
 	//   - defaults.reasoning_level -> reasoning-level
 	//   - defaults.slugify_reasoning_level -> slugify-reasoning-level
 	//   - defaults.agent_cmd -> agent-cmd
-	//   - defaults.skip_version_check -> skip-version-check
 	//   - defaults.use_prompts -> use
 	//   - defaults.no_use -> no-use
 	//   - defaults.experiments -> experiments
@@ -166,11 +165,6 @@ func (r *ConfigResolver) Resolve(_ *kong.Context, _ *kong.Path, flag *kong.Flag)
 	case "agent-cmd":
 		if r.cfg.Defaults != nil && r.cfg.Defaults.AgentCmd != nil {
 			return *r.cfg.Defaults.AgentCmd, nil
-		}
-
-	case "skip-version-check":
-		if r.cfg.Defaults != nil && r.cfg.Defaults.SkipVersionCheck != nil {
-			return *r.cfg.Defaults.SkipVersionCheck, nil
 		}
 
 	case "use":
@@ -794,9 +788,6 @@ func mergeOverlayV1IntoConfig(cfg *configfile.V1, overlay configfile.OverlayV1, 
 		}
 		if overlay.Defaults.AgentCmd != nil {
 			cfg.Defaults.AgentCmd = overlay.Defaults.AgentCmd
-		}
-		if overlay.Defaults.SkipVersionCheck != nil {
-			cfg.Defaults.SkipVersionCheck = overlay.Defaults.SkipVersionCheck
 		}
 		if overlay.Defaults.UsePrompts != nil {
 			cfg.Defaults.UsePrompts = overlay.Defaults.UsePrompts

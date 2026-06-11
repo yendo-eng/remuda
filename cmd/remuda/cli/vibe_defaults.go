@@ -30,9 +30,6 @@ func applyPerRepoDefaultsToVibe(cmd *VibeCmd, kctx *kong.Context, cfg *configfil
 	if defaults.AgentCmd != nil && !flagExplicit(kctx, "agent-cmd") {
 		cmd.AgentCmd = *defaults.AgentCmd
 	}
-	if defaults.SkipVersionCheck != nil && !flagExplicit(kctx, "skip-version-check") {
-		cmd.SkipVersionCheck = *defaults.SkipVersionCheck
-	}
 	if defaults.UsePrompts != nil && !envSet(env, "REMUDA_USE_PROMPTS") {
 		useDefaults, err := promptNamesFromDefaults(*defaults.UsePrompts)
 		if err != nil {

@@ -59,7 +59,6 @@ type DefaultsV1 struct {
 	ReasoningLevel        *string      `yaml:"reasoning_level,omitempty"`
 	SlugifyReasoningLevel *string      `yaml:"slugify_reasoning_level,omitempty"`
 	AgentCmd              *string      `yaml:"agent_cmd,omitempty"`
-	SkipVersionCheck      *bool        `yaml:"skip_version_check,omitempty"`
 	UsePrompts            *[]string    `yaml:"use_prompts,omitempty"`
 	NoUse                 *[]string    `yaml:"no_use,omitempty"`
 	Experiments           *[]string    `yaml:"experiments,omitempty"`

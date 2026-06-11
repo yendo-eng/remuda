@@ -129,7 +129,6 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 		Model:               c.Model,
 		ReasoningLevel:      c.ReasoningLevel,
 		AgentCmd:            c.AgentCmd,
-		SkipVersionCheck:    c.SkipVersionCheck,
 		Prompt:              c.Prompt,
 		Detached:            c.DetachedMode(),
 		Attach:              c.Attach,

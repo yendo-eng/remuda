@@ -375,7 +375,6 @@ defaults:
   model: gpt-5
   reasoning_level: high
   slugify_reasoning_level: medium
-  skip_version_check: true
   yolo: true
   experiments:
     - my-experiment
@@ -408,7 +407,6 @@ defaults:
 	require.Equal(t, "gpt-5", c.Vibe.Model)
 	require.Equal(t, "high", c.Vibe.ReasoningLevel)
 	require.Equal(t, "medium", c.Vibe.SlugifyReasoningLevel)
-	require.True(t, c.Vibe.SkipVersionCheck)
 	require.True(t, c.Vibe.Yolo)
 	require.True(t, c.Vibe.ExperimentEnabled("my-experiment"))
 	require.Len(t, c.Vibe.Use, 1)
