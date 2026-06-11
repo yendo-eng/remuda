@@ -86,7 +86,6 @@ defaults:
   # Use "agent-default" to omit any model flag and let the agent CLI choose.
   model: ""
   agent_cmd: ""
-  skip_version_check: false
 
   # Mirrors REMUDA_USE_PROMPTS.
   use_prompts: ["small-commits"]

@@ -148,8 +148,6 @@ Note on slash-containing names:
   - Claude: forwarded to `claude --effort <level>`
   - OpenCode: ignored with a warning
   - Bash: ignored
-- `--skip-version-check` bypasses the built-in minimum-version check for agents
-  that define one.
 - `--yolo` maps to agent-specific approval/sandbox bypass behavior:
   - Codex: `--dangerously-bypass-approvals-and-sandbox`
   - Claude: `--dangerously-skip-permissions`

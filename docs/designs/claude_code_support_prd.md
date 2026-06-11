@@ -76,7 +76,6 @@ Add `internal/agentlauncher/claude.go` implementing `AgentLauncher`:
 - `Name() string` returns `"claude"`.
 - `Command(prompt string)` builds the Claude launch command.
 - `Version()` detects installed version via `claude --version`.
-- `MinimumVersion()` initially returns empty string unless a minimum is explicitly adopted later.
 - `SupportedModels()` returns `nil` to avoid false warnings from partial model lists.
 
 Command composition (v1):

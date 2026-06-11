@@ -81,7 +81,6 @@ profiles:
     agent: string
     model: string
     agent_cmd: string
-    skip_version_check: bool
     use_prompts: [string]
     experiments: [string]
     yolo: bool
@@ -133,7 +132,7 @@ Rationale:
 ### `remuda vibe`
 
 - `--profile`/`REMUDA_PROFILE` set defaults for:
-  - `--agent`, `--model`, `--agent-cmd`, `--skip-version-check`
+  - `--agent`, `--model`, `--agent-cmd`
   - `--use` (via config defaults + existing prompt resolver)
   - `--yolo`
   - container flags (`--container`, `--container-name`, `--container-opt`,
@@ -142,8 +141,8 @@ Rationale:
 
 ### `remuda vibe-check`
 
-- Profiles set defaults for agent, model, agent-cmd, skip-version-check, use
-  prompts, and container flags.
+- Profiles set defaults for agent, model, agent-cmd, use prompts, and
+  container flags.
 - `yolo` is ignored because `vibe-check` does not expose a yolo flag today.
 
 ### `remuda session resume`
