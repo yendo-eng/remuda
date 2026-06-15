@@ -10,6 +10,7 @@ import (
 // WorkspacesRemoveCmd removes one or more explicitly targeted workspaces.
 type WorkspacesRemoveCmd struct {
 	DryRun  bool     `name:"dry-run" help:"Print what would be removed without deleting anything."`
+	Force   bool     `help:"Force-remove linked git worktrees even when git reports desynced or untracked state."`
 	Targets []string `arg:"" name:"target" help:"Absolute workspace path or org/repo/workspace identifier." predictor:"workspace-dir"`
 }
 
@@ -42,7 +43,7 @@ func (c WorkspacesRemoveCmd) Run(ctx Context) error {
 		return err
 	}
 
-	removed, removeErr := ctx.Remuda.WorkspacesRemove(resolved, c.DryRun)
+	removed, removeErr := ctx.Remuda.WorkspacesRemove(resolved, c.DryRun, c.Force)
 	for _, ws := range removed {
 		if c.DryRun {
 			ctx.Remuda.IO.Outf("would remove %s\n", ws.Path)

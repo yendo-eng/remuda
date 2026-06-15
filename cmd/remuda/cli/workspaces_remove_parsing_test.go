@@ -39,6 +39,15 @@ func TestWorkspacesRemoveCmdParse_WithMultipleTargets(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestWorkspacesRemoveCmdParse_WithForce(t *testing.T) {
+	t.Parallel()
+	var c cli.CLI
+	parser := kong.Must(&c, kong.Name("remuda"))
+
+	_, err := parser.Parse([]string{"workspaces", "remove", "--force", "/tmp/workspace"})
+	require.NoError(t, err)
+}
+
 func TestWorkspacesRemoveCmdParse_RejectsRelativeTarget(t *testing.T) {
 	t.Parallel()
 	var c cli.CLI
