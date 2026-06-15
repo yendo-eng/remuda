@@ -92,7 +92,7 @@ func (k Remuda) Clone(
 		// Error on collision, or bulldoze the folder if --force is set.
 		if cmd.Force {
 			logger.Info().Str("target", target).Msg("force removing existing workspace")
-			if err := k.PruneOneSession(target, true, false); err != nil {
+			if err := k.PruneOneSession(target, true, false, true); err != nil {
 				return fmt.Errorf("removing existing workspace: %w", err)
 			}
 		}

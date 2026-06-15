@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"testing"
@@ -85,6 +86,40 @@ func TestWorkspacesRemove(t *testing.T) {
 		res := h.Run("workspaces", "remove", workspace)
 		require.ErrorContains(t, res.Err, "is active")
 		require.DirExists(t, workspace)
+	})
+
+	t.Run("fails for untracked linked worktree target without force", func(t *testing.T) {
+		h := testutils.NewHarness(t)
+		h.SetEnv("REMUDA_CONTAINER", "false")
+
+		remoteURL := testutils.InitTestRemote(t)
+		baseDir := h.RemudaConfig.ReposBaseDir
+		org, repo, _ := github.ParseRepo(remoteURL)
+		workspace := filepath.Join(baseDir, org, repo, "dirty-target")
+
+		h.RunOK("clone", "--name", "dirty-target", "--repo-url", remoteURL)
+		require.NoError(t, os.WriteFile(filepath.Join(workspace, "untracked.txt"), []byte("keep me"), 0o644))
+
+		res := h.Run("workspaces", "remove", workspace)
+		require.ErrorContains(t, res.Err, "rerun with --force")
+		require.DirExists(t, workspace)
+	})
+
+	t.Run("force removes untracked linked worktree target", func(t *testing.T) {
+		h := testutils.NewHarness(t)
+		h.SetEnv("REMUDA_CONTAINER", "false")
+
+		remoteURL := testutils.InitTestRemote(t)
+		baseDir := h.RemudaConfig.ReposBaseDir
+		org, repo, _ := github.ParseRepo(remoteURL)
+		workspace := filepath.Join(baseDir, org, repo, "force-dirty-target")
+
+		h.RunOK("clone", "--name", "force-dirty-target", "--repo-url", remoteURL)
+		require.NoError(t, os.WriteFile(filepath.Join(workspace, "untracked.txt"), []byte("force"), 0o644))
+
+		res := h.RunOK("workspaces", "remove", "--force", workspace)
+		require.Equal(t, fmt.Sprintf("removed %s\n", workspace), res.Stdout)
+		require.NoDirExists(t, workspace)
 	})
 
 	t.Run("protects repo cache from removal", func(t *testing.T) {

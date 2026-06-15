@@ -12,7 +12,7 @@ import (
 
 // WorkspacesRemove removes explicitly targeted workspaces.
 // It refuses to remove workspaces with active Remuda sessions.
-func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool) ([]PrunedWorkspace, error) {
+func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) ([]PrunedWorkspace, error) {
 	active, err := k.activeWorkspaceSessions()
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool) ([]PrunedWork
 			logger.Warn().Err(err).Str("workspace", workspaceAbs).Msg("failed to compute workspace size")
 		}
 
-		if err := k.PruneOneSession(workspaceAbs, true, dryRun); err != nil {
+		if err := k.PruneOneSession(workspaceAbs, true, dryRun, force); err != nil {
 			failures = append(failures, err.Error())
 			continue
 		}
@@ -115,6 +115,7 @@ func (k Remuda) PruneOneSession(
 	workspace string,
 	clean bool,
 	dryRun bool,
+	force bool,
 ) error {
 	logger := k.logger()
 	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspace); err != nil {
@@ -129,13 +130,16 @@ func (k Remuda) PruneOneSession(
 	org, repo, _ := util.SplitWorkspacePath(k.Config.ReposBaseDir, workspace)
 	if org != "" && isLinkedGitWorktree(workspace) {
 		cache := filepath.Join(k.Config.ReposBaseDir, org, repo, ".repo_cache")
-
-		// TODO: turn --force into a proper argument, right now we can't return
-		// the error in the non-force case because the code doesn't easily support
-		// it.
-		args := []string{workspace, "--force"}
+		args := []string{workspace}
+		if force {
+			args = append(args, "--force")
+		}
 		if err := k.Git.WorktreeRemove(cache, args...); err != nil {
-			logger.Warn().Err(err).Str("cache", cache).Str("workspace", workspace).Msg("worktree remove failed")
+			if force {
+				logger.Warn().Err(err).Str("cache", cache).Str("workspace", workspace).Msg("worktree remove failed")
+			} else {
+				return errors.Wrapf(err, "remove linked git worktree %q (rerun with --force to override)", workspace)
+			}
 		}
 	}
 	if err := os.RemoveAll(workspace); err != nil {

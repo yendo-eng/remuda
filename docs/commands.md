@@ -12,7 +12,7 @@ This document covers the main commands provided by Remuda.
   - Outputs: `.vibe/check/pr.json` and `.vibe/check/diff.patch` in the workspace; the Markdown report is emitted in the session output (not saved by default).
   - Note: does not forward `--yolo`. The branch (or PR head branch) is checked out in the workspace before review.
 - `remuda workspaces list [--active|--inactive]`: list Remuda-managed workspaces on disk, one absolute path per line.
-- `remuda workspaces remove [--dry-run] <target>...`: remove one or more explicit workspaces by absolute path or `org/repo/workspace` identifier.
+- `remuda workspaces remove [--dry-run] [--force] <target>...`: remove one or more explicit workspaces by absolute path or `org/repo/workspace` identifier.
 - `remuda config validate`: validate the resolved config file (missing config is treated as success).
 - `remuda session <subcommand>`: manage running sessions created by Remuda. Subcommands: `list`, `attach`, `readbuf`, `send`, `path`, `kill`, `inactive`, `resume`, `reap`, `shell`, `edit`. See [Session Management](session-management.md).
   - `session resume` also accepts `--profile <name>` (or `REMUDA_PROFILE`) to apply config defaults; when omitted, `per_repo.<slug>.profile` can select one automatically.
@@ -37,6 +37,9 @@ remuda workspaces list --inactive
 # Dry-run removal without deleting
 remuda workspaces remove --dry-run ~/.remuda/repos/acme-org/example-repo/feature-login-audit
 
+# Force-remove a dirty/desynced linked worktree
+remuda workspaces remove --force acme-org/example-repo/feature-login-audit
+
 # Remove by identifier
 remuda workspaces remove acme-org/example-repo/feature-login-audit
 
@@ -55,6 +58,7 @@ Behavior:
 - `--active` and `--inactive` cannot be combined.
 - Remove targets must be absolute paths or `org/repo/workspace` identifiers.
 - Remove refuses active-session workspaces and special directories such as `.repo_cache`.
+- Linked worktrees with untracked/desynced state are refused unless `--force` is set.
 
 ---
 
@@ -270,4 +274,3 @@ commands. Missing config is treated as success and produces no output.
 ```bash
 remuda config validate
 ```
-
