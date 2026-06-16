@@ -45,7 +45,7 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		return errors.Wrap(err, "failed to expand workspace path")
 	}
 
-	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
+	if err := k.validateWorkspace(workspaceAbs); err != nil {
 		return errors.Wrapf(err, "invalid workspace %q", workspaceAbs)
 	}
 	if err := k.ensureWorkspaceInactive(workspaceAbs); err != nil {

@@ -77,7 +77,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 	}
 
 	selectedAbs := absPathFromContext(selected, ctx)
-	if err := internal.ValidateWorkspacePath(ctx.Remuda.Config.ReposBaseDir, selectedAbs); err != nil {
+	if err := ctx.Remuda.ValidateWorkspace(selectedAbs); err != nil {
 		return errors.Wrapf(err, "invalid workspace %q", selectedAbs)
 	}
 	if c.Pick {

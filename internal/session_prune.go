@@ -238,6 +238,41 @@ func matchIgnorePatterns(patterns []string, rel string) (bool, error) {
 	return false, nil
 }
 
+// validateWorkspace checks the workspace against every configured root (the
+// persistent repos base dir and, when set, the OS-temp root for --tmp sessions),
+// accepting it when it is a valid depth-3 workspace under any of them.
+func (k Remuda) validateWorkspace(workspace string) error {
+	return validateWorkspacePathRoots(k.workspaceRoots(), workspace)
+}
+
+// ValidateWorkspace is the exported form of validateWorkspace for CLI callers.
+func (k Remuda) ValidateWorkspace(workspace string) error {
+	return k.validateWorkspace(workspace)
+}
+
+func validateWorkspacePathRoots(roots []string, workspace string) error {
+	if len(roots) == 0 {
+		return errors.New("no workspace roots provided")
+	}
+	var firstErr error
+	for _, base := range roots {
+		if strings.TrimSpace(base) == "" {
+			continue
+		}
+		err := validateWorkspacePath(base, workspace)
+		if err == nil {
+			return nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	if firstErr == nil {
+		return errors.New("repos base dir is empty")
+	}
+	return firstErr
+}
+
 func validateWorkspacePath(base, workspace string) error {
 	if base == "" {
 		return errors.New("repos base dir is empty")
