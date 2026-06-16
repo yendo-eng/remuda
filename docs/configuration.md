@@ -64,6 +64,11 @@ or populate values automatically, but you can configure them explicitly:
 - `REMUDA_REPOS_BASE_DIR` – overrides the root where repositories are cached and
   worktrees are created. The `<org>/<repo>` substructure is preserved, e.g.
   `$HOME/vibing/acme-org/example-repo/<workspace>`.
+- `REMUDA_TMP_DIR` – overrides the namespaced root used for `--tmp` session
+  worktrees (default `<os-temp>/remuda`). The persistent `.repo_cache` still
+  lives under `REMUDA_REPOS_BASE_DIR`; only the worktree checkout is placed here.
+  Useful on macOS with `--container` to point temp worktrees at a Docker-shared
+  location under `$HOME`. See `--tmp` in commands.md.
 
 ## Jira Ticket Context (`--jira`)
 

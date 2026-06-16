@@ -34,6 +34,9 @@ remuda workspaces list --active
 # Restrict output to inactive workspaces only
 remuda workspaces list --inactive
 
+# Also include --tmp worktrees living under the OS temp dir (hidden by default)
+remuda workspaces list --include-tmp
+
 # Dry-run removal without deleting
 remuda workspaces remove --dry-run ~/.remuda/repos/acme-org/example-repo/feature-login-audit
 
@@ -56,6 +59,7 @@ Behavior:
 - `.repo_cache` is never listed.
 - `workspaces.ignore` config patterns are applied.
 - `--active` and `--inactive` cannot be combined.
+- `--tmp` worktrees (under the OS temp dir) are hidden unless `--include-tmp` is passed.
 - Remove targets must be absolute paths or `org/repo/workspace` identifiers.
 - Remove refuses active-session workspaces and special directories such as `.repo_cache`.
 - Linked worktrees with untracked/desynced state are refused unless `--force` is set.
@@ -148,6 +152,7 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--branch <name>` – checkout this git branch (workspace folder still derives from `--name`). Defaults to the name when omitted.
 - `--force` – replace the existing workspace if it already exists.
 - `--full-clone` – copy the cache into the workspace instead of creating a linked worktree.
+- `--tmp` – place the session worktree under the OS temp dir for throwaway work the OS can reclaim on its own (see [Ephemeral `--tmp` sessions](#ephemeral---tmp-sessions)).
 - `--no-clone-hooks` – skip running all post-clone hooks (built-in and config-defined).
 - `--[no-]detached` – run the agent in the current terminal instead of using the configured session manager.
 - `--session-manager tmux|zellij` – override the session manager for this invocation (tmux remains the default).
@@ -233,6 +238,7 @@ Notes:
 
 - Artifacts are written under `.vibe/check/` (pr.json + diff.patch); the Markdown report is emitted in the session output.
 - `vibe-check` defaults to a full clone (`--full-clone`); use `--no-full-clone` to review via linked worktrees.
+- `--tmp` places the review worktree under the OS temp dir for throwaway reviews (see [Ephemeral `--tmp` sessions](#ephemeral---tmp-sessions)). It uses the linked-worktree model and overrides `--full-clone`.
 - `--no-clone-hooks` is supported and skips all post-clone hooks (built-in + config-defined).
 
 Examples:
@@ -263,6 +269,50 @@ Profile defaults are supported here as well: `--profile <name>` (or
 `REMUDA_PROFILE`) applies a named profile from `config.yaml` for agent/container
 defaults. If neither is set, `per_repo.<slug>.profile` can auto-select one for
 the resolved repo.
+
+---
+
+## Ephemeral `--tmp` sessions
+
+`vibe --tmp` and `vibe-check --tmp` place the session worktree under a namespaced
+root in the OS temp dir (`<os-temp>/remuda/<org>/<repo>/<name>`) instead of the
+persistent repos base dir. This is for throwaway work you don't want cluttering
+the workspace tree and that the OS can reclaim on its own.
+
+How it works:
+
+- **Cache stays persistent.** Only the worktree checkout goes to the temp dir;
+  the shared `.repo_cache` remains under `repos.base_dir` (`~/.remuda/repos/...`)
+  so startup stays fast. `--tmp` always uses the linked-worktree model and
+  ignores `--full-clone`.
+- **OS-managed cleanup only.** Remuda never actively deletes temp worktrees and
+  there is no implicit cleanup on `session kill`. The OS reclaims them on reboot
+  or via its temp-cleanup mechanism (e.g. `tmpwatch`).
+- **Listing.** Active temp sessions appear in `session list` like any other.
+  Temp worktrees are hidden from `workspaces list`, `session inactive`, and
+  `session resume --pick` by default; pass `--include-tmp` to surface them.
+  Resuming a still-present temp worktree works as long as the OS hasn't already
+  reclaimed it.
+- **Override the temp root** with `REMUDA_TMP_DIR`. This is a deliberate per-run
+  choice, so prefer the flag over configuring `--tmp` as a persistent default.
+
+> ⚠️ **Push before you rely on it.** Uncommitted or unpushed work in a temp
+> worktree is lost when the OS reclaims the workspace. A temp session otherwise
+> behaves identically (branch, PR, beads).
+
+### `--tmp` with `--container`
+
+The persistent cache (under `$HOME`) is bind-mounted into the container at its
+real path so the worktree's `.git` pointer resolves. The temp worktree itself
+must also be shareable with Docker:
+
+- **macOS:** `os.TempDir()` resolves under `/var/folders/...`, which Docker
+  Desktop does not share by default. `--tmp --container` fails early with a clear
+  error when the temp path isn't mountable. Either add the path under **Docker
+  Desktop → Settings → Resources → File Sharing**, or set `REMUDA_TMP_DIR` to a
+  directory under your home (e.g. `~/.remuda/tmp`), which Docker Desktop shares
+  by default.
+- **Linux:** bind-mounting temp paths works without extra configuration.
 
 ---
 
