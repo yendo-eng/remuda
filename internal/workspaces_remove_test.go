@@ -20,7 +20,7 @@ func TestFilterInactiveWorkspaces_IgnorePatterns(t *testing.T) {
 	candidates := []string{wsKeep, wsPrune}
 	active := map[string]struct{}{}
 
-	inactive, err := filterInactiveWorkspaces(base, candidates, active, []string{"org/repo/keep"})
+	inactive, err := filterInactiveWorkspaces([]string{base}, candidates, active, []string{"org/repo/keep"})
 	require.NoError(t, err)
 	require.Equal(t, []string{wsPrune}, inactive)
 }
@@ -30,7 +30,7 @@ func TestFilterInactiveWorkspaces_InvalidIgnorePattern(t *testing.T) {
 	ws := filepath.Join(base, "org", "repo", "ws")
 	require.NoError(t, os.MkdirAll(ws, 0o755))
 
-	_, err := filterInactiveWorkspaces(base, []string{ws}, map[string]struct{}{}, []string{"["})
+	_, err := filterInactiveWorkspaces([]string{base}, []string{ws}, map[string]struct{}{}, []string{"["})
 	require.Error(t, err)
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/yendo-eng/remuda/e2e/testutils"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/github"
+	"github.com/yendo-eng/remuda/internal/session"
 )
 
 // --tmp places the worktree under the configured OS-temp root while the
@@ -71,6 +72,82 @@ func TestCloneTmpForcesLinkedWorktreeOverFullClone(t *testing.T) {
 	info, err := os.Stat(filepath.Join(workspace, ".git"))
 	require.NoError(t, err)
 	require.False(t, info.IsDir(), "--tmp must override --full-clone and use a linked worktree")
+}
+
+// Temp workspaces are hidden from workspaces list / session inactive by default
+// and surfaced with --include-tmp.
+func TestTmpWorkspacesHiddenUnlessIncludeTmp(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	reposBase := filepath.Join(t.TempDir(), "repos")
+	tmpBase := filepath.Join(t.TempDir(), "tmp-repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{
+		ReposBaseDir: reposBase,
+		TmpBaseDir:   tmpBase,
+	}))
+	h.SetEnv("REMUDA_CONTAINER", "false")
+
+	org, repo, err := github.ParseRepo(remoteURL)
+	require.NoError(t, err)
+
+	persistentPath := filepath.Join(reposBase, org, repo, "persistent")
+	tmpPath := filepath.Join(tmpBase, org, repo, "throwaway")
+
+	// One persistent and one --tmp session, both made inactive.
+	h.RunOK("vibe", "--name", "persistent", "--repo-url", remoteURL)
+	h.RunOK("vibe", "--name", "throwaway", "--repo-url", remoteURL, "--tmp")
+	h.RunOK("session", "kill", "--name", session.SessionNameFromWorkspaceName(persistentPath))
+	h.RunOK("session", "kill", "--name", session.SessionNameFromWorkspaceName(tmpPath))
+
+	// Default: temp workspace hidden.
+	res := h.RunOK("workspaces", "list")
+	lines := nonEmptyOutputLines(res.Stdout)
+	require.Contains(t, lines, persistentPath)
+	require.NotContains(t, lines, tmpPath)
+
+	// With --include-tmp: temp workspace surfaced.
+	res = h.RunOK("workspaces", "list", "--include-tmp")
+	lines = nonEmptyOutputLines(res.Stdout)
+	require.Contains(t, lines, persistentPath)
+	require.Contains(t, lines, tmpPath)
+
+	// session inactive mirrors the same behavior.
+	res = h.RunOK("session", "inactive")
+	require.NotContains(t, nonEmptyOutputLines(res.Stdout), tmpPath)
+	res = h.RunOK("session", "inactive", "--include-tmp")
+	require.Contains(t, nonEmptyOutputLines(res.Stdout), tmpPath)
+}
+
+// A still-present temp workspace can be resumed by path.
+func TestResumeTmpWorkspaceByPath(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	reposBase := filepath.Join(t.TempDir(), "repos")
+	tmpBase := filepath.Join(t.TempDir(), "tmp-repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{
+		ReposBaseDir: reposBase,
+		TmpBaseDir:   tmpBase,
+	}))
+	h.SetEnv("REMUDA_CONTAINER", "false")
+
+	org, repo, err := github.ParseRepo(remoteURL)
+	require.NoError(t, err)
+	tmpPath := filepath.Join(tmpBase, org, repo, "throwaway")
+
+	// Create the temp worktree and then kill the session so it goes inactive but
+	// the directory remains on disk.
+	h.RunOK("vibe", "--name", "throwaway", "--repo-url", remoteURL, "--tmp")
+	h.RunOK("session", "kill", "--name", session.SessionNameFromWorkspaceName(tmpPath))
+
+	// Resume by explicit path should be accepted (validated against the temp root).
+	res := h.RunOK("session", "resume", tmpPath)
+	require.NoError(t, res.Err, res.String())
+
+	// It now shows as an active temp workspace.
+	active := h.RunOK("workspaces", "list", "--include-tmp", "--active")
+	require.Contains(t, nonEmptyOutputLines(active.Stdout), tmpPath)
 }
 
 // vibe --tmp routes the worktree under the temp root end to end.
