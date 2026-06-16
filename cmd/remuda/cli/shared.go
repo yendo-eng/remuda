@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -497,8 +499,8 @@ func pickSessionsWithFZF(
 	return sessionNames, nil
 }
 
-func pickOneWorkspaceWithFZF(logger zerolog.Logger, env EnvProvider, candidates []string, base string) (string, error) {
-	selected, err := pickWorkspacesWithFZFMode(logger, env, candidates, base, false)
+func pickOneWorkspaceWithFZF(logger zerolog.Logger, env EnvProvider, candidates []string, reposBase, tmpBase string) (string, error) {
+	selected, err := pickWorkspacesWithFZFMode(logger, env, candidates, reposBase, tmpBase, false)
 	if err != nil {
 		return "", err
 	}
@@ -511,17 +513,16 @@ func pickOneWorkspaceWithFZF(logger zerolog.Logger, env EnvProvider, candidates 
 	return selected[0], nil
 }
 
-func pickWorkspacesWithFZFMode(logger zerolog.Logger, env EnvProvider, candidates []string, base string, multi bool) ([]string, error) {
+func pickWorkspacesWithFZFMode(logger zerolog.Logger, env EnvProvider, candidates []string, reposBase, tmpBase string, multi bool) ([]string, error) {
 	cmdEnv := environFromEnvProvider(env)
 
 	var buf bytes.Buffer
 	idx := map[string]string{} // display -> full path
 	for _, ws := range candidates {
-		org, repo, folder := util.SplitWorkspacePath(base, ws)
-		if org == "" || repo == "" || folder == "" {
+		name, ok := workspacePickerDisplayName(ws, reposBase, tmpBase)
+		if !ok {
 			continue
 		}
-		name := strings.Join([]string{org, repo, folder}, "/")
 		idx[name] = ws
 		fmt.Fprintln(&buf, name)
 	}
@@ -554,4 +555,38 @@ func pickWorkspacesWithFZFMode(logger zerolog.Logger, env EnvProvider, candidate
 		}
 	}
 	return selected, nil
+}
+
+// workspacePickerDisplayName renders a workspace as an "org/repo/folder" label
+// for the fzf picker. It resolves the label against whichever root contains the
+// workspace: the persistent repos base dir, or the OS-temp root used by --tmp
+// sessions (labeled with a " (tmp)" suffix to disambiguate same-named worktrees
+// across roots). Returns false when the path is under neither root.
+func workspacePickerDisplayName(ws, reposBase, tmpBase string) (string, bool) {
+	if name, ok := relWorkspaceName(reposBase, ws); ok {
+		return name, true
+	}
+	if name, ok := relWorkspaceName(tmpBase, ws); ok {
+		return name + " (tmp)", true
+	}
+	return "", false
+}
+
+func relWorkspaceName(base, ws string) (string, bool) {
+	if strings.TrimSpace(base) == "" {
+		return "", false
+	}
+	rel, err := filepath.Rel(base, ws)
+	if err != nil {
+		return "", false
+	}
+	rel = filepath.ToSlash(rel)
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return "", false
+	}
+	org, repo, folder := util.SplitWorkspacePath(base, ws)
+	if org == "" || repo == "" || folder == "" {
+		return "", false
+	}
+	return path.Join(org, repo, folder), true
 }

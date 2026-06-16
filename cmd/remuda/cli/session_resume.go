@@ -60,7 +60,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 			return nil
 		}
 
-		picked, err := pickOneWorkspaceWithFZF(logger, envFromContext(ctx), inactive, ctx.Remuda.Config.ReposBaseDir)
+		picked, err := pickOneWorkspaceWithFZF(logger, envFromContext(ctx), inactive, ctx.Remuda.Config.ReposBaseDir, ctx.Remuda.Config.TmpBaseDir)
 		if err != nil {
 			return errors.Wrap(err, "pick workspace")
 		}

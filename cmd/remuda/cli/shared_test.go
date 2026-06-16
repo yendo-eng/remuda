@@ -230,3 +230,43 @@ func (j *jiraAuthCapture) GetTicket(id string) (string, error) {
 	j.requestedTickets = append(j.requestedTickets, id)
 	return j.ticketBody, nil
 }
+
+func TestWorkspacePickerDisplayName(t *testing.T) {
+	t.Parallel()
+	reposBase := filepath.FromSlash("/home/dev/.remuda/repos")
+	tmpBase := filepath.FromSlash("/var/folders/xy/remuda")
+
+	t.Run("persistent workspace renders org/repo/folder", func(t *testing.T) {
+		ws := filepath.Join(reposBase, "org", "repo", "wk")
+		name, ok := workspacePickerDisplayName(ws, reposBase, tmpBase)
+		require.True(t, ok)
+		require.Equal(t, "org/repo/wk", name)
+	})
+
+	t.Run("tmp workspace renders with (tmp) suffix and no ../ noise", func(t *testing.T) {
+		ws := filepath.Join(tmpBase, "org", "repo", "wk")
+		name, ok := workspacePickerDisplayName(ws, reposBase, tmpBase)
+		require.True(t, ok)
+		require.Equal(t, "org/repo/wk (tmp)", name)
+		require.NotContains(t, name, "..")
+	})
+
+	t.Run("same-named persistent and tmp worktrees get distinct labels", func(t *testing.T) {
+		persistent, okP := workspacePickerDisplayName(filepath.Join(reposBase, "org", "repo", "wk"), reposBase, tmpBase)
+		tmp, okT := workspacePickerDisplayName(filepath.Join(tmpBase, "org", "repo", "wk"), reposBase, tmpBase)
+		require.True(t, okP)
+		require.True(t, okT)
+		require.NotEqual(t, persistent, tmp)
+	})
+
+	t.Run("path under neither root is skipped", func(t *testing.T) {
+		_, ok := workspacePickerDisplayName(filepath.FromSlash("/somewhere/else/org/repo/wk"), reposBase, tmpBase)
+		require.False(t, ok)
+	})
+
+	t.Run("empty tmp base does not panic and tmp paths are skipped", func(t *testing.T) {
+		ws := filepath.Join(tmpBase, "org", "repo", "wk")
+		_, ok := workspacePickerDisplayName(ws, reposBase, "")
+		require.False(t, ok)
+	})
+}
