@@ -171,4 +171,9 @@ func TestVibeTmpPlacesWorktreeUnderTempRoot(t *testing.T) {
 	require.DirExists(t, filepath.Join(tmpBase, org, repo, "wk"))
 	require.NoDirExists(t, filepath.Join(reposBase, org, repo, "wk"))
 	require.DirExists(t, filepath.Join(reposBase, org, repo, ".repo_cache"))
+
+	// An active temp session shows in session list like any other.
+	sessionName := session.SessionNameFromWorkspaceName(filepath.Join(tmpBase, org, repo, "wk"))
+	res := h.RunOK("session", "list")
+	require.Contains(t, nonEmptyOutputLines(res.Stdout), sessionName)
 }
