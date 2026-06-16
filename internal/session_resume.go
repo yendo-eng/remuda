@@ -184,7 +184,7 @@ func (k Remuda) ensureWorkspaceInactive(workspaceAbs string) error {
 		if !s.IsRemudaSession() {
 			continue
 		}
-		ws, err := s.WorkspacePath(k.Config.ReposBaseDir)
+		ws, err := s.WorkspacePathFromRoots(k.workspaceRoots()...)
 		if err != nil {
 			continue
 		}

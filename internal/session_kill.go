@@ -93,7 +93,7 @@ func (k Remuda) killOne(
 }
 
 func (k Remuda) workspacePathForSession(sessionName string) (string, error) {
-	workspace, err := session.SessionInfo{Name: sessionName}.WorkspacePath(k.Config.ReposBaseDir)
+	workspace, err := session.SessionInfo{Name: sessionName}.WorkspacePathFromRoots(k.workspaceRoots()...)
 	if err != nil {
 		return "", errors.Wrap(err, "get workspace path from session name")
 	}
@@ -107,13 +107,15 @@ func (k Remuda) workspacePathForSession(sessionName string) (string, error) {
 // cleanupWorkspaceForSession removes the workspace directory and its git worktree.
 func (k Remuda) cleanupWorkspaceForSession(sessionName string) error {
 	logger := k.logger()
-	ws, err := session.SessionInfo{Name: sessionName}.WorkspacePath(k.Config.ReposBaseDir)
+	ws, err := session.SessionInfo{Name: sessionName}.WorkspacePathFromRoots(k.workspaceRoots()...)
 	if err != nil {
 		return errors.Wrap(err, "get workspace path from session name")
 	}
 
-	// Compute cache dir to remove worktree from.
-	// Layout: <base>/<org>/<repo>/<folder>; cache at <base>/<org>/<repo>/.repo_cache
+	// Compute cache dir to remove worktree from. The persistent cache always
+	// lives under ReposBaseDir, even when the worktree is a --tmp checkout under
+	// the OS-temp root.
+	// Layout: <repos-base>/<org>/<repo>/.repo_cache
 	parts := strings.Split(sessionName, "/")
 	baseDir := filepath.Join(k.Config.ReposBaseDir, parts[0], parts[1])
 	cacheDir := filepath.Join(baseDir, ".repo_cache")

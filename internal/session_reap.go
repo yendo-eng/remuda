@@ -65,7 +65,7 @@ func (k Remuda) SessionReap(
 
 		cleanupAllowed := cleanup
 		if cleanup {
-			workspace, err := session.SessionInfo{Name: name}.WorkspacePath(k.Config.ReposBaseDir)
+			workspace, err := session.SessionInfo{Name: name}.WorkspacePathFromRoots(k.workspaceRoots()...)
 			if err != nil {
 				result.WorkspacePathError = err.Error()
 				cleanupAllowed = false

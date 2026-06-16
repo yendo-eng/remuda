@@ -77,7 +77,7 @@ func (k Remuda) activeWorkspaceSet() (map[string]struct{}, error) {
 			continue
 		}
 
-		if ws, err := s.WorkspacePath(k.Config.ReposBaseDir); err == nil {
+		if ws, err := s.WorkspacePathFromRoots(k.workspaceRoots()...); err == nil {
 			abs, _ := filepath.Abs(ws)
 			active[abs] = struct{}{}
 		}

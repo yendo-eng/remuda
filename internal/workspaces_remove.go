@@ -97,7 +97,7 @@ func (k Remuda) activeWorkspaceSessions() (map[string]string, error) {
 			continue
 		}
 
-		workspace, err := s.WorkspacePath(k.Config.ReposBaseDir)
+		workspace, err := s.WorkspacePathFromRoots(k.workspaceRoots()...)
 		if err != nil {
 			continue
 		}

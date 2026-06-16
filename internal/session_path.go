@@ -25,7 +25,7 @@ func (k Remuda) SessionWorkspacePath(sessionName string) (string, error) {
 		return "", err
 	}
 
-	workspace, err := sess.WorkspacePath(k.Config.ReposBaseDir)
+	workspace, err := sess.WorkspacePathFromRoots(k.workspaceRoots()...)
 	if err != nil {
 		return "", err
 	}
