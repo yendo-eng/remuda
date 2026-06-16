@@ -61,37 +61,34 @@ func TestBuildContainerAuthOpts_ProducesMountsWhenAvailable(t *testing.T) {
 func TestExtraGitMountForWorktree_ReturnsMountForCacheDir(t *testing.T) {
 	tmp := t.TempDir()
 
-	// Simulate repos/<org>/<repo> structure
-	baseDir := filepath.Join(tmp, "repos", "org", "repo")
-	workspace := filepath.Join(baseDir, "feature_branch")
-	cacheDir := filepath.Join(baseDir, ".repo_cache")
-
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	// The cache path is supplied explicitly; it need not be a sibling of the
+	// worktree (a --tmp worktree lives elsewhere while its cache stays put).
+	cacheDir := filepath.Join(tmp, "repos", "org", "repo", ".repo_cache")
 	require.NoError(t, os.MkdirAll(cacheDir, 0o755))
 
-	// Absolute path expected by helper
-	absWS, err := filepath.Abs(workspace)
+	absCache, err := filepath.Abs(cacheDir)
 	require.NoError(t, err)
 
-	mount, ok := docker.ExtraGitMountForWorktree(absWS)
+	mount, ok := docker.ExtraGitMountForWorktree(absCache)
 	require.True(t, ok, "expected an extra mount when cache dir exists")
 
 	// It should mount the cache dir to the identical path inside the container
-	absCache, err := filepath.Abs(cacheDir)
-	require.NoError(t, err)
 	require.Equal(t, "-v \""+absCache+"\":"+"\""+absCache+"\"", mount)
 }
 
 func TestExtraGitMountForWorktree_NoCache_NoMount(t *testing.T) {
 	tmp := t.TempDir()
-	baseDir := filepath.Join(tmp, "repos", "org", "repo")
-	workspace := filepath.Join(baseDir, "feature_branch")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	cacheDir := filepath.Join(tmp, "repos", "org", "repo", ".repo_cache")
 
-	absWS, err := filepath.Abs(workspace)
+	absCache, err := filepath.Abs(cacheDir)
 	require.NoError(t, err)
 
-	mount, ok := docker.ExtraGitMountForWorktree(absWS)
+	mount, ok := docker.ExtraGitMountForWorktree(absCache)
+	require.False(t, ok)
+	require.Equal(t, "", mount)
+
+	// An empty cache path yields no mount.
+	mount, ok = docker.ExtraGitMountForWorktree("")
 	require.False(t, ok)
 	require.Equal(t, "", mount)
 }

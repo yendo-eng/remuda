@@ -323,7 +323,7 @@ func (k Remuda) composeLaunchCommand(
 	}
 	// Set BD_ACTOR to the session name so beads issue tracking knows which session/agent is acting.
 	containerOpts = append([]string{fmt.Sprintf("-e BD_ACTOR=%s", shellSingleQuote(sessionName))}, containerOpts...)
-	if mountOpt, ok := docker.ExtraGitMountForWorktree(absWS); ok {
+	if mountOpt, ok := docker.ExtraGitMountForWorktree(k.cacheDirForWorkspace(absWS)); ok {
 		containerOpts = append([]string{mountOpt}, containerOpts...)
 	}
 
