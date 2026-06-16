@@ -59,7 +59,7 @@ Behavior:
 - `.repo_cache` is never listed.
 - `workspaces.ignore` config patterns are applied.
 - `--active` and `--inactive` cannot be combined.
-- `--tmp` worktrees (under the OS temp dir) are hidden unless `--include-tmp` is passed.
+- Active `--tmp` worktrees always appear (they back a live session, like `session list`). Inactive `--tmp` worktrees are hidden unless `--include-tmp` is passed.
 - Remove targets must be absolute paths or `org/repo/workspace` identifiers.
 - Remove refuses active-session workspaces and special directories such as `.repo_cache`.
 - Linked worktrees with untracked/desynced state are refused unless `--force` is set.
@@ -288,9 +288,11 @@ How it works:
 - **OS-managed cleanup only.** Remuda never actively deletes temp worktrees and
   there is no implicit cleanup on `session kill`. The OS reclaims them on reboot
   or via its temp-cleanup mechanism (e.g. `tmpwatch`).
-- **Listing.** Active temp sessions appear in `session list` like any other.
-  Temp worktrees are hidden from `workspaces list`, `session inactive`, and
-  `session resume --pick` by default; pass `--include-tmp` to surface them.
+- **Listing.** Active temp sessions appear in `session list`, and active temp
+  worktrees appear in `workspaces list` / `workspaces list --active`, like any
+  other live workspace. *Inactive* temp worktrees are treated as reclaimable
+  clutter: they're hidden from `workspaces list`, `session inactive`, and
+  `session resume --pick` by default, and surfaced with `--include-tmp`.
   Resuming a still-present temp worktree works as long as the OS hasn't already
   reclaimed it.
 - **Override the temp root** with `REMUDA_TMP_DIR`. This is a deliberate per-run

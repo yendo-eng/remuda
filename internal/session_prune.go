@@ -23,24 +23,36 @@ func (k Remuda) WorkspacesWithIgnore(ignore []string) ([]string, error) {
 	return k.WorkspacesWithOptions(ignore, false)
 }
 
-// WorkspacesWithOptions lists all candidate workspaces. When includeTmp is true
-// it also scans the OS-temp root used by --tmp sessions; otherwise temp
-// workspaces are hidden.
+// WorkspacesWithOptions lists every workspace: all active ones plus inactive
+// ones. Active --tmp sessions are live work (not reclaimable clutter) and always
+// appear, matching `session list`; inactive temp worktrees are hidden unless
+// includeTmp is set. The result is the union of the active and inactive listings,
+// which keeps `--active` and `--inactive` strict subsets of the full listing.
 func (k Remuda) WorkspacesWithOptions(ignore []string, includeTmp bool) ([]string, error) {
-	candidates := k.listCandidateWorkspaces(includeTmp)
-	return filterInactiveWorkspaces(k.enumerationRoots(includeTmp), candidates, map[string]struct{}{}, ignore)
+	activeWS, err := k.activeWorkspaces(ignore)
+	if err != nil {
+		return nil, err
+	}
+	inactiveWS, err := k.inactiveWorkspaces(ignore, includeTmp)
+	if err != nil {
+		return nil, err
+	}
+	return dedupeWorkspaces(append(activeWS, inactiveWS...)), nil
 }
 
 func (k Remuda) ActiveWorkspaces() ([]string, error) {
-	return k.activeWorkspaces(nil, false)
+	return k.activeWorkspaces(nil)
 }
 
 func (k Remuda) ActiveWorkspacesWithIgnore(ignore []string) ([]string, error) {
-	return k.activeWorkspaces(ignore, false)
+	return k.activeWorkspaces(ignore)
 }
 
-func (k Remuda) ActiveWorkspacesWithOptions(ignore []string, includeTmp bool) ([]string, error) {
-	return k.activeWorkspaces(ignore, includeTmp)
+// ActiveWorkspacesWithOptions lists active workspaces. Active --tmp sessions are
+// always included (they are live, not reclaimable clutter), so the include-tmp
+// toggle does not apply to the active listing.
+func (k Remuda) ActiveWorkspacesWithOptions(ignore []string, _ bool) ([]string, error) {
+	return k.activeWorkspaces(ignore)
 }
 
 func (k Remuda) InactiveWorkspaces() ([]string, error) {
@@ -75,14 +87,35 @@ func (k Remuda) listCandidateWorkspaces(includeTmp bool) []string {
 	return candidates
 }
 
-func (k Remuda) activeWorkspaces(ignore []string, includeTmp bool) ([]string, error) {
+func (k Remuda) activeWorkspaces(ignore []string) ([]string, error) {
 	active, err := k.activeWorkspaceSet()
 	if err != nil {
 		return nil, err
 	}
 
-	candidates := k.listCandidateWorkspaces(includeTmp)
-	return filterActiveWorkspaces(k.enumerationRoots(includeTmp), candidates, active, ignore)
+	// Always scan the temp root for the active listing so live --tmp sessions
+	// appear like any other active workspace (matching `session list`).
+	candidates := k.listCandidateWorkspaces(true)
+	return filterActiveWorkspaces(k.workspaceRoots(), candidates, active, ignore)
+}
+
+// dedupeWorkspaces removes duplicate workspace paths (by absolute path) while
+// preserving first-seen order.
+func dedupeWorkspaces(workspaces []string) []string {
+	seen := make(map[string]struct{}, len(workspaces))
+	out := make([]string, 0, len(workspaces))
+	for _, ws := range workspaces {
+		abs, err := filepath.Abs(ws)
+		if err != nil {
+			abs = ws
+		}
+		if _, ok := seen[abs]; ok {
+			continue
+		}
+		seen[abs] = struct{}{}
+		out = append(out, ws)
+	}
+	return out
 }
 
 func (k Remuda) inactiveWorkspaces(ignore []string, includeTmp bool) ([]string, error) {

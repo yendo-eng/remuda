@@ -119,6 +119,47 @@ func TestTmpWorkspacesHiddenUnlessIncludeTmp(t *testing.T) {
 	require.Contains(t, nonEmptyOutputLines(res.Stdout), tmpPath)
 }
 
+// Active temp workspaces show in `workspaces list --active` (and the plain
+// listing) without --include-tmp, matching `session list`; inactive temp
+// workspaces stay hidden until --include-tmp.
+func TestActiveTmpWorkspaceShownWithoutIncludeTmp(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	reposBase := filepath.Join(t.TempDir(), "repos")
+	tmpBase := filepath.Join(t.TempDir(), "tmp-repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{
+		ReposBaseDir: reposBase,
+		TmpBaseDir:   tmpBase,
+	}))
+	h.SetEnv("REMUDA_CONTAINER", "false")
+
+	org, repo, err := github.ParseRepo(remoteURL)
+	require.NoError(t, err)
+	activeTmp := filepath.Join(tmpBase, org, repo, "live")
+	inactiveTmp := filepath.Join(tmpBase, org, repo, "dead")
+
+	// One live temp session, one temp session killed (inactive but still on disk).
+	h.RunOK("vibe", "--name", "live", "--repo-url", remoteURL, "--tmp")
+	h.RunOK("vibe", "--name", "dead", "--repo-url", remoteURL, "--tmp")
+	h.RunOK("session", "kill", "--name", session.SessionNameFromWorkspaceName(inactiveTmp))
+
+	// --active shows the live temp workspace without --include-tmp.
+	active := h.RunOK("workspaces", "list", "--active")
+	require.Contains(t, nonEmptyOutputLines(active.Stdout), activeTmp)
+	require.NotContains(t, nonEmptyOutputLines(active.Stdout), inactiveTmp)
+
+	// Plain listing includes the active temp workspace but still hides the
+	// inactive one until --include-tmp.
+	plain := h.RunOK("workspaces", "list")
+	require.Contains(t, nonEmptyOutputLines(plain.Stdout), activeTmp)
+	require.NotContains(t, nonEmptyOutputLines(plain.Stdout), inactiveTmp)
+
+	withTmp := h.RunOK("workspaces", "list", "--include-tmp")
+	require.Contains(t, nonEmptyOutputLines(withTmp.Stdout), activeTmp)
+	require.Contains(t, nonEmptyOutputLines(withTmp.Stdout), inactiveTmp)
+}
+
 // A still-present temp workspace can be resumed by path.
 func TestResumeTmpWorkspaceByPath(t *testing.T) {
 	t.Parallel()
