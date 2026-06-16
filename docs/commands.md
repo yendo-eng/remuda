@@ -306,12 +306,15 @@ The persistent cache (under `$HOME`) is bind-mounted into the container at its
 real path so the worktree's `.git` pointer resolves. The temp worktree itself
 must also be shareable with Docker:
 
-- **macOS:** `os.TempDir()` resolves under `/var/folders/...`, which Docker
-  Desktop does not share by default. `--tmp --container` fails early with a clear
-  error when the temp path isn't mountable. Either add the path under **Docker
-  Desktop → Settings → Resources → File Sharing**, or set `REMUDA_TMP_DIR` to a
-  directory under your home (e.g. `~/.remuda/tmp`), which Docker Desktop shares
-  by default.
+- **macOS:** recent Docker Desktop shares `/var/folders/...` (the default
+  `os.TempDir()`) out of the box, so `--tmp --container` usually just works. If
+  your Docker file-sharing config excludes the temp path, the container fails to
+  start; for foreground runs (`--no-detached`) Remuda translates Docker's
+  mount-denied error into actionable guidance — either add the path under
+  **Docker Desktop → Settings → Resources → File Sharing**, or set
+  `REMUDA_TMP_DIR` to a shared directory under your home (e.g. `~/.remuda/tmp`).
+  Detached sessions surface Docker's native "Mounts denied" message in the
+  session pane.
 - **Linux:** bind-mounting temp paths works without extra configuration.
 
 ---

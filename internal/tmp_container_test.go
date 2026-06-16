@@ -7,37 +7,46 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTmpContainerMountError(t *testing.T) {
-	home := filepath.FromSlash("/Users/dev")
-	osTmp := filepath.FromSlash("/var/folders/xy/remuda")
-	homeTmp := filepath.Join(home, ".remuda", "tmp")
+func TestDockerMountDeniedHint(t *testing.T) {
+	tmpBase := filepath.FromSlash("/var/folders/xy/remuda")
+	tmpWS := filepath.Join(tmpBase, "org", "repo", "wk")
+	reposWS := filepath.FromSlash("/Users/dev/.remuda/repos/org/repo/wk")
 
-	t.Run("darwin temp worktree under OS temp dir fails", func(t *testing.T) {
-		ws := filepath.Join(osTmp, "org", "repo", "wk")
-		err := tmpContainerMountError(ws, osTmp, home, "darwin")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "REMUDA_TMP_DIR")
-		require.Contains(t, err.Error(), "File Sharing")
+	deniedOutput := `docker: Error response from daemon: Mounts denied: ` +
+		`The path /var/folders/xy/remuda/org/repo/wk is not shared from the host and is not known to Docker.`
+
+	t.Run("tmp worktree mount-denied points at REMUDA_TMP_DIR", func(t *testing.T) {
+		hint := dockerMountDeniedHint(deniedOutput, tmpWS, tmpBase)
+		require.NotEmpty(t, hint)
+		require.Contains(t, hint, "REMUDA_TMP_DIR")
+		require.Contains(t, hint, "File Sharing")
 	})
 
-	t.Run("darwin temp worktree under home is allowed", func(t *testing.T) {
-		ws := filepath.Join(homeTmp, "org", "repo", "wk")
-		require.NoError(t, tmpContainerMountError(ws, homeTmp, home, "darwin"))
+	t.Run("non-tmp workspace mount-denied omits REMUDA_TMP_DIR", func(t *testing.T) {
+		hint := dockerMountDeniedHint(deniedOutput, reposWS, tmpBase)
+		require.NotEmpty(t, hint)
+		require.NotContains(t, hint, "REMUDA_TMP_DIR")
+		require.Contains(t, hint, "File Sharing")
 	})
 
-	t.Run("non-darwin always allowed", func(t *testing.T) {
-		ws := filepath.Join(osTmp, "org", "repo", "wk")
-		require.NoError(t, tmpContainerMountError(ws, osTmp, home, "linux"))
+	t.Run("unrelated docker error yields no hint", func(t *testing.T) {
+		out := "docker: Error response from daemon: pull access denied for someimage"
+		require.Empty(t, dockerMountDeniedHint(out, tmpWS, tmpBase))
 	})
 
-	t.Run("non-tmp workspace is not affected", func(t *testing.T) {
-		repos := filepath.FromSlash("/Users/dev/.remuda/repos")
-		ws := filepath.Join(repos, "org", "repo", "wk")
-		require.NoError(t, tmpContainerMountError(ws, osTmp, home, "darwin"))
+	t.Run("empty output yields no hint", func(t *testing.T) {
+		require.Empty(t, dockerMountDeniedHint("", tmpWS, tmpBase))
 	})
+}
 
-	t.Run("no temp base dir is a no-op", func(t *testing.T) {
-		ws := filepath.Join(osTmp, "org", "repo", "wk")
-		require.NoError(t, tmpContainerMountError(ws, "", home, "darwin"))
-	})
+func TestTailBuffer_RetainsOnlyLastBytes(t *testing.T) {
+	b := newTailBuffer(8)
+	_, _ = b.Write([]byte("123456"))
+	_, _ = b.Write([]byte("7890"))
+	require.Equal(t, "34567890", b.String())
+
+	// A single write larger than max keeps only the last max bytes.
+	b2 := newTailBuffer(4)
+	_, _ = b2.Write([]byte("abcdefgh"))
+	require.Equal(t, "efgh", b2.String())
 }

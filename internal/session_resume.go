@@ -84,9 +84,7 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		execCmd.Dir = workspaceAbs
 		execCmd.Env = append(env.Environ(envProvider), "BD_ACTOR="+sessionName)
 		execCmd.Stdin = k.IO.In
-		execCmd.Stdout = k.IO.Out
-		execCmd.Stderr = k.IO.Err
-		return execCmd.Run()
+		return k.runForegroundAgent(execCmd, cmd.Container, workspaceAbs)
 	}
 
 	envPrefix := remudaAgentEnvPrefix(agentName, "")

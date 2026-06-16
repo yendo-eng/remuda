@@ -205,9 +205,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		execCmd.Dir = workspaceAbs
 		execCmd.Env = append(env.Environ(envProvider), "BD_ACTOR="+sessionName)
 		execCmd.Stdin = k.IO.In
-		execCmd.Stdout = k.IO.Out
-		execCmd.Stderr = k.IO.Err
-		return execCmd.Run()
+		return k.runForegroundAgent(execCmd, cmd.Container, workspaceAbs)
 	}
 
 	// When --force is supplied, also delete any existing session with the same name
@@ -311,14 +309,6 @@ func (k Remuda) composeLaunchCommand(
 	absWS, err := filepath.Abs(workspace)
 	if err != nil {
 		absWS = workspace
-	}
-
-	// Fail early (with actionable guidance) when a --tmp worktree cannot be
-	// bind-mounted into the container — e.g. macOS Docker Desktop not sharing the
-	// OS temp dir by default.
-	home, _ := envProvider.UserHomeDir()
-	if err := tmpContainerMountError(absWS, k.Config.TmpBaseDir, home, util.CurrentGOOS()); err != nil {
-		return "", "", err
 	}
 
 	containerOpts := append([]string{}, cmd.ContainerOpts...)

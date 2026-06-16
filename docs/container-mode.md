@@ -50,7 +50,7 @@ remuda vibe --container --no-detached "Investigate flaky tests"
 
 - The workspace is bind-mounted read/write at a unique path under `/workspaces/` and used as the working directory via `-w <that-path>`.
 - For linked worktrees, the shared repository cache (`.repo_cache`) is bind-mounted at its real host path so the worktree's `.git` pointer resolves inside the container. This holds for `--tmp` sessions too: the worktree lives under the OS temp dir while its cache is mounted from `REMUDA_REPOS_BASE_DIR` (under `$HOME`).
-- With `--tmp --container` on macOS, the OS temp dir (`/var/folders/...`) is not shared with Docker Desktop by default, so Remuda fails early with guidance. Share the path under Docker Desktop → Settings → Resources → File Sharing, or set `REMUDA_TMP_DIR` to a directory under `$HOME`.
+- With `--tmp --container`, the worktree lives under the OS temp dir; recent Docker Desktop shares `/var/folders/...` by default so this typically works. If the temp path isn't shared, the container fails to start — for foreground runs (`--no-detached`) Remuda rewrites Docker's mount-denied error with guidance (share the path under Docker Desktop → Settings → Resources → File Sharing, or set `REMUDA_TMP_DIR` to a shared dir under `$HOME`); detached runs show Docker's native message in the session pane.
 - `OPENAI_API_KEY`, `GH_TOKEN`, and `GITHUB_TOKEN` are forwarded so agents can reach LLM and GitHub APIs. When the tokens are missing Remuda will call `gh auth token` before launch; pre-setting them skips that lookup.
 - For Claude runs (`--agent claude`), `ANTHROPIC_API_KEY` is forwarded into the container.
 - `--container-inherit-env <NAME>` forwards additional host environment variables into the container via `docker run -e <NAME>`.
