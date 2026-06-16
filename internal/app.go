@@ -2,6 +2,7 @@ package internal
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -123,6 +124,12 @@ func (k *Remuda) SetLogger(logger zerolog.Logger) {
 type Config struct {
 	// The base directory for cloned repositories. Defaults to "~/.remuda/repos".
 	ReposBaseDir string
+
+	// The namespaced root under the OS temp dir where --tmp session worktrees are
+	// placed (e.g. "<os-temp>/remuda"). Worktrees live at <TmpBaseDir>/<org>/<repo>/<name>
+	// while the persistent .repo_cache stays under ReposBaseDir. Overridable via
+	// REMUDA_TMP_DIR.
+	TmpBaseDir string
 }
 
 func ConfigFromEnv() Config {
@@ -135,7 +142,18 @@ func ConfigFromEnvWithProvider(provider env.Provider) Config {
 	if base == "" {
 		base = defaultReposBaseDir(provider)
 	}
-	return Config{ReposBaseDir: base}
+	tmp := provider.Getenv("REMUDA_TMP_DIR")
+	if tmp == "" {
+		tmp = defaultTmpBaseDir()
+	}
+	return Config{ReposBaseDir: base, TmpBaseDir: tmp}
+}
+
+// defaultTmpBaseDir returns the namespaced root under the OS temp dir used for
+// --tmp session worktrees. Namespacing under "remuda" keeps temp workspaces
+// enumerable on demand and avoids colliding with unrelated temp files.
+func defaultTmpBaseDir() string {
+	return filepath.Join(os.TempDir(), "remuda")
 }
 
 func defaultReposBaseDir(provider env.Provider) string {
