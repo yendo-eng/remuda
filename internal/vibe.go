@@ -313,6 +313,14 @@ func (k Remuda) composeLaunchCommand(
 		absWS = workspace
 	}
 
+	// Fail early (with actionable guidance) when a --tmp worktree cannot be
+	// bind-mounted into the container — e.g. macOS Docker Desktop not sharing the
+	// OS temp dir by default.
+	home, _ := envProvider.UserHomeDir()
+	if err := tmpContainerMountError(absWS, k.Config.TmpBaseDir, home, util.CurrentGOOS()); err != nil {
+		return "", "", err
+	}
+
 	containerOpts := append([]string{}, cmd.ContainerOpts...)
 	if len(cmd.ContainerInheritEnv) > 0 {
 		inheritOpts, err := containerInheritEnvOpts(cmd.ContainerInheritEnv)
