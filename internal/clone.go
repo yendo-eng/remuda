@@ -38,6 +38,12 @@ type CloneCommand struct {
 	// If true, skip refreshing the cache before cloning. Use for offline
 	// development or to speed up big clone batches.
 	SkipCacheRefresh bool
+
+	// If true, place the worktree under the OS-temp root (Config.TmpBaseDir)
+	// instead of ReposBaseDir, for throwaway sessions the OS can reclaim on its
+	// own. The persistent .repo_cache still lives under ReposBaseDir. Implies the
+	// linked-worktree model (FullClone is ignored).
+	Tmp bool
 }
 
 // Returns the path to the cloned directory on success.
@@ -51,12 +57,32 @@ func (k Remuda) Clone(
 		return "", err
 	}
 
-	baseDir := filepath.Join(k.Config.ReposBaseDir, org, repo)
-	cacheDir := filepath.Join(baseDir, ".repo_cache")
+	// The persistent cache always lives under ReposBaseDir; only the worktree
+	// checkout may be relocated to the OS-temp root when --tmp is requested.
+	cacheBaseDir := filepath.Join(k.Config.ReposBaseDir, org, repo)
+	cacheDir := filepath.Join(cacheBaseDir, ".repo_cache")
 	// Owner: rwx, Group: rx, Others: rx
 	const dirPermissions = fs.FileMode(0o755)
-	if err := os.MkdirAll(baseDir, dirPermissions); err != nil {
+	if err := os.MkdirAll(cacheBaseDir, dirPermissions); err != nil {
 		return "", fmt.Errorf("creating base directory: %w", err)
+	}
+
+	// Resolve where the worktree checkout lives. Under --tmp it goes to a
+	// namespaced root under the OS temp dir so the OS can reclaim it; otherwise
+	// it sits alongside the cache under ReposBaseDir.
+	worktreeBaseDir := cacheBaseDir
+	if cmd.Tmp {
+		if strings.TrimSpace(k.Config.TmpBaseDir) == "" {
+			return "", errors.New("--tmp requested but no temp base dir is configured")
+		}
+		worktreeBaseDir = filepath.Join(k.Config.TmpBaseDir, org, repo)
+		if cmd.FullClone {
+			logger.Info().Msg("--tmp uses the linked-worktree model; ignoring --full-clone")
+			cmd.FullClone = false
+		}
+		if err := os.MkdirAll(worktreeBaseDir, dirPermissions); err != nil {
+			return "", fmt.Errorf("creating temp worktree directory: %w", err)
+		}
 	}
 
 	// Workspace folder equals provided name
@@ -65,15 +91,16 @@ func (k Remuda) Clone(
 	if branchName == "" {
 		branchName = baseName
 	}
-	target := filepath.Join(baseDir, baseName)
+	target := filepath.Join(worktreeBaseDir, baseName)
 
 	logger.Info().
 		Str("target", target).
 		Bool("force", cmd.Force).
 		Bool("full_clone", cmd.FullClone).
+		Bool("tmp", cmd.Tmp).
 		Msg("cloning into directory")
 
-	if err := withRepoMutationLock(baseDir, func() error {
+	if err := withRepoMutationLock(cacheBaseDir, func() error {
 		// Ensure cache present/updated.
 		if cmd.SkipCacheRefresh {
 			logger.Info().Str("cacheDir", cacheDir).Msg("skipping repo cache refresh")
@@ -144,7 +171,7 @@ func (k Remuda) Clone(
 		// Attempt to clean up the partially-created worktree so a broken entry
 		// does not linger in the repository. If that removal itself fails we
 		// surface both errors.
-		if cleanErr := cleanupWorkspace(k.Git, baseDir, cacheDir, target, cmd.FullClone); cleanErr != nil {
+		if cleanErr := cleanupWorkspace(k.Git, cacheBaseDir, cacheDir, target, cmd.FullClone); cleanErr != nil {
 			return "", fmt.Errorf("checking out branch: %w; additionally, cleaning worktree: %s", err, cleanErr.Error())
 		}
 		return "", fmt.Errorf("checking out branch: %w", err)
@@ -180,7 +207,7 @@ func (k Remuda) Clone(
 			Env:         k.envProvider(),
 			Logger:      &logger,
 		}); err != nil {
-			if cleanErr := cleanupWorkspace(k.Git, baseDir, cacheDir, target, cmd.FullClone); cleanErr != nil {
+			if cleanErr := cleanupWorkspace(k.Git, cacheBaseDir, cacheDir, target, cmd.FullClone); cleanErr != nil {
 				return "", fmt.Errorf("running clone hooks: %w; additionally, cleaning worktree: %s", err, cleanErr.Error())
 			}
 			return "", fmt.Errorf("running clone hooks: %w", err)

@@ -32,6 +32,8 @@ type VibeCmd struct {
 
 	Remote bool `name:"remote" help:"Enable remote control when supported by the selected agent."`
 
+	Tmp bool `name:"tmp" help:"Place the session worktree under the OS temp dir (throwaway, OS-reclaimed); the persistent repo cache stays in the repos base dir. Uses the linked-worktree model. Uncommitted/unpushed work is lost when the OS reclaims the workspace — push before relying on it."`
+
 	// If we end up needing this later, uncomment it
 	// GitUseSSH     bool     `name:"git-use-ssh" help:"When --container, rewrite HTTPS origin to SSH if SSH agent is available."`
 }
@@ -166,6 +168,7 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 	cmd.Clone.Force = c.Force
 	cmd.Clone.FullClone = c.FullClone
 	cmd.Clone.Branch = c.Branch
+	cmd.Clone.Tmp = c.Tmp
 
 	// Auto-generate a workspace name when --name is omitted.
 	if generated, ok, err := deriveDefaultVibeWorkspaceName(ctx, *c); err != nil {

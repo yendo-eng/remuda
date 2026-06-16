@@ -20,6 +20,7 @@ type VibeCheckCmd struct {
 	CloneRepoOption
 	CloneHooksOption
 	FullClone bool `name:"full-clone" negatable:"" default:"true" help:"Clone the entire repository instead of creating a linked worktree (slower, higher disk usage)."`
+	Tmp       bool `name:"tmp" help:"Place the review worktree under the OS temp dir (throwaway, OS-reclaimed); the persistent repo cache stays in the repos base dir. Uses the linked-worktree model (overrides --full-clone). Uncommitted/unpushed work is lost when the OS reclaims the workspace."`
 
 	// Agent / session flags (subset of vibe)
 	AgentSessionOptions       `embed:""`
@@ -172,6 +173,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 			Force:          c.Force,
 			SkipCloneHooks: c.NoCloneHooks,
 			FullClone:      c.FullClone,
+			Tmp:            c.Tmp,
 		},
 	}
 	cmd.BeforePrompt = append(cmd.BeforePrompt, addedContext...)
