@@ -35,10 +35,13 @@ func TestSessionResumeCmdParse_WithPick(t *testing.T) {
 
 func TestSessionResumeCmdParse_WithPickAndPrompt(t *testing.T) {
 	t.Parallel()
-	parser, _, _ := newParserWithEnv(t, nil)
+	parser, parsed, _ := newParserWithEnv(t, nil)
 
 	_, err := parser.Parse([]string{"session", "resume", "--pick", "continue with tests"})
-	require.Error(t, err)
+	require.NoError(t, err)
+	require.True(t, parsed.Session.Resume.Pick)
+	require.Equal(t, "continue with tests", parsed.Session.Resume.Prompt)
+	require.Equal(t, "", parsed.Session.Resume.WorkspaceDir)
 }
 
 func TestSessionResumeCmdParse_RequiresExactlyOneMode(t *testing.T) {
@@ -48,7 +51,7 @@ func TestSessionResumeCmdParse_RequiresExactlyOneMode(t *testing.T) {
 	_, err := parser.Parse([]string{"session", "resume"})
 	require.Error(t, err)
 
-	_, err = parser.Parse([]string{"session", "resume", "/tmp/workspace", "--pick"})
+	_, err = parser.Parse([]string{"session", "resume", "/tmp/workspace", "--pick", "prompt"})
 	require.Error(t, err)
 }
 
