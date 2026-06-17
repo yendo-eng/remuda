@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -19,12 +20,20 @@ type SessionResumeCommand struct {
 	Workspace string
 	// Agent selects agent-specific resume command behavior. Defaults to codex.
 	Agent string
+	// Model overrides the resume model when supported.
+	Model string
+	// AgentCmd overrides the built-in resume command entirely.
+	AgentCmd string
+	// Prompt is injected into the resumed conversation when provided.
+	Prompt string
 
 	Detached bool
 	Attach   bool
 	Yolo     bool
 	// ReasoningLevel overrides Codex reasoning effort when set.
 	ReasoningLevel string
+	// OpenAIAPIKey overrides OPENAI_API_KEY for this launch.
+	OpenAIAPIKey string
 
 	Container           bool
 	ContainerName       string
@@ -36,6 +45,12 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	k.SetLogger(logging.FromContext(ctx))
 
 	envProvider := k.envProvider()
+	openAIAPIKey := strings.TrimSpace(cmd.OpenAIAPIKey)
+	if openAIAPIKey != "" {
+		mutableProvider := env.NewMutableProvider(envProvider)
+		mutableProvider.Setenv("OPENAI_API_KEY", openAIAPIKey)
+		envProvider = mutableProvider
+	}
 	workspace := strings.TrimSpace(cmd.Workspace)
 	if workspace == "" {
 		return errors.New("workspace path is required")
@@ -55,11 +70,23 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	sessionName := session.SessionNameFromWorkspaceName(workspaceAbs)
 	containerName := docker.ContainerNameFromSession(sessionName)
 	agentName := normalizeSessionResumeAgent(cmd.Agent)
+	model := strings.TrimSpace(cmd.Model)
 
-	agentCmd := sessionResumeCommandForAgent(agentName, cmd.Yolo, cmd.ReasoningLevel)
+	agentCmd := strings.TrimSpace(cmd.AgentCmd)
+	if agentCmd == "" {
+		var err error
+		agentCmd, err = sessionResumeCommandForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, cmd.Prompt)
+		if err != nil {
+			return err
+		}
+	} else {
+		agentCmd = agentlauncher.Custom(agentCmd).Command(cmd.Prompt)
+	}
+
 	launchCmd, _, err := k.composeLaunchCommand(
 		VibeCommand{
 			Agent:               agentName,
+			Model:               model,
 			Detached:            cmd.Detached,
 			Attach:              cmd.Attach,
 			Yolo:                cmd.Yolo,
@@ -78,8 +105,12 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		return err
 	}
 
+	envPrefix := remudaAgentEnvPrefix(agentName, model)
+	if openAIAPIKey != "" {
+		envPrefix += " OPENAI_API_KEY=" + shellutil.SingleQuote(openAIAPIKey)
+	}
+
 	if !cmd.Detached {
-		envPrefix := remudaAgentEnvPrefix(agentName, "")
 		execCmd := util.CmdWithLogger(k.logger(), "bash", "-lc", envPrefix+" "+launchCmd)
 		execCmd.Dir = workspaceAbs
 		execCmd.Env = append(env.Environ(envProvider), "BD_ACTOR="+sessionName)
@@ -89,7 +120,6 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		return execCmd.Run()
 	}
 
-	envPrefix := remudaAgentEnvPrefix(agentName, "")
 	startCmd := fmt.Sprintf("cd %s && %s %s", shellutil.SingleQuote(workspaceAbs), envPrefix, launchCmd)
 	startCmd = fmt.Sprintf("export BD_ACTOR=%s; %s", shellutil.SingleQuote(sessionName), startCmd)
 
@@ -121,31 +151,37 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	return nil
 }
 
-func (k Remuda) SessionResumeCodex(ctx context.Context, cmd SessionResumeCommand) error {
-	if strings.TrimSpace(cmd.Agent) == "" {
-		cmd.Agent = "codex"
-	}
-	return k.SessionResume(ctx, cmd)
-}
-
-func sessionResumeCommandForAgent(agent string, yolo bool, reasoningLevel string) string {
+func sessionResumeCommandForAgent(agent, model string, yolo bool, reasoningLevel, prompt string) (string, error) {
 	switch normalizeSessionResumeAgent(agent) {
 	case "claude":
-		return claudeResumeCommand(yolo, reasoningLevel)
+		return claudeResumeCommand(model, yolo, reasoningLevel, prompt), nil
+	case "codex":
+		return codexResumeCommand(model, yolo, reasoningLevel, prompt), nil
+	case "opencode", "bash":
+		return "", errors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
 	default:
-		return codexResumeCommand(yolo, reasoningLevel)
+		return "", errors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
 	}
 }
 
 func normalizeSessionResumeAgent(agent string) string {
-	if strings.EqualFold(strings.TrimSpace(agent), "claude") {
-		return "claude"
+	trimmed := strings.TrimSpace(strings.ToLower(agent))
+	switch trimmed {
+	case "":
+		return "codex"
+	case "codex", "claude", "opencode", "bash":
+		return trimmed
+	default:
+		return trimmed
 	}
-	return "codex"
 }
 
-func codexResumeCommand(yolo bool, reasoningLevel string) string {
+func codexResumeCommand(model string, yolo bool, reasoningLevel, prompt string) string {
 	command := "codex resume --last"
+	model = strings.TrimSpace(model)
+	if model != "" && model != agentlauncher.ModelAgentDefault {
+		command += " --model " + shellutil.SingleQuote(model)
+	}
 	if yolo {
 		command += " --dangerously-bypass-approvals-and-sandbox --config shell_environment_policy.ignore_default_excludes=\"true\""
 	}
@@ -154,17 +190,33 @@ func codexResumeCommand(yolo bool, reasoningLevel string) string {
 		command += " --config model_reasoning_effort="
 		command += shellutil.SingleQuote(reasoningLevel)
 	}
+	prompt = strings.TrimSpace(prompt)
+	if prompt != "" {
+		command += " -- '"
+		command += shellutil.EscapeSingleQuotes(prompt)
+		command += "'"
+	}
 	return command
 }
 
-func claudeResumeCommand(yolo bool, reasoningLevel string) string {
+func claudeResumeCommand(model string, yolo bool, reasoningLevel, prompt string) string {
 	command := "claude --continue"
+	model = strings.TrimSpace(model)
+	if model != "" && model != agentlauncher.ModelAgentDefault {
+		command += " --model " + shellutil.SingleQuote(model)
+	}
 	if yolo {
 		command += " --dangerously-skip-permissions"
 	}
 	reasoningLevel = strings.TrimSpace(reasoningLevel)
 	if reasoningLevel != "" {
 		command += " --effort " + shellutil.SingleQuote(reasoningLevel)
+	}
+	prompt = strings.TrimSpace(prompt)
+	if prompt != "" {
+		command += " '"
+		command += shellutil.EscapeSingleQuotes(prompt)
+		command += "'"
 	}
 	return command
 }

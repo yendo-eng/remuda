@@ -57,7 +57,7 @@ func (f *fakeResumeSessionManager) Kill(name string) error {
 	return nil
 }
 
-func TestSessionResumeCodex_StartsDetachedSession(t *testing.T) {
+func TestSessionResume_StartsCodexDetachedSession(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	base := t.TempDir()
@@ -72,7 +72,7 @@ func TestSessionResumeCodex_StartsDetachedSession(t *testing.T) {
 		IO:      DefaultIO(),
 	}
 
-	err := k.SessionResumeCodex(context.Background(), SessionResumeCommand{
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
 		Workspace: workspace,
 		Detached:  true,
 	})
@@ -147,6 +147,38 @@ func TestSessionResume_ClaudeYoloAndReasoningFlags(t *testing.T) {
 	require.Contains(t, cmd, "--effort 'high'")
 }
 
+func TestSessionResume_ClaudeModelAndPromptFlags(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	base := t.TempDir()
+	workspace := filepath.Join(base, "org", "repo", "folder")
+	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+	mgr := &fakeResumeSessionManager{name: "tmux"}
+	k := Remuda{
+		Config:  Config{ReposBaseDir: base},
+		Session: mgr,
+		IO:      DefaultIO(),
+	}
+
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
+		Workspace: workspace,
+		Agent:     "claude",
+		Model:     "claude-sonnet-4.6",
+		Prompt:    "continue with tests",
+		Detached:  true,
+	})
+	require.NoError(t, err)
+
+	cmd, ok := mgr.started["org/repo/folder"]
+	require.True(t, ok)
+	require.Contains(t, cmd, "claude --continue")
+	require.Contains(t, cmd, "--model 'claude-sonnet-4.6'")
+	require.Contains(t, cmd, "'continue with tests'")
+	require.Contains(t, cmd, "REMUDA_MODEL='claude-sonnet-4.6'")
+}
+
 func TestSessionResume_DetachedTmuxExportsImplicitAnthropicForClaudeContainer(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
@@ -205,7 +237,7 @@ func TestSessionResume_ContainerRequiresExplicitImage(t *testing.T) {
 	require.Empty(t, mgr.started)
 }
 
-func TestSessionResume_UnknownAgentFallsBackToCodex(t *testing.T) {
+func TestSessionResume_UnsupportedAgentErrors(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	base := t.TempDir()
@@ -225,15 +257,12 @@ func TestSessionResume_UnknownAgentFallsBackToCodex(t *testing.T) {
 		Agent:     "opencode",
 		Detached:  true,
 	})
-	require.NoError(t, err)
-
-	cmd, ok := mgr.started["org/repo/folder"]
-	require.True(t, ok)
-	require.Contains(t, cmd, "codex resume --last")
-	require.Contains(t, cmd, "REMUDA_AGENT='codex'")
+	require.Error(t, err)
+	require.ErrorContains(t, err, `session resume unsupported for agent "opencode"`)
+	require.Empty(t, mgr.started)
 }
 
-func TestSessionResumeCodex_RefusesActiveWorkspace(t *testing.T) {
+func TestSessionResume_RefusesActiveWorkspace(t *testing.T) {
 	base := t.TempDir()
 	workspace := filepath.Join(base, "org", "repo", "folder")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
@@ -248,7 +277,7 @@ func TestSessionResumeCodex_RefusesActiveWorkspace(t *testing.T) {
 		IO:      DefaultIO(),
 	}
 
-	err := k.SessionResumeCodex(context.Background(), SessionResumeCommand{
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
 		Workspace: workspace,
 		Detached:  true,
 	})
@@ -258,7 +287,7 @@ func TestSessionResumeCodex_RefusesActiveWorkspace(t *testing.T) {
 	require.Empty(t, mgr.started)
 }
 
-func TestSessionResumeCodex_ValidatesWorkspaceEligibility(t *testing.T) {
+func TestSessionResume_ValidatesWorkspaceEligibility(t *testing.T) {
 	base := t.TempDir()
 	workspace := filepath.Join(base, "org", "repo")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
@@ -270,7 +299,7 @@ func TestSessionResumeCodex_ValidatesWorkspaceEligibility(t *testing.T) {
 		IO:      DefaultIO(),
 	}
 
-	err := k.SessionResumeCodex(context.Background(), SessionResumeCommand{
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
 		Workspace: workspace,
 		Detached:  true,
 	})
@@ -279,7 +308,7 @@ func TestSessionResumeCodex_ValidatesWorkspaceEligibility(t *testing.T) {
 	require.Empty(t, mgr.started)
 }
 
-func TestSessionResumeCodex_YoloAddsBypassFlags(t *testing.T) {
+func TestSessionResume_YoloAddsBypassFlags(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	base := t.TempDir()
@@ -294,7 +323,7 @@ func TestSessionResumeCodex_YoloAddsBypassFlags(t *testing.T) {
 		IO:      DefaultIO(),
 	}
 
-	err := k.SessionResumeCodex(context.Background(), SessionResumeCommand{
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
 		Workspace: workspace,
 		Detached:  true,
 		Yolo:      true,
@@ -308,7 +337,7 @@ func TestSessionResumeCodex_YoloAddsBypassFlags(t *testing.T) {
 	require.Contains(t, cmd, "shell_environment_policy.ignore_default_excludes")
 }
 
-func TestSessionResumeCodex_ReasoningLevelAddsConfigFlag(t *testing.T) {
+func TestSessionResume_ReasoningLevelAddsConfigFlag(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	base := t.TempDir()
@@ -323,7 +352,7 @@ func TestSessionResumeCodex_ReasoningLevelAddsConfigFlag(t *testing.T) {
 		IO:      DefaultIO(),
 	}
 
-	err := k.SessionResumeCodex(context.Background(), SessionResumeCommand{
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
 		Workspace:      workspace,
 		Detached:       true,
 		ReasoningLevel: "high",
@@ -333,4 +362,62 @@ func TestSessionResumeCodex_ReasoningLevelAddsConfigFlag(t *testing.T) {
 	cmd, ok := mgr.started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "model_reasoning_effort='high'")
+}
+
+func TestSessionResume_CustomAgentCommandAppendsPrompt(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	base := t.TempDir()
+	workspace := filepath.Join(base, "org", "repo", "folder")
+	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+	mgr := &fakeResumeSessionManager{name: "tmux"}
+	k := Remuda{
+		Config:  Config{ReposBaseDir: base},
+		Session: mgr,
+		IO:      DefaultIO(),
+	}
+
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
+		Workspace: workspace,
+		Agent:     "opencode",
+		AgentCmd:  "my-resume",
+		Prompt:    "pick this up",
+		Detached:  true,
+	})
+	require.NoError(t, err)
+
+	cmd, ok := mgr.started["org/repo/folder"]
+	require.True(t, ok)
+	require.Contains(t, cmd, "my-resume 'pick this up'")
+	require.Contains(t, cmd, "REMUDA_AGENT='opencode'")
+}
+
+func TestSessionResume_OpenAIKeyOverridesEnvironment(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENAI_API_KEY", "from-env")
+
+	base := t.TempDir()
+	workspace := filepath.Join(base, "org", "repo", "folder")
+	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+	mgr := &fakeResumeSessionManager{name: "tmux"}
+	k := Remuda{
+		Config:  Config{ReposBaseDir: base},
+		Session: mgr,
+		IO:      DefaultIO(),
+	}
+
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
+		Workspace:    workspace,
+		Detached:     true,
+		OpenAIAPIKey: "override-key",
+	})
+	require.NoError(t, err)
+
+	cmd, ok := mgr.started["org/repo/folder"]
+	require.True(t, ok)
+	require.Contains(t, cmd, "OPENAI_API_KEY='override-key'")
 }

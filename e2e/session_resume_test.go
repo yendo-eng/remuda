@@ -72,6 +72,40 @@ func TestSessionResume(t *testing.T) {
 		require.NotContains(t, sess.CommandRan, "codex resume --last")
 	})
 
+	t.Run("resumes workspace with explicit model and prompt", func(t *testing.T) {
+		baseDir, mgr, k := setup(t)
+		workspace := filepath.Join(baseDir, "org", "repo", "folder")
+		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]))
+		err := cli.Run(ctx, []string{
+			"session", "resume",
+			"--agent", "claude",
+			"--model", "claude-sonnet-4.6",
+			workspace,
+			"continue with changelog updates",
+		})
+		require.NoError(t, err)
+
+		sess := mgr.FindSession("org/repo/folder")
+		require.NotNil(t, sess)
+		require.Contains(t, sess.CommandRan, "claude --continue")
+		require.Contains(t, sess.CommandRan, "--model 'claude-sonnet-4.6'")
+		require.Contains(t, sess.CommandRan, "'continue with changelog updates'")
+		require.Contains(t, sess.CommandRan, "REMUDA_MODEL='claude-sonnet-4.6'")
+	})
+
+	t.Run("returns clear error for unsupported built-in resume agent", func(t *testing.T) {
+		baseDir, _, k := setup(t)
+		workspace := filepath.Join(baseDir, "org", "repo", "folder")
+		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]))
+		err := cli.Run(ctx, []string{"session", "resume", "--agent", "opencode", workspace})
+		require.Error(t, err)
+		require.ErrorContains(t, err, `session resume unsupported for agent "opencode"`)
+	})
+
 	t.Run("refuses active workspace", func(t *testing.T) {
 		baseDir, mgr, k := setup(t)
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
