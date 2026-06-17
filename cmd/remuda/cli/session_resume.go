@@ -30,6 +30,14 @@ func (c *SessionResumeCmd) Validate() error {
 	}
 
 	hasWorkspace := strings.TrimSpace(c.WorkspaceDir) != ""
+	hasPrompt := strings.TrimSpace(c.Prompt) != ""
+	if c.Pick && hasWorkspace && !hasPrompt {
+		// In --pick mode Kong binds the first positional into WorkspaceDir.
+		// Treat that value as the optional resume prompt.
+		c.Prompt = c.WorkspaceDir
+		c.WorkspaceDir = ""
+		hasWorkspace = false
+	}
 	if hasWorkspace && c.Pick {
 		return errors.New("cannot combine <workspace-dir> with --pick")
 	}

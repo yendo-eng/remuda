@@ -72,6 +72,25 @@ func TestSessionResume(t *testing.T) {
 		require.NotContains(t, sess.CommandRan, "codex resume --last")
 	})
 
+	t.Run("does not leak openai key into session start command", func(t *testing.T) {
+		baseDir, mgr, k := setup(t)
+		workspace := filepath.Join(baseDir, "org", "repo", "folder")
+		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+		keyEnv := cli.EnvMap(testutils.ProcessEnvMap())
+		keyEnv["REMUDA_CONTAINER"] = "false"
+		keyEnv["OPENAI_API_KEY"] = "sk-live-never-show"
+
+		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(keyEnv), cli.WithHomeDir(keyEnv["HOME"]))
+		err := cli.Run(ctx, []string{"session", "resume", workspace})
+		require.NoError(t, err)
+
+		sess := mgr.FindSession("org/repo/folder")
+		require.NotNil(t, sess)
+		require.NotContains(t, sess.CommandRan, "sk-live-never-show")
+		require.NotContains(t, sess.CommandRan, "OPENAI_API_KEY=")
+	})
+
 	t.Run("resumes workspace with explicit model and prompt", func(t *testing.T) {
 		baseDir, mgr, k := setup(t)
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
