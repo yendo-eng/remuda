@@ -15,6 +15,34 @@ func applyDefaultsToSessionResume(cmd *SessionResumeCmd, kctx *kong.Context, cfg
 	env = envOrDefault(env)
 	defaults := cfg.Defaults
 
+	if defaults.Model != nil && !flagExplicit(kctx, "model") && !envSet(env, "REMUDA_MODEL") {
+		cmd.Model = *defaults.Model
+	}
+	if defaults.ReasoningLevel != nil && !flagExplicit(kctx, "reasoning-level") && !envSet(env, "REMUDA_REASONING_LEVEL") {
+		cmd.ReasoningLevel = *defaults.ReasoningLevel
+	}
+	if defaults.AgentCmd != nil && !flagExplicit(kctx, "agent-cmd") {
+		cmd.AgentCmd = *defaults.AgentCmd
+	}
+	if defaults.UsePrompts != nil && !envSet(env, "REMUDA_USE_PROMPTS") {
+		useDefaults, err := promptNamesFromDefaults(*defaults.UsePrompts)
+		if err != nil {
+			return err
+		}
+		if flagExplicit(kctx, "use") {
+			cmd.Use = mergePromptNames(useDefaults, cmd.Use)
+		} else {
+			cmd.Use = useDefaults
+		}
+	}
+	if defaults.NoUse != nil && !flagExplicit(kctx, "no-use") {
+		noUse, err := promptNamesFromDefaults(*defaults.NoUse)
+		if err != nil {
+			return err
+		}
+		cmd.NoUse = noUse
+	}
+
 	if defaults.Yolo != nil && !flagExplicit(kctx, "yolo") && !envSet(env, "REMUDA_YOLO") {
 		cmd.Yolo = *defaults.Yolo
 	}

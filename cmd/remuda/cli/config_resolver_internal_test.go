@@ -126,6 +126,50 @@ func TestInferRepoSlugForInvocation_SessionResumePickSkipsDefaults(t *testing.T)
 	require.Equal(t, "", inferRepoSlugForInvocation(ctx, cfg, args))
 }
 
+func TestInferRepoSlugForInvocation_SessionResumePickWithPromptSkipsWorkspaceInference(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	env := EnvMap{
+		"REMUDA_REPOS_BASE_DIR": base,
+	}
+	cfg := &configfile.V1{Version: 1}
+	args := []string{
+		"session",
+		"resume",
+		"--pick",
+		"continue with tests",
+	}
+	ctx := newTestContextWithEnv(t, env)
+	require.Equal(t, "", inferRepoSlugForInvocation(ctx, cfg, args))
+}
+
+func TestInferRepoSlugForInvocation_SessionResumeSkipsNewValueFlags(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	env := EnvMap{
+		"REMUDA_REPOS_BASE_DIR": base,
+	}
+	cfg := &configfile.V1{Version: 1}
+	workspace := filepath.Join(base, "acme", "remuda", "wk")
+	args := []string{
+		"session",
+		"resume",
+		"--agent", "claude",
+		"--model", "claude-sonnet-4.6",
+		"--reasoning-level", "high",
+		"--agent-cmd", "claude --continue",
+		"--jira", "ABC-123",
+		"--gh-issue", "https://github.com/acme/remuda/issues/1",
+		"--use", "small-commits",
+		"--no-use", "make-pr",
+		"--openai-api-key", "sk-test",
+		workspace,
+		"continue with tests",
+	}
+	ctx := newTestContextWithEnv(t, env)
+	require.Equal(t, "acme/remuda", inferRepoSlugForInvocation(ctx, cfg, args))
+}
+
 func TestInferRepoSlugForInvocation_UsesCloneRepoURLArg(t *testing.T) {
 	t.Parallel()
 	cfg := &configfile.V1{Version: 1}

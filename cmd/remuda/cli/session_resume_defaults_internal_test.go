@@ -11,13 +11,23 @@ func TestApplyDefaultsToSessionResume_UsesProfileDefaults(t *testing.T) {
 	profileImage := "profile-image"
 	profileOpts := []string{"--network=host"}
 	profileInherit := []string{"FOO"}
+	model := "claude-sonnet-4.6"
+	reasoningLevel := "high"
+	agentCmd := "claude --continue"
+	usePrompts := []string{"small-commits"}
+	noUsePrompts := []string{"make-pr"}
 	yolo := true
 	enabled := true
 
 	cfg := &configfile.V1{
 		Profiles: map[string]configfile.DefaultsV1{
 			"review": {
-				Yolo: &yolo,
+				Model:          &model,
+				ReasoningLevel: &reasoningLevel,
+				AgentCmd:       &agentCmd,
+				UsePrompts:     &usePrompts,
+				NoUse:          &noUsePrompts,
+				Yolo:           &yolo,
 				Container: &configfile.ContainerV1{
 					Enabled:    &enabled,
 					Image:      &profileImage,
@@ -35,6 +45,11 @@ func TestApplyDefaultsToSessionResume_UsesProfileDefaults(t *testing.T) {
 	}
 
 	require.NoError(t, applyDefaultsToSessionResume(&cmd, nil, cfg, EnvMap{}))
+	require.Equal(t, model, cmd.Model)
+	require.Equal(t, reasoningLevel, cmd.ReasoningLevel)
+	require.Equal(t, agentCmd, cmd.AgentCmd)
+	require.Equal(t, []PromptName{"small-commits"}, cmd.Use)
+	require.Equal(t, []PromptName{"make-pr"}, cmd.NoUse)
 	require.True(t, cmd.Yolo)
 	require.True(t, cmd.Container)
 	require.Equal(t, profileImage, cmd.ContainerName)
@@ -84,6 +99,18 @@ func TestResolveSessionResumeAgent_EnvOverridesProfile(t *testing.T) {
 		},
 	}
 	env := EnvMap{"REMUDA_AGENT": "codex"}
+
+	require.Equal(t, "codex", resolveSessionResumeAgent(cfg, env))
+}
+
+func TestResolveSessionResumeAgent_UnsupportedEnvFallsBackToCodex(t *testing.T) {
+	agent := "claude"
+	cfg := &configfile.V1{
+		Defaults: &configfile.DefaultsV1{
+			Agent: &agent,
+		},
+	}
+	env := EnvMap{"REMUDA_AGENT": "opencode"}
 
 	require.Equal(t, "codex", resolveSessionResumeAgent(cfg, env))
 }
