@@ -41,7 +41,7 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) (
 		}
 		seen[workspaceAbs] = struct{}{}
 
-		if err := validateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
+		if err := k.validateWorkspace(workspaceAbs); err != nil {
 			failures = append(failures, errors.Wrapf(err, "invalid workspace %q", workspaceAbs).Error())
 			continue
 		}
@@ -97,7 +97,7 @@ func (k Remuda) activeWorkspaceSessions() (map[string]string, error) {
 			continue
 		}
 
-		workspace, err := s.WorkspacePath(k.Config.ReposBaseDir)
+		workspace, err := s.WorkspacePathFromRoots(k.workspaceRoots()...)
 		if err != nil {
 			continue
 		}
@@ -118,16 +118,17 @@ func (k Remuda) PruneOneSession(
 	force bool,
 ) error {
 	logger := k.logger()
-	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspace); err != nil {
+	if err := k.validateWorkspace(workspace); err != nil {
 		return errors.Wrapf(err, "invalid workspace %q", workspace)
 	}
 	if dryRun {
 		return nil
 	}
 
-	// Best-effort: remove from git worktrees first, then delete folder.
-	// cache: <base>/<org>/<repo>/.repo_cache
-	org, repo, _ := util.SplitWorkspacePath(k.Config.ReposBaseDir, workspace)
+	// Best-effort: remove from git worktrees first, then delete folder. The
+	// persistent cache always lives under ReposBaseDir even for --tmp worktrees.
+	// cache: <repos-base>/<org>/<repo>/.repo_cache
+	org, repo, _ := k.splitWorkspaceAnyRoot(workspace)
 	if org != "" && isLinkedGitWorktree(workspace) {
 		cache := filepath.Join(k.Config.ReposBaseDir, org, repo, ".repo_cache")
 		args := []string{workspace}

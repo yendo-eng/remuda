@@ -28,6 +28,7 @@ type Harness struct {
 	RootDir      string
 	HomeDir      string
 	ReposBaseDir string
+	TmpBaseDir   string
 	Env          cli.EnvMap
 	WorkingDir   string
 
@@ -53,9 +54,15 @@ type HarnessOption func(*Harness)
 
 func WithRemudaConfig(cfg internal.Config) HarnessOption {
 	return func(h *Harness) {
+		if cfg.TmpBaseDir == "" {
+			cfg.TmpBaseDir = h.TmpBaseDir
+		}
 		h.RemudaConfig = cfg
 		if cfg.ReposBaseDir != "" {
 			h.ReposBaseDir = cfg.ReposBaseDir
+		}
+		if cfg.TmpBaseDir != "" {
+			h.TmpBaseDir = cfg.TmpBaseDir
 		}
 	}
 }
@@ -125,6 +132,7 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 	rootDir := t.TempDir()
 	homeDir := filepath.Join(rootDir, "home")
 	reposBaseDir := filepath.Join(rootDir, "repos")
+	tmpBaseDir := filepath.Join(rootDir, "tmp-repos")
 
 	require.NoError(t, os.MkdirAll(homeDir, 0o755))
 	require.NoError(t, os.MkdirAll(reposBaseDir, 0o755))
@@ -149,6 +157,7 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 		RootDir:      rootDir,
 		HomeDir:      homeDir,
 		ReposBaseDir: reposBaseDir,
+		TmpBaseDir:   tmpBaseDir,
 		Env:          cli.EnvMap(sanitized),
 		Stdin:        strings.NewReader(""),
 		Stdout:       stdout,
@@ -161,11 +170,15 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 		GitHub:  defaultGitHub,
 		Slack:   defaultSlack,
 
-		RemudaConfig: internal.Config{ReposBaseDir: reposBaseDir},
+		RemudaConfig: internal.Config{ReposBaseDir: reposBaseDir, TmpBaseDir: tmpBaseDir},
 	}
 
 	for _, opt := range opts {
 		opt(h)
+	}
+
+	if h.RemudaConfig.TmpBaseDir == "" {
+		h.RemudaConfig.TmpBaseDir = h.TmpBaseDir
 	}
 
 	require.NoError(t, os.MkdirAll(h.RemudaConfig.ReposBaseDir, 0o755))
@@ -263,12 +276,8 @@ func (h *Harness) RunOK(args ...string) CLIRunResult {
 func (h *Harness) SetEnv(key, value string) {
 	h.t.Helper()
 	h.Env[key] = value
-	if provider, ok := h.Remuda.Env.(env.StaticProvider); ok {
-		if provider.Values == nil {
-			provider.Values = map[string]string{}
-			h.Remuda.Env = provider
-		}
-		provider.Values[key] = value
+	if setter, ok := h.Remuda.Env.(env.Setter); ok {
+		setter.Setenv(key, value)
 	}
 }
 

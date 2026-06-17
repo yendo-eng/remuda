@@ -20,8 +20,24 @@ func (k Remuda) Workspaces() ([]string, error) {
 }
 
 func (k Remuda) WorkspacesWithIgnore(ignore []string) ([]string, error) {
-	candidates := listWorkspaceDirs(k.Config.ReposBaseDir)
-	return filterInactiveWorkspaces(k.Config.ReposBaseDir, candidates, map[string]struct{}{}, ignore)
+	return k.WorkspacesWithOptions(ignore, false)
+}
+
+// WorkspacesWithOptions lists every workspace: all active ones plus inactive
+// ones. Active --tmp sessions are live work (not reclaimable clutter) and always
+// appear, matching `session list`; inactive temp worktrees are hidden unless
+// includeTmp is set. The result is the union of the active and inactive listings,
+// which keeps `--active` and `--inactive` strict subsets of the full listing.
+func (k Remuda) WorkspacesWithOptions(ignore []string, includeTmp bool) ([]string, error) {
+	activeWS, err := k.activeWorkspaces(ignore)
+	if err != nil {
+		return nil, err
+	}
+	inactiveWS, err := k.inactiveWorkspaces(ignore, includeTmp)
+	if err != nil {
+		return nil, err
+	}
+	return dedupeWorkspaces(append(activeWS, inactiveWS...)), nil
 }
 
 func (k Remuda) ActiveWorkspaces() ([]string, error) {
@@ -32,12 +48,43 @@ func (k Remuda) ActiveWorkspacesWithIgnore(ignore []string) ([]string, error) {
 	return k.activeWorkspaces(ignore)
 }
 
+// ActiveWorkspacesWithOptions lists active workspaces. Active --tmp sessions are
+// always included (they are live, not reclaimable clutter), so the include-tmp
+// toggle does not apply to the active listing.
+func (k Remuda) ActiveWorkspacesWithOptions(ignore []string, _ bool) ([]string, error) {
+	return k.activeWorkspaces(ignore)
+}
+
 func (k Remuda) InactiveWorkspaces() ([]string, error) {
-	return k.inactiveWorkspaces(nil)
+	return k.inactiveWorkspaces(nil, false)
 }
 
 func (k Remuda) InactiveWorkspacesWithIgnore(ignore []string) ([]string, error) {
-	return k.inactiveWorkspaces(ignore)
+	return k.inactiveWorkspaces(ignore, false)
+}
+
+func (k Remuda) InactiveWorkspacesWithOptions(ignore []string, includeTmp bool) ([]string, error) {
+	return k.inactiveWorkspaces(ignore, includeTmp)
+}
+
+// enumerationRoots returns the roots scanned when enumerating workspaces. The
+// temp root is only included when explicitly requested via --include-tmp.
+func (k Remuda) enumerationRoots(includeTmp bool) []string {
+	if includeTmp {
+		return k.workspaceRoots()
+	}
+	return []string{k.Config.ReposBaseDir}
+}
+
+// listCandidateWorkspaces enumerates candidate workspaces (<root>/<org>/<repo>/<folder>,
+// excluding .repo_cache) under the persistent repos base dir and, when includeTmp
+// is set, the OS-temp root as well.
+func (k Remuda) listCandidateWorkspaces(includeTmp bool) []string {
+	candidates := listWorkspaceDirs(k.Config.ReposBaseDir)
+	if includeTmp && strings.TrimSpace(k.Config.TmpBaseDir) != "" {
+		candidates = append(candidates, listWorkspaceDirs(k.Config.TmpBaseDir)...)
+	}
+	return candidates
 }
 
 func (k Remuda) activeWorkspaces(ignore []string) ([]string, error) {
@@ -46,22 +93,39 @@ func (k Remuda) activeWorkspaces(ignore []string) ([]string, error) {
 		return nil, err
 	}
 
-	// Enumerate candidate workspaces: <base>/<org>/<repo>/<folder> (exclude .repo_cache).
-	candidates := listWorkspaceDirs(k.Config.ReposBaseDir)
-
-	return filterActiveWorkspaces(k.Config.ReposBaseDir, candidates, active, ignore)
+	// Always scan the temp root for the active listing so live --tmp sessions
+	// appear like any other active workspace (matching `session list`).
+	candidates := k.listCandidateWorkspaces(true)
+	return filterActiveWorkspaces(k.workspaceRoots(), candidates, active, ignore)
 }
 
-func (k Remuda) inactiveWorkspaces(ignore []string) ([]string, error) {
+// dedupeWorkspaces removes duplicate workspace paths (by absolute path) while
+// preserving first-seen order.
+func dedupeWorkspaces(workspaces []string) []string {
+	seen := make(map[string]struct{}, len(workspaces))
+	out := make([]string, 0, len(workspaces))
+	for _, ws := range workspaces {
+		abs, err := filepath.Abs(ws)
+		if err != nil {
+			abs = ws
+		}
+		if _, ok := seen[abs]; ok {
+			continue
+		}
+		seen[abs] = struct{}{}
+		out = append(out, ws)
+	}
+	return out
+}
+
+func (k Remuda) inactiveWorkspaces(ignore []string, includeTmp bool) ([]string, error) {
 	active, err := k.activeWorkspaceSet()
 	if err != nil {
 		return nil, err
 	}
 
-	// Enumerate candidate workspaces: <base>/<org>/<repo>/<folder> (exclude .repo_cache).
-	candidates := listWorkspaceDirs(k.Config.ReposBaseDir)
-
-	return filterInactiveWorkspaces(k.Config.ReposBaseDir, candidates, active, ignore)
+	candidates := k.listCandidateWorkspaces(includeTmp)
+	return filterInactiveWorkspaces(k.enumerationRoots(includeTmp), candidates, active, ignore)
 }
 
 func (k Remuda) activeWorkspaceSet() (map[string]struct{}, error) {
@@ -77,7 +141,7 @@ func (k Remuda) activeWorkspaceSet() (map[string]struct{}, error) {
 			continue
 		}
 
-		if ws, err := s.WorkspacePath(k.Config.ReposBaseDir); err == nil {
+		if ws, err := s.WorkspacePathFromRoots(k.workspaceRoots()...); err == nil {
 			abs, _ := filepath.Abs(ws)
 			active[abs] = struct{}{}
 		}
@@ -140,25 +204,25 @@ func listWorkspaceDirs(base string) []string {
 }
 
 func filterInactiveWorkspaces(
-	base string,
+	roots []string,
 	candidates []string,
 	active map[string]struct{},
 	ignore []string,
 ) ([]string, error) {
-	return filterWorkspacesByActivity(base, candidates, active, ignore, false)
+	return filterWorkspacesByActivity(roots, candidates, active, ignore, false)
 }
 
 func filterActiveWorkspaces(
-	base string,
+	roots []string,
 	candidates []string,
 	active map[string]struct{},
 	ignore []string,
 ) ([]string, error) {
-	return filterWorkspacesByActivity(base, candidates, active, ignore, true)
+	return filterWorkspacesByActivity(roots, candidates, active, ignore, true)
 }
 
 func filterWorkspacesByActivity(
-	base string,
+	roots []string,
 	candidates []string,
 	active map[string]struct{},
 	ignore []string,
@@ -180,7 +244,7 @@ func filterWorkspacesByActivity(
 			continue
 		}
 		if len(ignore) > 0 {
-			rel, err := workspaceRelPath(base, ws)
+			rel, err := workspaceRelPath(roots, ws)
 			if err != nil {
 				return nil, err
 			}
@@ -197,15 +261,22 @@ func filterWorkspacesByActivity(
 	return filtered, nil
 }
 
-func workspaceRelPath(base, workspace string) (string, error) {
-	if err := validateWorkspacePath(base, workspace); err != nil {
+// workspaceRelPath returns the org/repo/folder ignore-match key for a workspace,
+// computed against whichever configured root contains it.
+func workspaceRelPath(roots []string, workspace string) (string, error) {
+	if err := validateWorkspacePathRoots(roots, workspace); err != nil {
 		return "", err
 	}
-	org, repo, folder := util.SplitWorkspacePath(base, workspace)
-	if org == "" || repo == "" || folder == "" {
-		return "", errors.New("workspace must be at depth 3 under repos base dir (org/repo/folder)")
+	for _, base := range roots {
+		if !pathWithin(base, workspace) {
+			continue
+		}
+		org, repo, folder := util.SplitWorkspacePath(base, workspace)
+		if org != "" && repo != "" && folder != "" {
+			return path.Join(org, repo, folder), nil
+		}
 	}
-	return path.Join(org, repo, folder), nil
+	return "", errors.New("workspace must be at depth 3 under a workspace root (org/repo/folder)")
 }
 
 func validateIgnorePatterns(patterns []string) error {
@@ -236,6 +307,41 @@ func matchIgnorePatterns(patterns []string, rel string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// validateWorkspace checks the workspace against every configured root (the
+// persistent repos base dir and, when set, the OS-temp root for --tmp sessions),
+// accepting it when it is a valid depth-3 workspace under any of them.
+func (k Remuda) validateWorkspace(workspace string) error {
+	return validateWorkspacePathRoots(k.workspaceRoots(), workspace)
+}
+
+// ValidateWorkspace is the exported form of validateWorkspace for CLI callers.
+func (k Remuda) ValidateWorkspace(workspace string) error {
+	return k.validateWorkspace(workspace)
+}
+
+func validateWorkspacePathRoots(roots []string, workspace string) error {
+	if len(roots) == 0 {
+		return errors.New("no workspace roots provided")
+	}
+	var firstErr error
+	for _, base := range roots {
+		if strings.TrimSpace(base) == "" {
+			continue
+		}
+		err := validateWorkspacePath(base, workspace)
+		if err == nil {
+			return nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	if firstErr == nil {
+		return errors.New("repos base dir is empty")
+	}
+	return firstErr
 }
 
 func validateWorkspacePath(base, workspace string) error {

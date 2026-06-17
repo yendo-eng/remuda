@@ -9,8 +9,9 @@ import (
 
 // WorkspacesListCmd prints one workspace path per line.
 type WorkspacesListCmd struct {
-	Active   bool `name:"active" help:"Restrict output to workspaces with an active Remuda session."`
-	Inactive bool `name:"inactive" help:"Restrict output to workspaces with no active Remuda session."`
+	Active     bool `name:"active" help:"Restrict output to workspaces with an active Remuda session."`
+	Inactive   bool `name:"inactive" help:"Restrict output to workspaces with no active Remuda session."`
+	IncludeTmp bool `name:"include-tmp" help:"Also scan the OS-temp root for --tmp session worktrees (hidden by default)."`
 }
 
 func (c WorkspacesListCmd) Validate() error {
@@ -28,11 +29,11 @@ func (c WorkspacesListCmd) Run(ctx Context) error {
 		err        error
 	)
 	if c.Active {
-		workspaces, err = ctx.Remuda.ActiveWorkspacesWithIgnore(ignore)
+		workspaces, err = ctx.Remuda.ActiveWorkspacesWithOptions(ignore, c.IncludeTmp)
 	} else if c.Inactive {
-		workspaces, err = ctx.Remuda.InactiveWorkspacesWithIgnore(ignore)
+		workspaces, err = ctx.Remuda.InactiveWorkspacesWithOptions(ignore, c.IncludeTmp)
 	} else {
-		workspaces, err = ctx.Remuda.WorkspacesWithIgnore(ignore)
+		workspaces, err = ctx.Remuda.WorkspacesWithOptions(ignore, c.IncludeTmp)
 	}
 	if err != nil {
 		return errors.Wrap(err, "workspaces list")

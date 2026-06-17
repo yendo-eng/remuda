@@ -142,16 +142,21 @@ func goEnvPath(logger zerolog.Logger, key string) string {
 }
 
 // ExtraGitMountForWorktree returns a docker `-v` argument that bind-mounts the
-// parent repository cache directory (which contains the actual .git directory
-// for a worktree) to the same absolute path inside the container. This keeps
+// repository cache directory (which contains the actual .git directory for a
+// linked worktree) to the same absolute path inside the container. This keeps
 // the .git indirection inside the worktree valid when running with --container.
 //
-// If the expected cache directory does not exist, it returns ("", false).
-func ExtraGitMountForWorktree(workspaceAbs string) (string, bool) {
-	// Given workspace: <baseDir>/<name>
-	// Cache repo lives at: <baseDir>/.repo_cache
-	baseDir := filepath.Dir(workspaceAbs)
-	cacheDir := filepath.Join(baseDir, ".repo_cache")
+// The cache path must be supplied by the caller because the worktree and its
+// cache are no longer guaranteed to be siblings: a --tmp worktree lives under
+// the OS-temp root while its cache stays under the repos base dir. Callers
+// should pass the real cache path so it is mounted at the identical absolute
+// path the worktree's .git file points at.
+//
+// If cacheDir is empty or does not exist, it returns ("", false).
+func ExtraGitMountForWorktree(cacheDir string) (string, bool) {
+	if strings.TrimSpace(cacheDir) == "" {
+		return "", false
+	}
 	if st, err := os.Stat(cacheDir); err == nil && st.IsDir() {
 		// Mount host path to identical path inside container to satisfy the
 		// absolute path recorded in the worktree's .git file.

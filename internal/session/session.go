@@ -101,6 +101,17 @@ func (s SessionInfo) IsRemudaSession() bool {
 
 // maps org/repo/folder → base/org/repo/folder.
 func (s SessionInfo) WorkspacePath(base string) (string, error) {
+	return s.WorkspacePathFromRoots(base)
+}
+
+// WorkspacePathFromRoots resolves a session's workspace directory by probing each
+// candidate root in order. A session named org/repo/folder maps to
+// <root>/org/repo/folder. This supports --tmp sessions, whose worktree lives
+// under the OS-temp root rather than the persistent repos base dir. The first
+// root that contains the workspace wins; when none do, the direct mapping under
+// the first root is returned so callers can diagnose missing directories
+// consistently.
+func (s SessionInfo) WorkspacePathFromRoots(roots ...string) (string, error) {
 	if !s.IsRemudaSession() {
 		return "", errors.New("not a Remuda session")
 	}
@@ -112,37 +123,35 @@ func (s SessionInfo) WorkspacePath(base string) (string, error) {
 	if parts[0] == "" || parts[1] == "" || parts[2] == "" {
 		return "", errors.New("invalid session name format")
 	}
-	org, repo, folder := parts[0], parts[1], parts[2]
-	// First try the direct mapping.
-	direct := filepath.Join(base, org, repo, folder)
-	if st, err := os.Stat(direct); err == nil && st.IsDir() {
-		return direct, nil
+	if len(roots) == 0 {
+		return "", errors.New("no workspace roots provided")
 	}
+	org, repo, folder := parts[0], parts[1], parts[2]
 
-	// Fallback: tmux converts dots to underscores in session names on some systems.
-	// To resolve the correct workspace folder, look for a sibling directory whose
-	// name, when sanitized ('.' → '_'), matches the session folder token.
-	repoDir := filepath.Join(base, org, repo)
-	if entries, err := os.ReadDir(repoDir); err == nil {
-		target := folder
-		for _, e := range entries {
-			if !e.IsDir() {
-				continue
-			}
-			name := e.Name()
-			if sanitizeTmuxSessionToken(name) == target {
-				return filepath.Join(repoDir, name), nil
+	for _, base := range roots {
+		direct := filepath.Join(base, org, repo, folder)
+		if st, err := os.Stat(direct); err == nil && st.IsDir() {
+			return direct, nil
+		}
+
+		// Fallback: tmux converts dots to underscores in session names on some
+		// systems. To resolve the correct workspace folder, look for a sibling
+		// directory whose name, when sanitized ('.' → '_'), matches the session
+		// folder token.
+		repoDir := filepath.Join(base, org, repo)
+		if entries, err := os.ReadDir(repoDir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() {
+					continue
+				}
+				if SanitizeTmuxSessionToken(e.Name()) == folder {
+					return filepath.Join(repoDir, e.Name()), nil
+				}
 			}
 		}
 	}
 
-	// Best effort: return the direct mapping even if it doesn't exist so callers
-	// can diagnose missing directories consistently.
-	return direct, nil
-}
-
-// sanitizeTmuxSessionToken mirrors tmux's tendency to map '.' to '_' in session
-// names. Keep this local to the session package to avoid import cycles.
-func sanitizeTmuxSessionToken(s string) string {
-	return strings.ReplaceAll(s, ".", "_")
+	// Best effort: return the direct mapping under the first root even if it does
+	// not exist so callers can diagnose missing directories consistently.
+	return filepath.Join(roots[0], org, repo, folder), nil
 }

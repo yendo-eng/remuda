@@ -17,6 +17,7 @@ type SessionResumeCmd struct {
 
 	WorkspaceDir string `arg:"" optional:"" name:"workspace-dir" help:"Workspace directory to resume." predictor:"workspace-dir"`
 	Pick         bool   `name:"pick" help:"Use fzf to interactively select an inactive workspace to resume."`
+	IncludeTmp   bool   `name:"include-tmp" help:"Include --tmp session worktrees (under the OS-temp root) in the --pick list (hidden by default)."`
 	Profile      string `name:"profile" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
 	Yolo         bool   `name:"yolo" env:"REMUDA_YOLO" negatable:"" help:"Ignore sandboxing/approvals for supported agents (Codex/Claude)."`
 }
@@ -50,7 +51,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 	logger := logging.FromContext(ctx.ctx)
 	var selected string
 	if c.Pick {
-		inactive, err := ctx.Remuda.InactiveWorkspacesWithIgnore(configuredPruneIgnorePatterns(ctx.ConfigFile))
+		inactive, err := ctx.Remuda.InactiveWorkspacesWithOptions(configuredPruneIgnorePatterns(ctx.ConfigFile), c.IncludeTmp)
 		if err != nil {
 			return errors.Wrap(err, "list inactive workspaces")
 		}
@@ -59,7 +60,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 			return nil
 		}
 
-		picked, err := pickOneWorkspaceWithFZF(logger, envFromContext(ctx), inactive, ctx.Remuda.Config.ReposBaseDir)
+		picked, err := pickOneWorkspaceWithFZF(logger, envFromContext(ctx), inactive, ctx.Remuda.Config.ReposBaseDir, ctx.Remuda.Config.TmpBaseDir)
 		if err != nil {
 			return errors.Wrap(err, "pick workspace")
 		}
@@ -77,7 +78,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 	}
 
 	selectedAbs := absPathFromContext(selected, ctx)
-	if err := internal.ValidateWorkspacePath(ctx.Remuda.Config.ReposBaseDir, selectedAbs); err != nil {
+	if err := ctx.Remuda.ValidateWorkspace(selectedAbs); err != nil {
 		return errors.Wrapf(err, "invalid workspace %q", selectedAbs)
 	}
 	if c.Pick {

@@ -52,6 +52,36 @@ func TestBuildRunCommand_ComposesExpectedPieces(t *testing.T) {
 	require.NotContains(t, cmd, `bash -lc "`)
 }
 
+func TestBuildPreflightRunCommand_ComposesNonInteractiveProbe(t *testing.T) {
+	ws := "/abs/path with spaces/repos/org/repo/repo_1"
+	img := "vibe-dev"
+	opts := []string{"--gpus all", "--network host"}
+
+	cmd := docker.BuildPreflightRunCommand(ws, img, opts)
+	containerWS := docker.ContainerWorkspacePath(ws)
+
+	checks := []string{
+		"docker run --rm",
+		fmt.Sprintf("-v %q", ws+":"+containerWS),
+		"-w " + containerWS,
+		"-e OPENAI_API_KEY",
+		"-e REMUDA_AGENT",
+		"-e REMUDA_MODEL",
+		"-e GH_TOKEN",
+		"-e GITHUB_TOKEN",
+		"-e GIT_TERMINAL_PROMPT=0",
+		"--gpus all",
+		"--network host",
+		"vibe-dev",
+		"bash -lc 'true'",
+	}
+	for _, want := range checks {
+		require.Contains(t, cmd, want, "docker preflight command missing %q. Got:\n%s", want, cmd)
+	}
+	require.NotContains(t, cmd, "-it")
+	require.NotContains(t, cmd, "--name")
+}
+
 func TestBuildRunCommand_BackticksAreNotExecutedByOuterShell(t *testing.T) {
 	t.Parallel()
 
