@@ -46,10 +46,16 @@ func TestSessionResume(t *testing.T) {
 		sess := mgr.FindSession("org/repo/folder")
 		require.NotNil(t, sess)
 		require.Contains(t, sess.CommandRan, "codex resume --last")
-		require.Contains(t, sess.CommandRan, "REMUDA_AGENT='codex'")
-		require.Contains(t, sess.CommandRan, "export BD_ACTOR='org/repo/folder'")
+		require.NotContains(t, sess.CommandRan, "REMUDA_AGENT=")
+		require.NotContains(t, sess.CommandRan, "export BD_ACTOR=")
 		require.NotContains(t, sess.CommandRan, "export BEADS_DIR=")
 		require.Contains(t, sess.CommandRan, "sleep 3600")
+		value, ok := sessionEnvValue(sess.StartEnv, "REMUDA_AGENT")
+		require.True(t, ok)
+		require.Equal(t, "codex", value)
+		value, ok = sessionEnvValue(sess.StartEnv, "BD_ACTOR")
+		require.True(t, ok)
+		require.Equal(t, "org/repo/folder", value)
 	})
 
 	t.Run("resumes workspace with claude when agent is configured", func(t *testing.T) {
@@ -68,8 +74,28 @@ func TestSessionResume(t *testing.T) {
 		sess := mgr.FindSession("org/repo/folder")
 		require.NotNil(t, sess)
 		require.Contains(t, sess.CommandRan, "claude --continue")
-		require.Contains(t, sess.CommandRan, "REMUDA_AGENT='claude'")
 		require.NotContains(t, sess.CommandRan, "codex resume --last")
+		value, ok := sessionEnvValue(sess.StartEnv, "REMUDA_AGENT")
+		require.True(t, ok)
+		require.Equal(t, "claude", value)
+	})
+
+	t.Run("openai api key override uses start env only", func(t *testing.T) {
+		baseDir, mgr, k := setup(t)
+		workspace := filepath.Join(baseDir, "org", "repo", "folder")
+		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]))
+		err := cli.Run(ctx, []string{"session", "resume", "--openai-api-key", "resume-secret", workspace})
+		require.NoError(t, err)
+
+		sess := mgr.FindSession("org/repo/folder")
+		require.NotNil(t, sess)
+		require.NotContains(t, sess.CommandRan, "resume-secret")
+		require.NotContains(t, sess.CommandRan, "OPENAI_API_KEY=resume-secret")
+		value, ok := sessionEnvValue(sess.StartEnv, "OPENAI_API_KEY")
+		require.True(t, ok)
+		require.Equal(t, "resume-secret", value)
 	})
 
 	t.Run("refuses active workspace", func(t *testing.T) {
@@ -138,8 +164,10 @@ per_repo:
 		sess := mgr.FindSession("org/repo/folder")
 		require.NotNil(t, sess)
 		require.Contains(t, sess.CommandRan, "claude --continue")
-		require.Contains(t, sess.CommandRan, "REMUDA_AGENT='claude'")
 		require.NotContains(t, sess.CommandRan, "codex resume --last")
+		value, ok := sessionEnvValue(sess.StartEnv, "REMUDA_AGENT")
+		require.True(t, ok)
+		require.Equal(t, "claude", value)
 	})
 
 	t.Run("pick respects session.prune.ignore patterns", func(t *testing.T) {

@@ -170,7 +170,7 @@ func TestComposeLaunchCommand_ClaudeYoloSetsSandboxEnv(t *testing.T) {
 	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launchCmd, "-e ANTHROPIC_API_KEY ")
-	require.Contains(t, launchCmd, "-e IS_SANDBOX=1 ")
+	require.Contains(t, launchCmd, "-e IS_SANDBOX ")
 }
 
 func TestComposeLaunchCommand_CodexAgentOmitsClaudeStateMountsAndEnv(t *testing.T) {

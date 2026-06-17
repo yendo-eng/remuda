@@ -139,6 +139,9 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 		ContainerInheritEnv: c.ContainerInheritEnv,
 		RemoteControl:       c.Remote,
 	}
+	if flagExplicit(kctx, "openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
+		cmd.EnvOverrides = map[string]string{"OPENAI_API_KEY": c.OpenAIAPIKey}
+	}
 	cmd.ExistingWorkspace = c.In
 
 	usePromptIDs := c.effectiveUsePromptNames()
