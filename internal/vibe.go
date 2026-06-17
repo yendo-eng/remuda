@@ -144,6 +144,9 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 			return errors.Wrap(err, "failed to expand workspace path")
 		}
 		cmd.ExistingWorkspace = expanded
+		if err := k.ensureNoCrossRootWorkspaceDuplicate(cmd.ExistingWorkspace); err != nil {
+			return err
+		}
 
 		workspace = cmd.ExistingWorkspace
 	} else {

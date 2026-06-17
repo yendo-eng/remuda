@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -75,11 +76,11 @@ func (k Remuda) isTmpWorkspace(workspace string) bool {
 	return tmp != "" && pathWithin(tmp, workspace)
 }
 
-// ensureNoCrossRootWorkspaceDuplicate rejects ambiguous workspace identities
-// where the same org/repo/folder exists under multiple managed roots. Session
-// names intentionally remain org/repo/folder, so allowing both roots to contain
-// the same relative workspace would make active-session and cleanup lookups
-// resolve the wrong path.
+// ensureNoCrossRootWorkspaceDuplicate rejects ambiguous workspace identities.
+// Session names intentionally remain org/repo/folder, and tmux can normalize
+// dots to underscores, so any existing sibling whose folder token resolves to
+// the same session token would make active-session and cleanup lookups resolve
+// the wrong path.
 func (k Remuda) ensureNoCrossRootWorkspaceDuplicate(workspace string) error {
 	org, repo, folder := k.splitWorkspaceAnyRoot(workspace)
 	if org == "" || repo == "" || folder == "" {
@@ -93,20 +94,32 @@ func (k Remuda) ensureNoCrossRootWorkspaceDuplicate(workspace string) error {
 	targetAbs = filepath.Clean(targetAbs)
 
 	var conflicts []string
+	targetToken := session.SanitizeTmuxSessionToken(folder)
 	for _, root := range k.workspaceRoots() {
 		if strings.TrimSpace(root) == "" {
 			continue
 		}
-		candidate := filepath.Join(root, org, repo, folder)
-		candidateAbs, err := filepath.Abs(candidate)
+		repoDir := filepath.Join(root, org, repo)
+		entries, err := os.ReadDir(repoDir)
 		if err != nil {
-			candidateAbs = candidate
-		}
-		candidateAbs = filepath.Clean(candidateAbs)
-		if candidateAbs == targetAbs {
 			continue
 		}
-		if st, err := os.Stat(candidateAbs); err == nil && st.IsDir() {
+		for _, e := range entries {
+			if !e.IsDir() || e.Name() == ".repo_cache" {
+				continue
+			}
+			if session.SanitizeTmuxSessionToken(e.Name()) != targetToken {
+				continue
+			}
+			candidate := filepath.Join(repoDir, e.Name())
+			candidateAbs, err := filepath.Abs(candidate)
+			if err != nil {
+				candidateAbs = candidate
+			}
+			candidateAbs = filepath.Clean(candidateAbs)
+			if candidateAbs == targetAbs {
+				continue
+			}
 			conflicts = append(conflicts, candidateAbs)
 		}
 	}

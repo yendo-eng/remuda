@@ -144,7 +144,7 @@ func (s SessionInfo) WorkspacePathFromRoots(roots ...string) (string, error) {
 				if !e.IsDir() {
 					continue
 				}
-				if sanitizeTmuxSessionToken(e.Name()) == folder {
+				if SanitizeTmuxSessionToken(e.Name()) == folder {
 					return filepath.Join(repoDir, e.Name()), nil
 				}
 			}
@@ -154,10 +154,4 @@ func (s SessionInfo) WorkspacePathFromRoots(roots ...string) (string, error) {
 	// Best effort: return the direct mapping under the first root even if it does
 	// not exist so callers can diagnose missing directories consistently.
 	return filepath.Join(roots[0], org, repo, folder), nil
-}
-
-// sanitizeTmuxSessionToken mirrors tmux's tendency to map '.' to '_' in session
-// names. Keep this local to the session package to avoid import cycles.
-func sanitizeTmuxSessionToken(s string) string {
-	return strings.ReplaceAll(s, ".", "_")
 }

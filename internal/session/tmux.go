@@ -53,7 +53,7 @@ func (m *defaultTmuxManager) resolveSessionName(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sanitizedTarget := sanitizeTmuxSessionToken(target)
+	sanitizedTarget := SanitizeTmuxSessionToken(target)
 	for _, s := range sessions {
 		if s.Name == target {
 			return s.Name, nil
@@ -65,7 +65,7 @@ func (m *defaultTmuxManager) resolveSessionName(name string) (string, error) {
 		}
 	}
 	for _, s := range sessions {
-		if sanitizeTmuxSessionToken(s.Name) == sanitizedTarget {
+		if SanitizeTmuxSessionToken(s.Name) == sanitizedTarget {
 			return s.Name, nil
 		}
 	}

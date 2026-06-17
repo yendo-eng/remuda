@@ -101,6 +101,32 @@ func TestCloneRejectsCrossRootDuplicateWorkspaceName(t *testing.T) {
 	require.ErrorContains(t, err, filepath.Join(reposBase))
 }
 
+func TestCloneRejectsCrossRootDuplicateWorkspaceNameAfterTmuxNormalization(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	reposBase := filepath.Join(t.TempDir(), "repos")
+	tmpBase := filepath.Join(t.TempDir(), "tmp-repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{
+		ReposBaseDir: reposBase,
+		TmpBaseDir:   tmpBase,
+	}))
+
+	org, repo, err := github.ParseRepo(remoteURL)
+	require.NoError(t, err)
+	persistentPath := filepath.Join(reposBase, org, repo, "v1_2")
+	require.NoError(t, os.MkdirAll(persistentPath, 0o755))
+
+	_, err = h.Remuda.Clone(internal.CloneCommand{
+		Name:    "v1.2",
+		RepoURL: remoteURL,
+		Tmp:     true,
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "ambiguous across workspace roots")
+	require.ErrorContains(t, err, persistentPath)
+}
+
 func TestSessionResumeRejectsCrossRootDuplicateWorkspaceName(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
@@ -120,6 +146,28 @@ func TestSessionResumeRejectsCrossRootDuplicateWorkspaceName(t *testing.T) {
 	require.NoError(t, os.MkdirAll(tmpPath, 0o755))
 
 	res := h.Run("session", "resume", tmpPath)
+	require.Error(t, res.Err, res.String())
+	require.ErrorContains(t, res.Err, "ambiguous across workspace roots")
+	require.ErrorContains(t, res.Err, persistentPath)
+}
+
+func TestVibeInRejectsCrossRootDuplicateWorkspaceName(t *testing.T) {
+	t.Parallel()
+	reposBase := filepath.Join(t.TempDir(), "repos")
+	tmpBase := filepath.Join(t.TempDir(), "tmp-repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{
+		ReposBaseDir: reposBase,
+		TmpBaseDir:   tmpBase,
+	}))
+	h.SetEnv("REMUDA_MODEL", "")
+
+	persistentPath := filepath.Join(reposBase, "org", "repo", "v1_2")
+	tmpPath := filepath.Join(tmpBase, "org", "repo", "v1.2")
+	require.NoError(t, os.MkdirAll(persistentPath, 0o755))
+	require.NoError(t, os.MkdirAll(tmpPath, 0o755))
+
+	res := h.Run("vibe", "--in", tmpPath, "--no-container", "--agent-cmd", "true", "prompt")
 	require.Error(t, res.Err, res.String())
 	require.ErrorContains(t, res.Err, "ambiguous across workspace roots")
 	require.ErrorContains(t, res.Err, persistentPath)

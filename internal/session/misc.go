@@ -18,6 +18,12 @@ func SessionNameFromWorkspaceName(workspaceName string) string {
 	return filepath.Base(cleaned)
 }
 
+// SanitizeTmuxSessionToken mirrors tmux's tendency to map dots to underscores
+// in session names on some systems.
+func SanitizeTmuxSessionToken(s string) string {
+	return strings.ReplaceAll(s, ".", "_")
+}
+
 func FZFPreviewCommand(mgr SessionManager) string {
 	switch mgr.(type) {
 	case *defaultTmuxManager:
