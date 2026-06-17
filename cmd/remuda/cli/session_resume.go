@@ -14,6 +14,7 @@ import (
 type SessionResumeCmd struct {
 	SessionLaunchOptions `embed:""`
 	VibeContainerOptions `embed:""`
+	APIKeyOptions        `embed:""`
 
 	WorkspaceDir string `arg:"" optional:"" name:"workspace-dir" help:"Workspace directory to resume." predictor:"workspace-dir"`
 	Pick         bool   `name:"pick" help:"Use fzf to interactively select an inactive workspace to resume."`
@@ -94,7 +95,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 	reasoningLevel := resolveSessionResumeReasoningLevel(ctx.ConfigFile, envFromContext(ctx))
 	agentName := resolveSessionResumeAgent(ctx.ConfigFile, envFromContext(ctx))
 
-	return ctx.Remuda.SessionResume(ctx.ctx, internal.SessionResumeCommand{
+	cmd := internal.SessionResumeCommand{
 		Workspace:           selectedAbs,
 		Agent:               agentName,
 		Detached:            c.DetachedMode(),
@@ -105,7 +106,12 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 		ContainerName:       c.ContainerName,
 		ContainerOpts:       c.ContainerOpt,
 		ContainerInheritEnv: c.ContainerInheritEnv,
-	})
+	}
+	if flagExplicit(kctx, "openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
+		cmd.EnvOverrides = map[string]string{"OPENAI_API_KEY": c.OpenAIAPIKey}
+	}
+
+	return ctx.Remuda.SessionResume(ctx.ctx, cmd)
 }
 
 func applyPerRepoOverlaysForPickedSessionResume(ctx Context, kctx *kong.Context, workspace string) error {

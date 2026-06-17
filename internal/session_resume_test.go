@@ -16,6 +16,7 @@ type fakeResumeSessionManager struct {
 	sessions []session.SessionInfo
 
 	started  map[string]string
+	startEnv map[string][]string
 	attached []string
 	killed   []string
 }
@@ -27,6 +28,18 @@ func (f *fakeResumeSessionManager) Start(sessionName, command string) error {
 		f.started = map[string]string{}
 	}
 	f.started[sessionName] = command
+	return nil
+}
+
+func (f *fakeResumeSessionManager) StartWithEnv(sessionName, command string, envValues []string) error {
+	if f.started == nil {
+		f.started = map[string]string{}
+	}
+	if f.startEnv == nil {
+		f.startEnv = map[string][]string{}
+	}
+	f.started[sessionName] = command
+	f.startEnv[sessionName] = append([]string{}, envValues...)
 	return nil
 }
 
@@ -81,10 +94,16 @@ func TestSessionResumeCodex_StartsDetachedSession(t *testing.T) {
 	cmd, ok := mgr.started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "codex resume --last")
-	require.Contains(t, cmd, "REMUDA_AGENT='codex'")
-	require.Contains(t, cmd, "export BD_ACTOR='org/repo/folder'")
+	require.NotContains(t, cmd, "REMUDA_AGENT=")
+	require.NotContains(t, cmd, "export BD_ACTOR=")
 	require.NotContains(t, cmd, "export BEADS_DIR=")
 	require.Contains(t, cmd, "sleep 3600")
+	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_AGENT")
+	require.True(t, ok)
+	require.Equal(t, "codex", value)
+	value, ok = envValue(mgr.startEnv["org/repo/folder"], "BD_ACTOR")
+	require.True(t, ok)
+	require.Equal(t, "org/repo/folder", value)
 }
 
 func TestSessionResume_ClaudeStartsDetachedSession(t *testing.T) {
@@ -113,7 +132,10 @@ func TestSessionResume_ClaudeStartsDetachedSession(t *testing.T) {
 	require.True(t, ok)
 	require.Contains(t, cmd, "claude --continue")
 	require.NotContains(t, cmd, "codex resume --last")
-	require.Contains(t, cmd, "REMUDA_AGENT='claude'")
+	require.NotContains(t, cmd, "REMUDA_AGENT=")
+	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_AGENT")
+	require.True(t, ok)
+	require.Equal(t, "claude", value)
 }
 
 func TestSessionResume_ClaudeYoloAndReasoningFlags(t *testing.T) {
@@ -176,7 +198,11 @@ func TestSessionResume_DetachedTmuxExportsImplicitAnthropicForClaudeContainer(t 
 
 	cmd, ok := mgr.started["org/repo/folder"]
 	require.True(t, ok)
-	require.Contains(t, cmd, "export ANTHROPIC_API_KEY='anthropic-secret';")
+	require.Contains(t, cmd, "-e ANTHROPIC_API_KEY")
+	require.NotContains(t, cmd, "export ANTHROPIC_API_KEY=")
+	value, ok := envValue(mgr.startEnv["org/repo/folder"], "ANTHROPIC_API_KEY")
+	require.True(t, ok)
+	require.Equal(t, "anthropic-secret", value)
 }
 
 func TestSessionResume_ContainerRequiresExplicitImage(t *testing.T) {
@@ -230,7 +256,10 @@ func TestSessionResume_UnknownAgentFallsBackToCodex(t *testing.T) {
 	cmd, ok := mgr.started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "codex resume --last")
-	require.Contains(t, cmd, "REMUDA_AGENT='codex'")
+	require.NotContains(t, cmd, "REMUDA_AGENT=")
+	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_AGENT")
+	require.True(t, ok)
+	require.Equal(t, "codex", value)
 }
 
 func TestSessionResumeCodex_RefusesActiveWorkspace(t *testing.T) {

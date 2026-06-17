@@ -80,13 +80,16 @@ type VibeCommand struct {
 
 	// Enable agent remote-control launch behavior where available.
 	RemoteControl bool
+
+	// Environment values to apply to the launched agent without embedding them
+	// in the shell command string.
+	EnvOverrides map[string]string
 }
 
 func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	logger := logging.FromContext(ctx)
 	k.SetLogger(logger)
 	logger.Debug().Str("agent", cmd.Agent).Msg("starting vibe command")
-	envProvider := k.envProvider()
 
 	// figure out agent configuration
 	cmd.Model = strings.TrimSpace(cmd.Model)
@@ -174,11 +177,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	})
 
 	agentName := agent.Name()
-	agentCmd := agent.Command(prompt)
-	launchCmd, containerImage, err := k.composeLaunchCommand(cmd, workspaceAbs, agentCmd, sessionName, containerName, envProvider)
-	if err != nil {
-		return err
-	}
+	containerImage := strings.TrimSpace(cmd.ContainerName)
 
 	logctx := launchingAgentLogContext{
 		Workspace:      workspace,
@@ -199,61 +198,23 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	}
 	logLaunchingAgent(logger, logctx)
 
-	if !cmd.Detached {
-		envPrefix := remudaAgentEnvPrefix(agentName, cmd.Model)
-		execCmd := util.CmdWithLogger(logger, "bash", "-lc", envPrefix+" "+launchCmd)
-		execCmd.Dir = workspaceAbs
-		execCmd.Env = append(env.Environ(envProvider), "BD_ACTOR="+sessionName)
-		execCmd.Stdin = k.IO.In
-		execCmd.Stdout = k.IO.Out
-		execCmd.Stderr = k.IO.Err
-		return execCmd.Run()
-	}
-
-	// When --force is supplied, also delete any existing session with the same name
-	// so we can restart cleanly.
-	if cmd.Clone.Force {
-		if _, err := k.Session.Find(sessionName); err == nil {
-			logger.Debug().Str("session", sessionName).Msg("existing session found; killing due to --force")
-			if err := k.Session.Kill(sessionName); err != nil {
-				return errors.Wrapf(err, "killing existing session %q", sessionName)
-			}
-		} else if !errors.Is(err, session.ErrSessionNotFound) {
-			return errors.Wrapf(err, "checking for existing session %q", sessionName)
-		}
-	}
-
-	envPrefix := remudaAgentEnvPrefix(agentName, cmd.Model)
-	startCmd := fmt.Sprintf("cd %s && %s %s", shellSingleQuote(workspaceAbs), envPrefix, launchCmd)
-	// Set BD_ACTOR to the session name so beads issue tracking knows which session/agent is acting.
-	startCmd = fmt.Sprintf("export BD_ACTOR=%s; %s", shellSingleQuote(sessionName), startCmd)
-	// tmux sessions run inside a long-lived server whose environment can be stale,
-	// so explicitly export inherited env vars (plus implicit forwards such as
-	// ANTHROPIC_API_KEY for Claude/Bash container runs) to ensure `docker run -e
-	// <NAME>` sees the expected value. Avoid doing this for zellij since it types
-	// commands into a visible pane.
-	tmuxExportEnv := tmuxContainerEnvNames(agentName, cmd.ContainerInheritEnv)
-	if cmd.Container && len(tmuxExportEnv) > 0 && k.Session != nil && k.Session.Name() == string(session.SessionManagerTmux) {
-		for _, name := range tmuxExportEnv {
-			val, ok := envProvider.LookupEnv(name)
-			if !ok {
-				startCmd = fmt.Sprintf("unset %s; %s", name, startCmd)
-				continue
-			}
-			startCmd = fmt.Sprintf("export %s=%s; %s", name, shellSingleQuote(val), startCmd)
-		}
-	}
-	// Wrap with sleep for crash recovery - keeps session alive for inspection after agent exits.
-	startCmd = wrapWithCrashRecoverySleep(startCmd)
-	if err := startSessionWithEnv(k.Session, sessionName, startCmd, envProvider); err != nil {
-		return err
-	}
-
-	if cmd.Attach {
-		return k.SessionAttach(sessionName)
-	}
-
-	return nil
+	_, err = k.launchAgentSession(agentLaunchCommand{
+		Workspace:           workspaceAbs,
+		SessionName:         sessionName,
+		AgentName:           agentName,
+		Model:               cmd.Model,
+		Command:             agent.Command(prompt),
+		Detached:            cmd.Detached,
+		Attach:              cmd.Attach,
+		ReplaceExisting:     cmd.Clone.Force,
+		Container:           cmd.Container,
+		ContainerImage:      cmd.ContainerName,
+		ContainerOpts:       cmd.ContainerOpts,
+		ContainerInheritEnv: cmd.ContainerInheritEnv,
+		Yolo:                cmd.Yolo,
+		EnvOverrides:        cmd.EnvOverrides,
+	})
+	return err
 }
 
 func checkModelSupported(logger zerolog.Logger, agent agentlauncher.AgentLauncher, model string) {
@@ -321,8 +282,10 @@ func (k Remuda) composeLaunchCommand(
 		}
 		containerOpts = append(containerOpts, inheritOpts...)
 	}
-	// Set BD_ACTOR to the session name so beads issue tracking knows which session/agent is acting.
-	containerOpts = append([]string{fmt.Sprintf("-e BD_ACTOR=%s", shellSingleQuote(sessionName))}, containerOpts...)
+	containerOpts = append([]string{"-e BD_ACTOR"}, containerOpts...)
+	if _, ok := envProvider.LookupEnv("BEADS_DIR"); ok {
+		containerOpts = append(containerOpts, "-e BEADS_DIR")
+	}
 	if mountOpt, ok := docker.ExtraGitMountForWorktree(absWS); ok {
 		containerOpts = append([]string{mountOpt}, containerOpts...)
 	}
@@ -335,7 +298,7 @@ func (k Remuda) composeLaunchCommand(
 		containerOpts = append(containerOpts, "-e ANTHROPIC_API_KEY")
 	}
 	if strings.EqualFold(cmd.Agent, "claude") && cmd.Yolo {
-		containerOpts = append(containerOpts, "-e IS_SANDBOX=1")
+		containerOpts = append(containerOpts, "-e IS_SANDBOX")
 	}
 
 	authOpts := docker.BuildContainerAuthOptsWithProvider(envProvider)

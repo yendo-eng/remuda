@@ -21,6 +21,7 @@ type MockSessionManager struct {
 type Session struct {
 	session.SessionInfo
 	CommandRan string
+	StartEnv   []string
 }
 
 func (f *MockSessionManager) FindSession(name string) *Session {
@@ -44,6 +45,18 @@ func (f *MockSessionManager) Start(sessionName, command string) error {
 			CreatedAt: time.Now(),
 		},
 		CommandRan: command,
+	})
+	return nil
+}
+
+func (f *MockSessionManager) StartWithEnv(sessionName, command string, env []string) error {
+	f.sessions = append(f.sessions, Session{
+		SessionInfo: session.SessionInfo{
+			Name:      sessionName,
+			CreatedAt: time.Now(),
+		},
+		CommandRan: command,
+		StartEnv:   append([]string{}, env...),
 	})
 	return nil
 }
