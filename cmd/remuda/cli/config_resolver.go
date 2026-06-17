@@ -579,6 +579,9 @@ func findSessionResumeWorkspaceArg(args []string) string {
 	if subcommand != "resume" {
 		return ""
 	}
+	if findBoolFlag(args, "pick") {
+		return ""
+	}
 
 	subIndex := -1
 	for i := cmdIndex + 1; i < len(args); i++ {
@@ -637,11 +640,26 @@ func findSessionResumeWorkspaceArg(args []string) string {
 
 func sessionResumeFlagTakesValue(flag string) bool {
 	switch flag {
-	case "--container-name", "--container-opt", "--container-inherit-env", "--session-manager", "--profile":
+	case "--agent", "--model", "--reasoning-level", "--agent-cmd",
+		"--jira", "--jira-endpoint", "--jira-user", "--jira-token",
+		"--slack-thread", "--gh-issue", "--use", "--no-use",
+		"--openai-api-key",
+		"--container-name", "--container-opt", "--container-inherit-env",
+		"--session-manager", "--profile":
 		return true
 	default:
 		return false
 	}
+}
+
+func findBoolFlag(args []string, name string) bool {
+	flag := "--" + strings.TrimSpace(name)
+	for _, arg := range args {
+		if arg == flag {
+			return true
+		}
+	}
+	return false
 }
 
 func findFlagValue(args []string, name string) (string, bool) {

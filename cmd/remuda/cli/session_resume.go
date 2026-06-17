@@ -12,11 +12,13 @@ import (
 
 // SessionResumeCmd resumes the most recent supported agent session in an inactive workspace.
 type SessionResumeCmd struct {
-	SessionLaunchOptions `embed:""`
-	VibeContainerOptions `embed:""`
-	APIKeyOptions        `embed:""`
+	AgentSessionOptions       `embed:""`
+	ContextEngineeringOptions `embed:""`
+	APIKeyOptions             `embed:""`
+	VibeContainerOptions      `embed:""`
 
 	WorkspaceDir string `arg:"" optional:"" name:"workspace-dir" help:"Workspace directory to resume." predictor:"workspace-dir"`
+	Prompt       string `arg:"" optional:"" name:"prompt" help:"Prompt to send after resuming. Use '-' to read from STDIN."`
 	Pick         bool   `name:"pick" help:"Use fzf to interactively select an inactive workspace to resume."`
 	Profile      string `name:"profile" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
 	Yolo         bool   `name:"yolo" env:"REMUDA_YOLO" negatable:"" help:"Ignore sandboxing/approvals for supported agents (Codex/Claude)."`
@@ -92,26 +94,62 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
 		return err
 	}
-	reasoningLevel := resolveSessionResumeReasoningLevel(ctx.ConfigFile, envFromContext(ctx))
-	agentName := resolveSessionResumeAgent(ctx.ConfigFile, envFromContext(ctx))
+	if resolved, _, err := resolvePromptFromStdin(ctx.Remuda.IO.In, c.Prompt); err != nil {
+		return err
+	} else {
+		c.Prompt = resolved
+	}
+	if strings.TrimSpace(c.Prompt) == "" {
+		c.Prompt = ""
+	}
+	var invocationArgs []string
+	if kctx != nil {
+		invocationArgs = kctx.Args
+	}
+	if err := c.validatePromptUsage(c.Prompt, invocationArgs); err != nil {
+		return err
+	}
 
-	cmd := internal.SessionResumeCommand{
+	agentName := strings.TrimSpace(c.Agent)
+	if !flagExplicit(kctx, "agent") {
+		agentName = resolveSessionResumeAgent(ctx.ConfigFile, envFromContext(ctx))
+	}
+
+	prompt := c.Prompt
+	if prompt != "" {
+		addedContext, err := c.AddedPromptContext(ctx, PromptContextInput{
+			GitHubRepoSlug: repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, selectedAbs),
+		})
+		if err != nil {
+			return errors.Wrap(err, "adding prompt context")
+		}
+		if len(addedContext) > 0 {
+			var fullPrompt strings.Builder
+			for _, p := range addedContext {
+				fullPrompt.WriteString(p)
+				fullPrompt.WriteString("\n")
+			}
+			fullPrompt.WriteString(prompt)
+			prompt = fullPrompt.String()
+		}
+	}
+
+	return ctx.Remuda.SessionResume(ctx.ctx, internal.SessionResumeCommand{
 		Workspace:           selectedAbs,
 		Agent:               agentName,
+		Model:               c.Model,
+		AgentCmd:            c.AgentCmd,
+		Prompt:              prompt,
 		Detached:            c.DetachedMode(),
 		Attach:              c.Attach,
 		Yolo:                c.Yolo,
-		ReasoningLevel:      reasoningLevel,
+		ReasoningLevel:      c.ReasoningLevel,
+		OpenAIAPIKey:        c.OpenAIAPIKey,
 		Container:           c.Container,
 		ContainerName:       c.ContainerName,
 		ContainerOpts:       c.ContainerOpt,
 		ContainerInheritEnv: c.ContainerInheritEnv,
-	}
-	if flagExplicit(kctx, "openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
-		cmd.EnvOverrides = map[string]string{"OPENAI_API_KEY": c.OpenAIAPIKey}
-	}
-
-	return ctx.Remuda.SessionResume(ctx.ctx, cmd)
+	})
 }
 
 func applyPerRepoOverlaysForPickedSessionResume(ctx Context, kctx *kong.Context, workspace string) error {
