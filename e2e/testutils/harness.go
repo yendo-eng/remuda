@@ -276,12 +276,8 @@ func (h *Harness) RunOK(args ...string) CLIRunResult {
 func (h *Harness) SetEnv(key, value string) {
 	h.t.Helper()
 	h.Env[key] = value
-	if provider, ok := h.Remuda.Env.(env.StaticProvider); ok {
-		if provider.Values == nil {
-			provider.Values = map[string]string{}
-			h.Remuda.Env = provider
-		}
-		provider.Values[key] = value
+	if setter, ok := h.Remuda.Env.(env.Setter); ok {
+		setter.Setenv(key, value)
 	}
 }
 

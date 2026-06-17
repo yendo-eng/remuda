@@ -48,6 +48,9 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	if err := k.validateWorkspace(workspaceAbs); err != nil {
 		return errors.Wrapf(err, "invalid workspace %q", workspaceAbs)
 	}
+	if err := k.ensureNoCrossRootWorkspaceDuplicate(workspaceAbs); err != nil {
+		return err
+	}
 	if err := k.ensureWorkspaceInactive(workspaceAbs); err != nil {
 		return err
 	}
@@ -57,7 +60,7 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	agentName := normalizeSessionResumeAgent(cmd.Agent)
 
 	agentCmd := sessionResumeCommandForAgent(agentName, cmd.Yolo, cmd.ReasoningLevel)
-	launchCmd, _, err := k.composeLaunchCommand(
+	launch, err := k.composeLaunchCommands(
 		VibeCommand{
 			Agent:               agentName,
 			Detached:            cmd.Detached,
@@ -77,6 +80,7 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	if err != nil {
 		return err
 	}
+	launchCmd := launch.Command
 
 	if !cmd.Detached {
 		envPrefix := remudaAgentEnvPrefix(agentName, "")
@@ -85,6 +89,12 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		execCmd.Env = append(env.Environ(envProvider), "BD_ACTOR="+sessionName)
 		execCmd.Stdin = k.IO.In
 		return k.runForegroundAgent(execCmd, cmd.Container, workspaceAbs)
+	}
+
+	if launch.DetachedPreflightCommand != "" && k.isTmpWorkspace(workspaceAbs) {
+		if err := k.runDetachedContainerPreflight(launch.DetachedPreflightCommand, workspaceAbs, envProvider); err != nil {
+			return err
+		}
 	}
 
 	envPrefix := remudaAgentEnvPrefix(agentName, "")

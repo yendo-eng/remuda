@@ -82,6 +82,18 @@ type VibeCommand struct {
 	RemoteControl bool
 }
 
+type composedLaunchCommand struct {
+	Command                  string
+	ContainerImage           string
+	DetachedPreflightCommand string
+}
+
+type containerRunSpec struct {
+	WorkspaceAbs string
+	Image        string
+	Options      []string
+}
+
 func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	logger := logging.FromContext(ctx)
 	k.SetLogger(logger)
@@ -175,10 +187,12 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 
 	agentName := agent.Name()
 	agentCmd := agent.Command(prompt)
-	launchCmd, containerImage, err := k.composeLaunchCommand(cmd, workspaceAbs, agentCmd, sessionName, containerName, envProvider)
+	launch, err := k.composeLaunchCommands(cmd, workspaceAbs, agentCmd, sessionName, containerName, envProvider)
 	if err != nil {
 		return err
 	}
+	launchCmd := launch.Command
+	containerImage := launch.ContainerImage
 
 	logctx := launchingAgentLogContext{
 		Workspace:      workspace,
@@ -206,6 +220,12 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		execCmd.Env = append(env.Environ(envProvider), "BD_ACTOR="+sessionName)
 		execCmd.Stdin = k.IO.In
 		return k.runForegroundAgent(execCmd, cmd.Container, workspaceAbs)
+	}
+
+	if launch.DetachedPreflightCommand != "" && k.isTmpWorkspace(workspaceAbs) {
+		if err := k.runDetachedContainerPreflight(launch.DetachedPreflightCommand, workspaceAbs, envProvider); err != nil {
+			return err
+		}
 	}
 
 	// When --force is supplied, also delete any existing session with the same name
@@ -288,20 +308,52 @@ func (k Remuda) composeLaunchCommand(
 	workspace, agentCmd, sessionName, containerName string,
 	envProvider env.Provider,
 ) (string, string, error) {
-	logger := k.logger()
+	launch, err := k.composeLaunchCommands(cmd, workspace, agentCmd, sessionName, containerName, envProvider)
+	if err != nil {
+		return "", "", err
+	}
+	return launch.Command, launch.ContainerImage, nil
+}
+
+func (k Remuda) composeLaunchCommands(
+	cmd VibeCommand,
+	workspace, agentCmd, sessionName, containerName string,
+	envProvider env.Provider,
+) (composedLaunchCommand, error) {
 	if !cmd.Container {
-		return agentCmd, "", nil
+		return composedLaunchCommand{Command: agentCmd}, nil
 	}
 
+	spec, err := k.containerRunSpec(cmd, workspace, sessionName, envProvider)
+	if err != nil {
+		return composedLaunchCommand{}, err
+	}
+
+	containerAgent := util.SSHRewriteSnippet() + "\n" + agentCmd
+	launchCmd := docker.BuildRunCommand(spec.WorkspaceAbs, spec.Image, spec.Options, containerAgent, false, containerName)
+	preflightCmd := docker.BuildPreflightRunCommand(spec.WorkspaceAbs, spec.Image, spec.Options)
+	return composedLaunchCommand{
+		Command:                  launchCmd,
+		ContainerImage:           spec.Image,
+		DetachedPreflightCommand: preflightCmd,
+	}, nil
+}
+
+func (k Remuda) containerRunSpec(
+	cmd VibeCommand,
+	workspace, sessionName string,
+	envProvider env.Provider,
+) (containerRunSpec, error) {
+	logger := k.logger()
 	containerImage := strings.TrimSpace(cmd.ContainerName)
 	if containerImage == "" {
-		return "", "", errors.New(
+		return containerRunSpec{}, errors.New(
 			"container mode requires an explicit image; pass --container-name or configure defaults.container.image (including profiles.<name>.container.image or per_repo.<slug>.defaults.container.image)",
 		)
 	}
 
 	if err := k.Docker.CheckRunning(); err != nil {
-		return "", "", err
+		return containerRunSpec{}, err
 	}
 
 	github.EnsureTokenInEnvWithProvider(envProvider)
@@ -315,7 +367,7 @@ func (k Remuda) composeLaunchCommand(
 	if len(cmd.ContainerInheritEnv) > 0 {
 		inheritOpts, err := containerInheritEnvOpts(cmd.ContainerInheritEnv)
 		if err != nil {
-			return "", "", err
+			return containerRunSpec{}, err
 		}
 		containerOpts = append(containerOpts, inheritOpts...)
 	}
@@ -344,9 +396,11 @@ func (k Remuda) composeLaunchCommand(
 	if strings.EqualFold(cmd.Agent, "claude") || strings.EqualFold(cmd.Agent, "bash") {
 		allOpts = append(allOpts, docker.BuildClaudeStateMountOptsWithLogger(logger, envProvider)...)
 	}
-	containerAgent := util.SSHRewriteSnippet() + "\n" + agentCmd
-	launchCmd := docker.BuildRunCommand(absWS, containerImage, allOpts, containerAgent, false, containerName)
-	return launchCmd, containerImage, nil
+	return containerRunSpec{
+		WorkspaceAbs: absWS,
+		Image:        containerImage,
+		Options:      allOpts,
+	}, nil
 }
 
 func containerInheritEnvOpts(names []string) ([]string, error) {

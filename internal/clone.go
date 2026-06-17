@@ -101,6 +101,10 @@ func (k Remuda) Clone(
 		Msg("cloning into directory")
 
 	if err := withRepoMutationLock(cacheBaseDir, func() error {
+		if err := k.ensureNoCrossRootWorkspaceDuplicate(target); err != nil {
+			return err
+		}
+
 		// Ensure cache present/updated.
 		if cmd.SkipCacheRefresh {
 			logger.Info().Str("cacheDir", cacheDir).Msg("skipping repo cache refresh")

@@ -74,6 +74,57 @@ func TestCloneTmpForcesLinkedWorktreeOverFullClone(t *testing.T) {
 	require.False(t, info.IsDir(), "--tmp must override --full-clone and use a linked worktree")
 }
 
+func TestCloneRejectsCrossRootDuplicateWorkspaceName(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	reposBase := filepath.Join(t.TempDir(), "repos")
+	tmpBase := filepath.Join(t.TempDir(), "tmp-repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{
+		ReposBaseDir: reposBase,
+		TmpBaseDir:   tmpBase,
+	}))
+
+	_, err := h.Remuda.Clone(internal.CloneCommand{
+		Name:    "wk",
+		RepoURL: remoteURL,
+	})
+	require.NoError(t, err)
+
+	_, err = h.Remuda.Clone(internal.CloneCommand{
+		Name:    "wk",
+		RepoURL: remoteURL,
+		Tmp:     true,
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "ambiguous across workspace roots")
+	require.ErrorContains(t, err, filepath.Join(reposBase))
+}
+
+func TestSessionResumeRejectsCrossRootDuplicateWorkspaceName(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	reposBase := filepath.Join(t.TempDir(), "repos")
+	tmpBase := filepath.Join(t.TempDir(), "tmp-repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{
+		ReposBaseDir: reposBase,
+		TmpBaseDir:   tmpBase,
+	}))
+
+	org, repo, err := github.ParseRepo(remoteURL)
+	require.NoError(t, err)
+	persistentPath := filepath.Join(reposBase, org, repo, "wk")
+	tmpPath := filepath.Join(tmpBase, org, repo, "wk")
+	require.NoError(t, os.MkdirAll(persistentPath, 0o755))
+	require.NoError(t, os.MkdirAll(tmpPath, 0o755))
+
+	res := h.Run("session", "resume", tmpPath)
+	require.Error(t, res.Err, res.String())
+	require.ErrorContains(t, res.Err, "ambiguous across workspace roots")
+	require.ErrorContains(t, res.Err, persistentPath)
+}
+
 // Temp workspaces are hidden from workspaces list / session inactive by default
 // and surfaced with --include-tmp.
 func TestTmpWorkspacesHiddenUnlessIncludeTmp(t *testing.T) {

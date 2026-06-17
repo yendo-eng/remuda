@@ -135,6 +135,44 @@ func BuildRunCommand(
 	return b.String()
 }
 
+// BuildPreflightRunCommand composes a non-interactive docker run command that
+// exercises the same workspace bind mount and caller-supplied Docker options as
+// a real containerized session, then exits immediately. It is used before
+// detached launches so mount/file-sharing failures surface before Remuda returns
+// success to the caller.
+func BuildPreflightRunCommand(workspaceAbs, image string, opts []string) string {
+	containerWS := ContainerWorkspacePath(workspaceAbs)
+
+	var b strings.Builder
+	b.WriteString("docker run --rm ")
+	b.WriteString("-v \"")
+	b.WriteString(workspaceAbs)
+	b.WriteString(":")
+	b.WriteString(containerWS)
+	b.WriteString("\" ")
+	b.WriteString("-w ")
+	b.WriteString(containerWS)
+	b.WriteString(" ")
+	b.WriteString("-e OPENAI_API_KEY ")
+	b.WriteString("-e REMUDA_AGENT ")
+	b.WriteString("-e REMUDA_MODEL ")
+	b.WriteString("-e GH_TOKEN ")
+	b.WriteString("-e GITHUB_TOKEN ")
+	b.WriteString("-e GIT_TERMINAL_PROMPT=0 ")
+	for _, o := range opts {
+		if strings.TrimSpace(o) == "" {
+			continue
+		}
+		b.WriteString(o)
+		b.WriteString(" ")
+	}
+	b.WriteString(image)
+	b.WriteString(" ")
+	b.WriteString("bash -lc ")
+	b.WriteString(shellSingleQuote("true"))
+	return b.String()
+}
+
 func shellSingleQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

@@ -50,3 +50,26 @@ func TestTailBuffer_RetainsOnlyLastBytes(t *testing.T) {
 	_, _ = b2.Write([]byte("abcdefgh"))
 	require.Equal(t, "efgh", b2.String())
 }
+
+func TestRunDetachedContainerPreflightTranslatesMountDenied(t *testing.T) {
+	tmpBase := filepath.FromSlash("/var/folders/xy/remuda")
+	tmpWS := filepath.Join(tmpBase, "org", "repo", "wk")
+	deniedOutput := `docker: Error response from daemon: Mounts denied: ` +
+		`The path /var/folders/xy/remuda/org/repo/wk is not shared from the host and is not known to Docker.`
+
+	k := Remuda{Config: Config{TmpBaseDir: tmpBase}}
+	err := k.runDetachedContainerPreflight(
+		"printf '%s\n' "+shellSingleQuote(deniedOutput)+" >&2; exit 1",
+		tmpWS,
+		nil,
+	)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "REMUDA_TMP_DIR")
+	require.ErrorContains(t, err, "File Sharing")
+}
+
+func TestRunDetachedContainerPreflightSuccess(t *testing.T) {
+	k := Remuda{}
+	err := k.runDetachedContainerPreflight("true", t.TempDir(), nil)
+	require.NoError(t, err)
+}

@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/yendo-eng/remuda/internal/env"
+	"github.com/yendo-eng/remuda/internal/util"
 )
 
 // runForegroundAgent runs a non-detached agent command, streaming its output to
@@ -30,6 +32,32 @@ func (k Remuda) runForegroundAgent(execCmd *exec.Cmd, container bool, workspaceA
 		}
 	}
 	return err
+}
+
+// runDetachedContainerPreflight runs a short non-interactive docker command
+// before starting a detached session. This catches Docker Desktop file-sharing
+// mount failures while Remuda can still return the actionable error directly to
+// the user instead of burying it in a tmux/zellij pane.
+func (k Remuda) runDetachedContainerPreflight(preflightCmd string, workspaceAbs string, provider env.Provider) error {
+	if strings.TrimSpace(preflightCmd) == "" {
+		return nil
+	}
+
+	execCmd := util.CmdWithEnvAndLogger(k.logger(), env.Environ(provider), "bash", "-c", preflightCmd)
+	out, err := execCmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	output := string(out)
+	if hint := dockerMountDeniedHint(output, workspaceAbs, k.Config.TmpBaseDir); hint != "" {
+		return errors.Wrap(err, hint)
+	}
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return errors.Wrap(err, "container preflight failed")
+	}
+	return errors.Wrapf(err, "container preflight failed: %s", output)
 }
 
 // dockerMountDeniedHint inspects docker output for a file-sharing / mount-denied

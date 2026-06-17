@@ -1,6 +1,9 @@
 package internal
 
 import (
+	"fmt"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -65,4 +68,55 @@ func (k Remuda) cacheDirForWorkspace(workspace string) string {
 	// Fallback for workspaces outside the managed roots (e.g. --in): assume the
 	// cache is a sibling, matching the historical layout.
 	return filepath.Join(filepath.Dir(workspace), ".repo_cache")
+}
+
+func (k Remuda) isTmpWorkspace(workspace string) bool {
+	tmp := strings.TrimSpace(k.Config.TmpBaseDir)
+	return tmp != "" && pathWithin(tmp, workspace)
+}
+
+// ensureNoCrossRootWorkspaceDuplicate rejects ambiguous workspace identities
+// where the same org/repo/folder exists under multiple managed roots. Session
+// names intentionally remain org/repo/folder, so allowing both roots to contain
+// the same relative workspace would make active-session and cleanup lookups
+// resolve the wrong path.
+func (k Remuda) ensureNoCrossRootWorkspaceDuplicate(workspace string) error {
+	org, repo, folder := k.splitWorkspaceAnyRoot(workspace)
+	if org == "" || repo == "" || folder == "" {
+		return nil
+	}
+
+	targetAbs, err := filepath.Abs(workspace)
+	if err != nil {
+		targetAbs = workspace
+	}
+	targetAbs = filepath.Clean(targetAbs)
+
+	var conflicts []string
+	for _, root := range k.workspaceRoots() {
+		if strings.TrimSpace(root) == "" {
+			continue
+		}
+		candidate := filepath.Join(root, org, repo, folder)
+		candidateAbs, err := filepath.Abs(candidate)
+		if err != nil {
+			candidateAbs = candidate
+		}
+		candidateAbs = filepath.Clean(candidateAbs)
+		if candidateAbs == targetAbs {
+			continue
+		}
+		if st, err := os.Stat(candidateAbs); err == nil && st.IsDir() {
+			conflicts = append(conflicts, candidateAbs)
+		}
+	}
+	if len(conflicts) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"workspace %q is ambiguous across workspace roots; duplicate workspace exists at %s; use a different name or remove the duplicate workspace before creating or resuming",
+		path.Join(org, repo, folder),
+		strings.Join(conflicts, ", "),
+	)
 }
