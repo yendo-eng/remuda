@@ -106,9 +106,6 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	}
 
 	envPrefix := remudaAgentEnvPrefix(agentName, model)
-	if openAIAPIKey != "" {
-		envPrefix += " OPENAI_API_KEY=" + shellutil.SingleQuote(openAIAPIKey)
-	}
 
 	if !cmd.Detached {
 		execCmd := util.CmdWithLogger(k.logger(), "bash", "-lc", envPrefix+" "+launchCmd)

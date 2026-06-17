@@ -32,14 +32,13 @@ func (f *fakeResumeSessionManager) Start(sessionName, command string) error {
 }
 
 func (f *fakeResumeSessionManager) StartWithEnv(sessionName, command string, envValues []string) error {
-	if f.started == nil {
-		f.started = map[string]string{}
+	if err := f.Start(sessionName, command); err != nil {
+		return err
 	}
 	if f.startEnv == nil {
 		f.startEnv = map[string][]string{}
 	}
-	f.started[sessionName] = command
-	f.startEnv[sessionName] = append([]string{}, envValues...)
+	f.startEnv[sessionName] = append([]string(nil), envValues...)
 	return nil
 }
 
@@ -446,5 +445,9 @@ func TestSessionResume_OpenAIKeyOverridesEnvironment(t *testing.T) {
 
 	cmd, ok := mgr.started["org/repo/folder"]
 	require.True(t, ok)
-	require.Contains(t, cmd, "OPENAI_API_KEY='override-key'")
+	require.NotContains(t, cmd, "OPENAI_API_KEY")
+
+	startEnv, ok := mgr.startEnv["org/repo/folder"]
+	require.True(t, ok)
+	require.Contains(t, startEnv, "OPENAI_API_KEY=override-key")
 }
