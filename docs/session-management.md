@@ -66,6 +66,8 @@ remuda workspaces list --inactive
 remuda session resume ~/.remuda/repos/acme-org/example-repo/feature-login-audit
 remuda session resume --pick
 remuda session resume --yolo ~/.remuda/repos/acme-org/example-repo/feature-login-audit
+remuda session resume --agent claude --model claude-sonnet-4.6 ~/.remuda/repos/acme-org/example-repo/feature-login-audit "Continue from the last checkpoint and add tests"
+remuda session resume --agent-cmd "codex resume --last" ~/.remuda/repos/acme-org/example-repo/feature-login-audit "Continue"
 
 # Reap active sessions older than a threshold (dry-run by default)
 remuda session reap --older-than 336h
@@ -80,11 +82,31 @@ remuda session reap --older-than 336h --pick
 `remuda workspaces list --inactive` all respect `workspaces.ignore` patterns
 from config. `--active` and `--inactive` are mutually exclusive.
 
-`remuda session resume` defaults to Codex (`codex resume --last`).
-If `REMUDA_AGENT=claude` or your selected profile/config default agent is
-`claude`, Remuda resumes with `claude --continue` (directory-scoped latest
-conversation). Remuda intentionally does not use `claude --resume` because
-that command opens an interactive picker.
+`remuda session resume` supports the same post-clone launch flags as `remuda vibe`:
+
+- `--agent`, `--model`, `--reasoning-level`, `--agent-cmd`
+- `--use`, `--no-use`, `--jira`, `--gh-issue`
+- `--openai-api-key`
+- `--profile`, `--yolo`, `--[no-]detached`, `--attach`, and container flags
+- an optional trailing prompt argument
+
+Resume is intentionally stateless. Remuda does not persist or detect the agent
+that originally created a workspace session history, so you must resume with the
+correct agent yourself.
+
+Default behavior:
+
+- Codex is used by default (`codex resume --last`).
+- If `REMUDA_AGENT=claude` or profile/config defaults resolve to `claude`,
+  Remuda resumes with `claude --continue` (directory-scoped latest conversation).
+- Remuda intentionally does not use `claude --resume` because that command opens
+  an interactive picker.
+- `--agent opencode` and `--agent bash` currently return a clear "resume unsupported"
+  error unless you provide a custom `--agent-cmd`.
+
+Clone-creation flags are not available on `session resume`:
+`--repo`, `--repo-url`, `--full-clone`, `--no-clone-hooks`, and wizard repo
+selection remain `vibe`/`clone` concerns.
 
 For `session kill --merge`, merge flags are selected with this precedence:
 1. CLI `--merge-flag` values (repeatable; replaces config list)
