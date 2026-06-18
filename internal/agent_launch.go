@@ -60,7 +60,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 
 	containerName := docker.ContainerNameFromSession(sessionName)
 
-	envProvider := k.launchEnvProvider(cmd, sessionName, workspaceAbs)
+	envProvider := k.launchEnvProvider(cmd, sessionName)
 	launchCmd, containerImage, err := k.composeLaunchCommand(
 		VibeCommand{
 			Agent:               cmd.AgentName,
@@ -125,7 +125,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	return result, nil
 }
 
-func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName, workspaceAbs string) env.Provider {
+func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName string) env.Provider {
 	// The launch boundary owns env overrides for both inline and detached
 	// starts. Do not convert these to command-string prefixes; detached tmux
 	// and container runs depend on the process/session environment carrying
@@ -147,14 +147,6 @@ func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName, workspace
 	// Set BD_ACTOR to the session name so beads issue tracking can attribute
 	// actions to the running Remuda agent/session.
 	provider.Setenv("BD_ACTOR", sessionName)
-	if _, ok := provider.LookupEnv("BEADS_DIR"); !ok {
-		// Remuda-managed worktrees may use a host-shared beads store next to the
-		// repo cache. Only set it when that store exists; explicit BEADS_DIR from
-		// the caller stays authoritative.
-		if beadsDir, ok := sharedBeadsDirForWorkspace(workspaceAbs); ok {
-			provider.Setenv("BEADS_DIR", beadsDir)
-		}
-	}
 	// Claude container yolo mode relies on this env being visible inside the
 	// container via docker's "-e IS_SANDBOX" forwarding.
 	if cmd.Container && strings.EqualFold(cmd.AgentName, "claude") && cmd.Yolo {
@@ -172,13 +164,4 @@ func launchEnvValues(provider env.Provider) []string {
 		}
 	}
 	return envValues
-}
-
-func sharedBeadsDirForWorkspace(workspaceAbs string) (string, bool) {
-	beadsDir := filepath.Join(filepath.Dir(workspaceAbs), ".beads_worktree", ".beads")
-	info, err := os.Stat(beadsDir)
-	if err != nil || !info.IsDir() {
-		return "", false
-	}
-	return beadsDir, true
 }
