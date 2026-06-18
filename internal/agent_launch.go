@@ -95,6 +95,8 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 		return result, execCmd.Run()
 	}
 
+	// When --force is supplied, also delete any existing session with the same
+	// name so the relaunched workspace starts cleanly.
 	if cmd.ReplaceExisting {
 		if _, err := k.Session.Find(sessionName); err == nil {
 			logger := k.logger()
@@ -107,6 +109,9 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 		}
 	}
 
+	// Keep detached command text limited to navigation + launch. Agent metadata
+	// and secrets travel through the session start environment so values such as
+	// OPENAI_API_KEY never appear in shell history, tmux buffers, or logs.
 	startCmd := fmt.Sprintf("cd %s && %s", shellSingleQuote(workspaceAbs), launchCmd)
 	startCmd = wrapWithCrashRecoverySleep(startCmd)
 	if err := startSessionWithEnv(k.Session, sessionName, startCmd, envProvider); err != nil {
@@ -121,6 +126,10 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 }
 
 func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName, workspaceAbs string) env.Provider {
+	// The launch boundary owns env overrides for both inline and detached
+	// starts. Do not convert these to command-string prefixes; detached tmux
+	// and container runs depend on the process/session environment carrying
+	// the actual values.
 	provider := env.NewMutableProvider(k.envProvider())
 	for key, value := range cmd.EnvOverrides {
 		if strings.TrimSpace(key) == "" {
@@ -135,12 +144,19 @@ func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName, workspace
 	if strings.TrimSpace(cmd.Model) != "" {
 		provider.Setenv("REMUDA_MODEL", cmd.Model)
 	}
+	// Set BD_ACTOR to the session name so beads issue tracking can attribute
+	// actions to the running Remuda agent/session.
 	provider.Setenv("BD_ACTOR", sessionName)
 	if _, ok := provider.LookupEnv("BEADS_DIR"); !ok {
+		// Remuda-managed worktrees may use a host-shared beads store next to the
+		// repo cache. Only set it when that store exists; explicit BEADS_DIR from
+		// the caller stays authoritative.
 		if beadsDir, ok := sharedBeadsDirForWorkspace(workspaceAbs); ok {
 			provider.Setenv("BEADS_DIR", beadsDir)
 		}
 	}
+	// Claude container yolo mode relies on this env being visible inside the
+	// container via docker's "-e IS_SANDBOX" forwarding.
 	if cmd.Container && strings.EqualFold(cmd.AgentName, "claude") && cmd.Yolo {
 		provider.Setenv("IS_SANDBOX", "1")
 	}
