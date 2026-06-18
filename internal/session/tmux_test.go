@@ -1,9 +1,13 @@
 package session_test
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,4 +130,87 @@ func TestTmuxListParsesMissingOrMalformedCreated(t *testing.T) {
 	require.Equal(t, "other", got[1].Name)
 	require.False(t, got[1].Attached)
 	require.True(t, got[1].CreatedAt.IsZero())
+}
+
+func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires tmux")
+	}
+
+	realTmux, err := exec.LookPath("tmux")
+	if err != nil {
+		t.Skip("tmux not available")
+	}
+
+	tmp := t.TempDir()
+	socketName := fmt.Sprintf("remuda-test-%d", time.Now().UnixNano())
+	wrapperPath := filepath.Join(tmp, "tmux")
+	wrapper := "#!/bin/sh\nexec \"$REMUDA_REAL_TMUX\" -L \"$REMUDA_TMUX_SOCKET\" \"$@\"\n"
+	require.NoError(t, os.WriteFile(wrapperPath, []byte(wrapper), 0o755))
+
+	pathEnv := tmp + string(os.PathListSeparator) + os.Getenv("PATH")
+	baseEnv := filteredEnvWithout("PATH", "TMUX", "TMUX_PANE")
+	baseEnv = append(baseEnv,
+		"PATH="+pathEnv,
+		"REMUDA_REAL_TMUX="+realTmux,
+		"REMUDA_TMUX_SOCKET="+socketName,
+	)
+
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "tmux", "kill-server")
+		cmd.Env = baseEnv
+		_ = cmd.Run()
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "tmux", "new-session", "-d", "-s", "seed", "sleep 30")
+	cmd.Env = baseEnv
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+
+	outputPath := filepath.Join(tmp, "pane-env")
+	startEnv := append([]string{}, baseEnv...)
+	startEnv = append(startEnv, "REMUDA_TEST_PANE_ENV=tmux-secret value")
+
+	mgr := session.NewTmuxManager()
+	starter, ok := mgr.(session.EnvStarter)
+	require.True(t, ok)
+	err = starter.StartWithEnv(
+		"env-check",
+		"printf '%s' \"$REMUDA_TEST_PANE_ENV\" > "+shellSingleQuoteForTest(outputPath),
+		startEnv,
+	)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		data, readErr := os.ReadFile(outputPath)
+		return readErr == nil && string(data) == "tmux-secret value"
+	}, 2*time.Second, 50*time.Millisecond)
+}
+
+func filteredEnvWithout(keys ...string) []string {
+	skip := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		skip[key] = struct{}{}
+	}
+
+	var out []string
+	for _, kv := range os.Environ() {
+		key, _, ok := strings.Cut(kv, "=")
+		if !ok {
+			continue
+		}
+		if _, shouldSkip := skip[key]; shouldSkip {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
+}
+
+func shellSingleQuoteForTest(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
