@@ -9,7 +9,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/env"
 )
 
-func TestLaunchAgentSessionSetsSharedBeadsDirWhenPresent(t *testing.T) {
+func TestLaunchAgentSessionDoesNotInferSharedBeadsDir(t *testing.T) {
 	t.Parallel()
 
 	base := t.TempDir()
@@ -36,9 +36,8 @@ func TestLaunchAgentSessionSetsSharedBeadsDirWhenPresent(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotContains(t, sm.startCmd, "BEADS_DIR=")
-	value, ok := envValue(sm.startEnv, "BEADS_DIR")
-	require.True(t, ok)
-	require.Equal(t, beadsDir, value)
+	_, ok := envValue(sm.startEnv, "BEADS_DIR")
+	require.False(t, ok)
 }
 
 func TestLaunchAgentSessionPreservesExplicitBeadsDir(t *testing.T) {

@@ -283,7 +283,7 @@ func (k Remuda) composeLaunchCommand(
 		containerOpts = append(containerOpts, inheritOpts...)
 	}
 	containerOpts = append([]string{"-e BD_ACTOR"}, containerOpts...)
-	if _, ok := envProvider.LookupEnv("BEADS_DIR"); ok {
+	if _, ok := envProvider.LookupEnv("BEADS_DIR"); ok && !containerOptsDefineEnv(containerOpts, "BEADS_DIR") {
 		containerOpts = append(containerOpts, "-e BEADS_DIR")
 	}
 	if mountOpt, ok := docker.ExtraGitMountForWorktree(absWS); ok {
@@ -312,6 +312,43 @@ func (k Remuda) composeLaunchCommand(
 	containerAgent := util.SSHRewriteSnippet() + "\n" + agentCmd
 	launchCmd := docker.BuildRunCommand(absWS, containerImage, allOpts, containerAgent, false, containerName)
 	return launchCmd, containerImage, nil
+}
+
+func containerOptsDefineEnv(opts []string, name string) bool {
+	var fields []string
+	for _, opt := range opts {
+		fields = append(fields, strings.Fields(opt)...)
+	}
+
+	for i := 0; i < len(fields); i++ {
+		field := strings.TrimSpace(fields[i])
+		switch {
+		case field == "-e" || field == "--env":
+			if i+1 < len(fields) && dockerEnvSpecName(fields[i+1]) == name {
+				return true
+			}
+			i++
+		case strings.HasPrefix(field, "-e="):
+			if dockerEnvSpecName(strings.TrimPrefix(field, "-e=")) == name {
+				return true
+			}
+		case strings.HasPrefix(field, "-e") && len(field) > len("-e"):
+			if dockerEnvSpecName(strings.TrimPrefix(field, "-e")) == name {
+				return true
+			}
+		case strings.HasPrefix(field, "--env="):
+			if dockerEnvSpecName(strings.TrimPrefix(field, "--env=")) == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func dockerEnvSpecName(spec string) string {
+	spec = strings.Trim(strings.TrimSpace(spec), `"'`)
+	name, _, _ := strings.Cut(spec, "=")
+	return name
 }
 
 func containerInheritEnvOpts(names []string) ([]string, error) {

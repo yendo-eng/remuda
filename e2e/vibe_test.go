@@ -104,6 +104,52 @@ defaults:
 	require.Contains(t, recorded.CommandRan, "ghcr.io/acme/vibe-dev:latest")
 }
 
+func TestVibeContainerPerRepoBeadsDirOverridesHostEnv(t *testing.T) {
+	t.Parallel()
+	runDir := t.TempDir()
+	workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
+	require.NoError(t, os.MkdirAll(workspace, 0o755))
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+per_repo:
+  yendo-eng/remuda:
+    defaults:
+      container:
+        opts:
+          - "-v /host/.beads:/workspaces/.beads-issues/.beads"
+          - "-e BEADS_DIR=/workspaces/.beads-issues/.beads"
+`), 0o644))
+
+	sessionMgr := &testutils.MockSessionManager{}
+	h := testutils.NewHarness(t,
+		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
+		testutils.WithSessionManager(sessionMgr),
+		testutils.WithDocker(&docker.Mock{Running: true}),
+	)
+	h.SetEnv("REMUDA_CONFIG", configPath)
+	h.SetEnv("BEADS_DIR", "/host/system/beads")
+	h.SetEnv("GH_TOKEN", "test-token")
+	h.SetEnv("SSH_AUTH_SOCK", "")
+
+	h.RunOK(
+		"vibe",
+		"--in", workspace,
+		"--container",
+		"--container-name", "ghcr.io/acme/vibe-dev:latest",
+		"--agent-cmd", "true",
+		"prompt",
+	)
+
+	recorded := sessionMgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
+	require.NotNil(t, recorded)
+	require.Contains(t, recorded.CommandRan, "-v /host/.beads:/workspaces/.beads-issues/.beads")
+	require.Contains(t, recorded.CommandRan, "-e BEADS_DIR=/workspaces/.beads-issues/.beads")
+	require.NotContains(t, recorded.CommandRan, " -e BEADS_DIR ")
+	require.NotContains(t, recorded.CommandRan, "/host/system/beads")
+}
+
 func TestVibeAutoGeneratesWorkspaceName(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
