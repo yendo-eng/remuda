@@ -41,7 +41,25 @@ func (m *defaultTmuxManager) Start(sessionName, command string) error {
 }
 
 func (m *defaultTmuxManager) StartWithEnv(sessionName, command string, env []string) error {
-	return util.RunCmdWithEnvAndLogger(m.logger, env, "tmux", "new-session", "-d", "-s", sessionName, "bash", "-lc", command)
+	args := []string{"new-session", "-d", "-s", sessionName}
+	args = append(args, tmuxNewSessionEnvArgs(env)...)
+	args = append(args, "bash", "-lc", command)
+	return util.RunCmdWithEnvAndLogger(m.logger, env, "tmux", args...)
+}
+
+func tmuxNewSessionEnvArgs(env []string) []string {
+	args := make([]string, 0, len(env)*2)
+	for _, kv := range env {
+		key, _, ok := strings.Cut(kv, "=")
+		if !ok || strings.TrimSpace(key) == "" {
+			continue
+		}
+		if !util.IsValidEnvVarName(key) || key == "TMUX" || key == "TMUX_PANE" {
+			continue
+		}
+		args = append(args, "-e", kv)
+	}
+	return args
 }
 
 func (m *defaultTmuxManager) resolveSessionName(name string) (string, error) {
