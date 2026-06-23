@@ -159,7 +159,7 @@ func TestInferRepoSlugForInvocation_SessionResumeSkipsNewValueFlags(t *testing.T
 		"--reasoning-level", "high",
 		"--agent-cmd", "claude --continue",
 		"--jira", "ABC-123",
-		"--gh-issue", "https://github.com/acme/remuda/issues/1",
+		"--github-issue", "https://github.com/acme/remuda/issues/1",
 		"--use", "small-commits",
 		"--no-use", "make-pr",
 		"--openai-api-key", "sk-test",

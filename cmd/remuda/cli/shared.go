@@ -69,7 +69,7 @@ type ContextEngineeringOptions struct {
 	JiraUser     string       `name:"jira-user" env:"REMUDA_JIRA_USER" help:"Jira user/email used by --jira context authentication."`
 	JiraToken    string       `name:"jira-token" env:"REMUDA_JIRA_API_TOKEN,REMUDA_JIRA_TOKEN" help:"Jira API token used by --jira context authentication. Prefer env/config over direct CLI usage when possible."`
 	SlackThread  []string     `name:"slack-thread" help:"Slack thread URL to import as context (repeatable, requires SLACK_TOKEN)."`
-	GitHubIssue  []string     `name:"gh-issue" help:"GitHub issue URL or number to prepend as context (repeatable; number requires repo inference)."`
+	GitHubIssue  []string     `name:"github-issue" aliases:"gh-issue" help:"GitHub issue URL or number to prepend as context (repeatable; number requires repo inference)."`
 	Use          []PromptName `kong:"name=use,short=u,help='Prepend one or more saved prompts (repeatable). Custom prompts override built-ins when names collide.',env='REMUDA_USE_PROMPTS',predictor='prompt-name'"`
 	NoUse        []PromptName `kong:"name=no-use,help='Exclude one or more saved prompts (repeatable).',predictor='prompt-name'"`
 }
@@ -172,7 +172,7 @@ func (c ContextEngineeringOptions) validatePromptUsage(prompt string, args []str
 	}
 
 	if len(c.Jira) > 0 || len(c.SlackThread) > 0 || len(c.GitHubIssue) > 0 {
-		return errors.New("prompt context flags (--jira/--slack-thread/--gh-issue) require a non-empty prompt")
+		return errors.New("prompt context flags (--jira/--slack-thread/--github-issue/--gh-issue) require a non-empty prompt")
 	}
 
 	// Allow REMUDA_USE_PROMPTS defaults without forcing a prompt when the user omits it.

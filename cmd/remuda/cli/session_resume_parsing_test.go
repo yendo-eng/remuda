@@ -86,7 +86,7 @@ func TestSessionResumeCmdParse_AgentAndContextFlags(t *testing.T) {
 		"--use", "small-commits",
 		"--no-use", "make-pr",
 		"--jira", "ABC-123",
-		"--gh-issue", "https://github.com/acme/repo/issues/42",
+		"--github-issue", "https://github.com/acme/repo/issues/42",
 		"--openai-api-key", "sk-test",
 		"/tmp/workspace",
 		"prompt",

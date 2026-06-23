@@ -253,7 +253,7 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 		"--name", "ctx-review",
 		"--jira", jiraID,
 		"--slack-thread", slackThreadURL,
-		"--gh-issue", issueSlug + "#" + issueNumber,
+		"--github-issue", issueSlug + "#" + issueNumber,
 		"--pr", "1",
 	}
 	h.RunOK(args...)
