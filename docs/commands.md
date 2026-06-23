@@ -132,6 +132,10 @@ Run `remuda vibe --help` for more options. Common flags:
   to `--remote-control <session-name>`, where Remuda uses the run's session
   name (`org/repo/workspace`) as the remote-control name. For non-Claude
   agents, Remuda logs a warning and continues without remote control.
+- `--agent-arg <arg>` – append an extra argument to the selected built-in agent
+  command (repeatable). Config defaults can be set per agent with
+  `defaults.agent_args.<agent>` (and per-repo overlays); CLI `--agent-arg`
+  values append after resolved config defaults. Ignored when `--agent-cmd` is set.
 - `--agent-cmd <cmd>` – provide a complete custom command; your prompt will be
   appended as the final argument.
 - `--jira <ID>` – prepend Jira issue context (repeatable; format `ABC-123`).
@@ -256,7 +260,7 @@ remuda vibe-check --pr 123 \
 remuda vibe-check --pr https://github.com/org/repo/pull/123 --model gpt-4o-mini
 ```
 
-Many `vibe` session flags still apply. For detailed flags, run
+Many `vibe` session flags still apply (including `--agent-arg`). For detailed flags, run
 `remuda vibe-check --help`.
 
 Profile defaults are supported here as well: `--profile <name>` (or
