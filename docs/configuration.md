@@ -128,6 +128,9 @@ workspaces:
 defaults:
   agent: codex    # codex|opencode|claude|bash
   model: ""
+  agent_args:
+    codex: ["--approval-mode=full-auto"]
+    claude: ["--verbose"]
   use_prompts: ["small-commits"]
   no_use: ["make-pr"]
   merge:
@@ -210,6 +213,8 @@ profiles:
     reasoning_level: string
     slugify_reasoning_level: string
     agent_cmd: string
+    agent_args:
+      <agent>: [string]
     use_prompts: [string]
     no_use: [string]
     experiments: [string]
@@ -297,6 +302,7 @@ workspaces:
 - `per_repo` overlays only apply when Remuda can resolve a repo slug (eg. from `--repo-url` or a PR URL). If slug inference fails, `per_repo` is ignored for that run.
 - `per_repo.<slug>.profile` can pick a profile by repo for `vibe`, `vibe-check`, and `session resume`; explicit `--profile` and `REMUDA_PROFILE` override it.
 - When `per_repo.defaults.container.opts` is set, its values are appended to `defaults.container.opts`. Use an explicit empty list (`opts: []`) to clear inherited container opts for a repo.
+- `defaults.agent_args.<agent>` configures additional args for built-in launchers. Per-repo entries replace global args for that agent; `--agent-arg` appends for a single run. These args are ignored when `--agent-cmd` is set.
 - `per_repo.<slug>.clone_hooks` validates that `argv` is non-empty and `argv[0]` is non-blank at parse time; runtime exec/exit errors still surface when hooks run.
 - `session.prune.ignore` (used by `session resume --pick`) applies globally (not per-repo).
 - `workspaces.ignore` applies globally (not per-repo).
