@@ -13,7 +13,7 @@ func TestBashLauncher_CommandAndVersion(t *testing.T) {
 
 func TestBashLauncher_Command_AppendsExtraArgs(t *testing.T) {
 	b := Bash()
-	require.Equal(t, "bash -l --noprofile", b.Command("ignored", "--noprofile"))
+	require.Equal(t, "bash -l '--noprofile'", b.Command("ignored", "--noprofile"))
 }
 
 func TestParse_Bash_PropagatesModel(t *testing.T) {

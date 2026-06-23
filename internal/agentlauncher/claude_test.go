@@ -97,5 +97,5 @@ func TestClaudeLauncher_Command_ModelIsShellQuoted(t *testing.T) {
 func TestClaudeLauncher_Command_ExtraArgsBeforePrompt(t *testing.T) {
 	l := Claude("claude-sonnet-4", false, "")
 	cmd := l.Command("do stuff", "--foo")
-	require.Contains(t, cmd, "--model 'claude-sonnet-4' --foo 'do stuff'")
+	require.Contains(t, cmd, "--model 'claude-sonnet-4' '--foo' 'do stuff'")
 }
