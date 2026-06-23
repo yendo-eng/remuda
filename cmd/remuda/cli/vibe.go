@@ -122,6 +122,7 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
 		return err
 	}
+	agentArgs := effectiveAgentArgs(ctx.ConfigFile, c.Agent, c.AgentArg)
 
 	cmd := internal.VibeCommand{
 		Name:                c.Name,
@@ -129,6 +130,7 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 		Model:               c.Model,
 		ReasoningLevel:      c.ReasoningLevel,
 		AgentCmd:            c.AgentCmd,
+		AgentArgs:           agentArgs,
 		Prompt:              c.Prompt,
 		Detached:            c.DetachedMode(),
 		Attach:              c.Attach,

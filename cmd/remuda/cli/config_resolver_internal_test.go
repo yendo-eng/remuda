@@ -300,6 +300,31 @@ func TestMergeOverlayV1IntoConfig_MergesDefaultsExtras(t *testing.T) {
 	require.True(t, *cfg.Defaults.Yolo)
 }
 
+func TestMergeOverlayV1IntoConfig_OverridesAgentArgsPerAgent(t *testing.T) {
+	t.Parallel()
+	cfg := &configfile.V1{
+		Version: 1,
+		Defaults: &configfile.DefaultsV1{
+			AgentArgs: map[string][]string{
+				"codex":  []string{"--global-codex"},
+				"claude": []string{"--global-claude"},
+			},
+		},
+	}
+	overlay := configfile.OverlayV1{
+		Defaults: &configfile.DefaultsV1{
+			AgentArgs: map[string][]string{
+				"codex": []string{"--repo-codex"},
+			},
+		},
+	}
+
+	mergeOverlayV1IntoConfig(cfg, overlay, false)
+
+	require.Equal(t, []string{"--repo-codex"}, cfg.Defaults.AgentArgs["codex"])
+	require.Equal(t, []string{"--global-claude"}, cfg.Defaults.AgentArgs["claude"])
+}
+
 func TestSelectedProfileForInvocation_FlagOverridesEnv(t *testing.T) {
 	t.Parallel()
 	env := EnvMap{"REMUDA_PROFILE": "env"}

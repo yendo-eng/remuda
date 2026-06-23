@@ -154,6 +154,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	if err != nil {
 		return errors.Wrap(err, "adding prompt context")
 	}
+	agentArgs := effectiveAgentArgs(ctx.ConfigFile, c.Agent, c.AgentArg)
 
 	cmd := internal.VibeCommand{
 		Name:           c.Name,
@@ -161,6 +162,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 		Model:          c.Model,
 		ReasoningLevel: c.ReasoningLevel,
 		AgentCmd:       c.AgentCmd,
+		AgentArgs:      agentArgs,
 		Detached:       c.DetachedMode(),
 		Attach:         c.Attach,
 		UsePromptIDs:   usePromptIDs,

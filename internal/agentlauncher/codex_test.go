@@ -37,3 +37,9 @@ func TestCodexLauncher_WithRemoteControl_IsUnsupported(t *testing.T) {
 	require.False(t, supported)
 	require.Equal(t, l.Command("prompt"), got.Command("prompt"))
 }
+
+func TestCodexLauncher_Command_ExtraArgsBeforePrompt(t *testing.T) {
+	l := Codex("gpt-5.5", false, "")
+	cmd := l.Command("hello", "--foo", "--bar")
+	require.Contains(t, cmd, "--model 'gpt-5.5' --foo --bar -- 'hello'")
+}

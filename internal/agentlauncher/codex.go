@@ -25,7 +25,7 @@ func Codex(model string, yolo bool, reasoningLevel string) AgentLauncher {
 
 func (c codexLauncher) Name() string { return "codex" }
 
-func (c codexLauncher) Command(prompt string) string {
+func (c codexLauncher) Command(prompt string, extraArgs ...string) string {
 	var b strings.Builder
 	b.WriteString("codex")
 	if c.Yolo {
@@ -41,6 +41,7 @@ func (c codexLauncher) Command(prompt string) string {
 		b.WriteString(" --config model_reasoning_effort=")
 		b.WriteString(shellutil.SingleQuote(c.ReasoningLevel))
 	}
+	appendExtraArgs(&b, extraArgs)
 	if strings.TrimSpace(prompt) != "" {
 		b.WriteString(" -- '")
 		b.WriteString(shellutil.EscapeSingleQuotes(prompt))

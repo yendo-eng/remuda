@@ -279,10 +279,20 @@ type AgentSessionOptions struct {
 	SessionLaunchOptions `embed:""`
 
 	// Agent enum tag must match enums.ValidAgents; see shared_test.go for enforcement.
-	Agent            string `name:"agent" default:"codex" enum:"codex,opencode,claude,bash" help:"Built-in agent to use (codex|opencode|claude|bash)." env:"REMUDA_AGENT"`
-	Model            string `name:"model" env:"REMUDA_MODEL" help:"Specific model to use. Use agent-default to omit any model flag and let the agent CLI choose its own default." predictor:"model"`
-	ReasoningLevel   string `name:"reasoning-level" env:"REMUDA_REASONING_LEVEL" help:"Reasoning level for codex/claude (none|minimal|low|medium|high|xhigh for codex; passed through to claude --effort for claude)." predictor:"reasoning-level"`
-	AgentCmd         string `name:"agent-cmd" help:"Override the agent command entirely."`
+	Agent          string   `name:"agent" default:"codex" enum:"codex,opencode,claude,bash" help:"Built-in agent to use (codex|opencode|claude|bash)." env:"REMUDA_AGENT"`
+	Model          string   `name:"model" env:"REMUDA_MODEL" help:"Specific model to use. Use agent-default to omit any model flag and let the agent CLI choose its own default." predictor:"model"`
+	ReasoningLevel string   `name:"reasoning-level" env:"REMUDA_REASONING_LEVEL" help:"Reasoning level for codex/claude (none|minimal|low|medium|high|xhigh for codex; passed through to claude --effort for claude)." predictor:"reasoning-level"`
+	AgentCmd       string   `name:"agent-cmd" help:"Override the agent command entirely."`
+	AgentArg       []string `name:"agent-arg" help:"Additional argument to append to the selected built-in agent command (repeatable). Ignored when --agent-cmd is set."`
+}
+
+func (o *AgentSessionOptions) AfterApply(*Context) error {
+	for i, arg := range o.AgentArg {
+		if strings.TrimSpace(arg) == "" {
+			return fmt.Errorf("--agent-arg[%d]: agent arg cannot be empty", i)
+		}
+	}
+	return nil
 }
 
 // APIKeyOptions manages CLI flags and env fallback for agent API keys.

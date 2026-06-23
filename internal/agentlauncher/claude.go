@@ -36,7 +36,7 @@ func Claude(model string, yolo bool, reasoningLevel string) AgentLauncher {
 
 func (c claudeLauncher) Name() string { return "claude" }
 
-func (c claudeLauncher) Command(prompt string) string {
+func (c claudeLauncher) Command(prompt string, extraArgs ...string) string {
 	var b strings.Builder
 	b.WriteString("claude")
 	if c.Model != "" && c.Model != ModelAgentDefault {
@@ -57,6 +57,7 @@ func (c claudeLauncher) Command(prompt string) string {
 			b.WriteString(shellutil.SingleQuote(c.RemoteSession))
 		}
 	}
+	appendExtraArgs(&b, extraArgs)
 	if strings.TrimSpace(prompt) != "" {
 		if c.RemoteControl && strings.TrimSpace(c.RemoteSession) == "" {
 			b.WriteString(" --")

@@ -132,17 +132,18 @@ func OpenCode(model string) AgentLauncher {
 
 func (o opencodeLauncher) Name() string { return "opencode" }
 
-func (o opencodeLauncher) Command(prompt string) string {
+func (o opencodeLauncher) Command(prompt string, extraArgs ...string) string {
 	var b strings.Builder
 	b.WriteString("opencode")
+	if o.Model != "" && o.Model != ModelAgentDefault {
+		b.WriteString(" --model ")
+		b.WriteString(shellutil.SingleQuote(o.Model))
+	}
+	appendExtraArgs(&b, extraArgs)
 	if strings.TrimSpace(prompt) != "" {
 		b.WriteString(" --prompt '")
 		b.WriteString(shellutil.EscapeSingleQuotes(prompt))
 		b.WriteString("'")
-	}
-	if o.Model != "" && o.Model != ModelAgentDefault {
-		b.WriteString(" --model ")
-		b.WriteString(shellutil.SingleQuote(o.Model))
 	}
 	return b.String()
 }

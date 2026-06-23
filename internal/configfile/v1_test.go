@@ -211,9 +211,54 @@ func TestParseV1_PointerFields(t *testing.T) {
 	require.Nil(t, cfg.Defaults.Model)
 	require.Nil(t, cfg.Defaults.ReasoningLevel)
 	require.Nil(t, cfg.Defaults.SlugifyReasoningLevel)
+	require.Nil(t, cfg.Defaults.AgentArgs)
 	require.Nil(t, cfg.Defaults.Yolo)
 	require.Nil(t, cfg.Defaults.Merge)
 	require.Nil(t, cfg.Defaults.Container)
+}
+
+func TestParseV1_DefaultsAgentArgsRoundTrip(t *testing.T) {
+	yaml := `version: 1
+defaults:
+  agent_args:
+    codex:
+      - --foo
+      - --bar
+`
+
+	cfg, err := ParseV1([]byte(yaml))
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Defaults)
+	require.Equal(t, []string{"--foo", "--bar"}, cfg.Defaults.AgentArgs["codex"])
+}
+
+func TestParseV1_DefaultsAgentArgsRejectsUnknownAgentKey(t *testing.T) {
+	yaml := `version: 1
+defaults:
+  agent_args:
+    fake-agent:
+      - --foo
+`
+
+	_, err := ParseV1([]byte(yaml))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "defaults.agent_args[\"fake-agent\"]")
+	require.Contains(t, err.Error(), "invalid value")
+}
+
+func TestParseV1_DefaultsAgentArgsRejectsEmptyArg(t *testing.T) {
+	yaml := `version: 1
+defaults:
+  agent_args:
+    codex:
+      - --foo
+      - " "
+`
+
+	_, err := ParseV1([]byte(yaml))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "defaults.agent_args[\"codex\"][1]")
+	require.Contains(t, err.Error(), "agent arg cannot be empty")
 }
 
 func TestParseV1_DefaultsMergeGHFlagsRoundTrip(t *testing.T) {
