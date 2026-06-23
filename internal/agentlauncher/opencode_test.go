@@ -33,5 +33,5 @@ func TestOpenCodeLauncher_Command_WithModelAndQuotes(t *testing.T) {
 func TestOpenCodeLauncher_Command_ExtraArgsBeforePrompt(t *testing.T) {
 	l := OpenCode("gpt-4o")
 	got := l.Command("hello", "--foo", "--bar")
-	require.Equal(t, "opencode --model 'gpt-4o' --foo --bar --prompt 'hello'", got)
+	require.Equal(t, "opencode --model 'gpt-4o' '--foo' '--bar' --prompt 'hello'", got)
 }

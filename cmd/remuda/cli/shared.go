@@ -283,7 +283,7 @@ type AgentSessionOptions struct {
 	Model          string   `name:"model" env:"REMUDA_MODEL" help:"Specific model to use. Use agent-default to omit any model flag and let the agent CLI choose its own default." predictor:"model"`
 	ReasoningLevel string   `name:"reasoning-level" env:"REMUDA_REASONING_LEVEL" help:"Reasoning level for codex/claude (none|minimal|low|medium|high|xhigh for codex; passed through to claude --effort for claude)." predictor:"reasoning-level"`
 	AgentCmd       string   `name:"agent-cmd" help:"Override the agent command entirely."`
-	AgentArg       []string `name:"agent-arg" help:"Additional argument to append to the selected built-in agent command (repeatable). Ignored when --agent-cmd is set."`
+	AgentArg       []string `name:"agent-arg" sep:"none" help:"Additional argument to append to the selected built-in agent command (repeatable). Ignored when --agent-cmd is set."`
 }
 
 func (o *AgentSessionOptions) AfterApply(*Context) error {

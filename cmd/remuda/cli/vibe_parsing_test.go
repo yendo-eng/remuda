@@ -296,6 +296,21 @@ func TestVibeCheck_AgentArgFlagParses(t *testing.T) {
 	require.Equal(t, []string{"--foo"}, parsed.VibeCheck.AgentArg)
 }
 
+func TestVibe_AgentArgDoesNotSplitOnComma(t *testing.T) {
+	t.Parallel()
+	parser, parsed, _ := newParserWithEnv(t, cli.EnvMap{})
+
+	_, err := parser.Parse([]string{
+		"vibe",
+		"--name", "wk",
+		"--agent-cmd", "true",
+		"--agent-arg=--config=a,b",
+		"prompt",
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"--config=a,b"}, parsed.Vibe.AgentArg)
+}
+
 func TestVibe_BranchFlagParses(t *testing.T) {
 	t.Parallel()
 	parser, parsed, _ := newParserWithEnv(t, cli.EnvMap{})

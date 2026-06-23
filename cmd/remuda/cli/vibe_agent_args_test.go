@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/session"
+	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 type captureStartSessionManager struct {
@@ -95,7 +96,7 @@ defaults:
       - --global-arg
 `, "hello")
 
-	require.Contains(t, startCmd, "--global-arg -- 'hello'")
+	require.Contains(t, startCmd, "'--global-arg' -- 'hello'")
 }
 
 func TestVibe_AgentArgsPerRepoOverrideReplacesGlobalForAgent(t *testing.T) {
@@ -113,7 +114,7 @@ per_repo:
           - --repo-arg
 `, "hello")
 
-	require.Contains(t, startCmd, "--repo-arg -- 'hello'")
+	require.Contains(t, startCmd, "'--repo-arg' -- 'hello'")
 	require.NotContains(t, startCmd, "--global-arg")
 }
 
@@ -126,7 +127,7 @@ defaults:
       - --config-arg
 `, "--agent-arg=--cli-arg-1", "--agent-arg=--cli-arg-2", "hello")
 
-	require.Contains(t, startCmd, "--config-arg --cli-arg-1 --cli-arg-2 -- 'hello'")
+	require.Contains(t, startCmd, "'--config-arg' '--cli-arg-1' '--cli-arg-2' -- 'hello'")
 }
 
 func TestVibe_AgentArgsIgnoredWhenAgentCmdSet(t *testing.T) {
@@ -141,4 +142,20 @@ defaults:
 	require.Contains(t, startCmd, "&& echo 'hello'")
 	require.NotContains(t, startCmd, "--config-arg")
 	require.NotContains(t, startCmd, "--cli-arg-1")
+}
+
+func TestVibe_AgentArgsCLIVerbatimForCommaSpaceAndMetacharacters(t *testing.T) {
+	startCmd := runVibeWithConfig(
+		t,
+		`version: 1`,
+		"--agent-arg=--config=a,b",
+		"--agent-arg=--label=hello world",
+		"--agent-arg=--danger=$(echo hi);true",
+		"hello",
+	)
+
+	require.Contains(t, startCmd, shellutil.SingleQuote("--config=a,b"))
+	require.Contains(t, startCmd, shellutil.SingleQuote("--label=hello world"))
+	require.Contains(t, startCmd, shellutil.SingleQuote("--danger=$(echo hi);true"))
+	require.NotContains(t, startCmd, "'b'")
 }
