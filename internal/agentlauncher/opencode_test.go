@@ -12,7 +12,7 @@ func TestOpenCodeLauncher_Command_DefaultModel(t *testing.T) {
 	require.Equal(t, DefaultModel(string(AgentOpenCode)), resolved)
 	require.Equal(
 		t,
-		"opencode --prompt 'line 1\nline 2' --model '"+DefaultModel(string(AgentOpenCode))+"'",
+		"opencode --model '"+DefaultModel(string(AgentOpenCode))+"' --prompt 'line 1\nline 2'",
 		l.Command("line 1\nline 2"),
 	)
 }
@@ -27,5 +27,11 @@ func TestOpenCodeLauncher_Command_AgentDefaultOmitsModelFlag(t *testing.T) {
 func TestOpenCodeLauncher_Command_WithModelAndQuotes(t *testing.T) {
 	l := OpenCode("gpt-4o")
 	got := l.Command("don't stop")
-	require.Equal(t, "opencode --prompt 'don'\\''t stop' --model 'gpt-4o'", got)
+	require.Equal(t, "opencode --model 'gpt-4o' --prompt 'don'\\''t stop'", got)
+}
+
+func TestOpenCodeLauncher_Command_ExtraArgsBeforePrompt(t *testing.T) {
+	l := OpenCode("gpt-4o")
+	got := l.Command("hello", "--foo", "--bar")
+	require.Equal(t, "opencode --model 'gpt-4o' --foo --bar --prompt 'hello'", got)
 }

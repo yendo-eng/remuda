@@ -287,6 +287,15 @@ func TestVibeCheck_NoCloneHooksFlagParses(t *testing.T) {
 	require.True(t, parsed.VibeCheck.NoCloneHooks)
 }
 
+func TestVibeCheck_AgentArgFlagParses(t *testing.T) {
+	t.Parallel()
+	parser, parsed, _ := newParserWithEnv(t, cli.EnvMap{})
+
+	_, err := parser.Parse([]string{"vibe-check", "--agent-cmd", "true", "--agent-arg=--foo", "main"})
+	require.NoError(t, err)
+	require.Equal(t, []string{"--foo"}, parsed.VibeCheck.AgentArg)
+}
+
 func TestVibe_BranchFlagParses(t *testing.T) {
 	t.Parallel()
 	parser, parsed, _ := newParserWithEnv(t, cli.EnvMap{})
@@ -316,4 +325,33 @@ func TestVibe_BranchFlagRejectedWithIn(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "--branch cannot be combined with --in")
+}
+
+func TestVibe_AgentArgRejectsEmptyValue(t *testing.T) {
+	t.Parallel()
+	parser, _, _ := newParserWithEnv(t, cli.EnvMap{})
+
+	_, err := parser.Parse([]string{
+		"vibe",
+		"--name", "wk",
+		"--agent-cmd", "true",
+		"--agent-arg", " ",
+		"prompt",
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "agent arg cannot be empty")
+}
+
+func TestVibeCheck_AgentArgRejectsEmptyValue(t *testing.T) {
+	t.Parallel()
+	parser, _, _ := newParserWithEnv(t, cli.EnvMap{})
+
+	_, err := parser.Parse([]string{
+		"vibe-check",
+		"--agent-cmd", "true",
+		"--agent-arg", " ",
+		"main",
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "agent arg cannot be empty")
 }

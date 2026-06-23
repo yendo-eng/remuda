@@ -54,17 +54,18 @@ type JiraV1 struct {
 }
 
 type DefaultsV1 struct {
-	Agent                 *string      `yaml:"agent,omitempty"`
-	Model                 *string      `yaml:"model,omitempty"`
-	ReasoningLevel        *string      `yaml:"reasoning_level,omitempty"`
-	SlugifyReasoningLevel *string      `yaml:"slugify_reasoning_level,omitempty"`
-	AgentCmd              *string      `yaml:"agent_cmd,omitempty"`
-	UsePrompts            *[]string    `yaml:"use_prompts,omitempty"`
-	NoUse                 *[]string    `yaml:"no_use,omitempty"`
-	Experiments           *[]string    `yaml:"experiments,omitempty"`
-	Yolo                  *bool        `yaml:"yolo,omitempty"`
-	Merge                 *MergeV1     `yaml:"merge,omitempty"`
-	Container             *ContainerV1 `yaml:"container,omitempty"`
+	Agent                 *string             `yaml:"agent,omitempty"`
+	Model                 *string             `yaml:"model,omitempty"`
+	ReasoningLevel        *string             `yaml:"reasoning_level,omitempty"`
+	SlugifyReasoningLevel *string             `yaml:"slugify_reasoning_level,omitempty"`
+	AgentCmd              *string             `yaml:"agent_cmd,omitempty"`
+	AgentArgs             map[string][]string `yaml:"agent_args,omitempty"`
+	UsePrompts            *[]string           `yaml:"use_prompts,omitempty"`
+	NoUse                 *[]string           `yaml:"no_use,omitempty"`
+	Experiments           *[]string           `yaml:"experiments,omitempty"`
+	Yolo                  *bool               `yaml:"yolo,omitempty"`
+	Merge                 *MergeV1            `yaml:"merge,omitempty"`
+	Container             *ContainerV1        `yaml:"container,omitempty"`
 }
 
 type MergeV1 struct {
@@ -372,6 +373,18 @@ func (d DefaultsV1) validate(path string) error {
 		if !slices.Contains(enums.ValidSlugifyReasoningLevels, *d.SlugifyReasoningLevel) {
 			return fmt.Errorf("%s.slugify_reasoning_level: invalid value %q (valid: %s)",
 				path, *d.SlugifyReasoningLevel, strings.Join(enums.ValidSlugifyReasoningLevels, ", "))
+		}
+	}
+	for agent, args := range d.AgentArgs {
+		agentPath := fmt.Sprintf("%s.agent_args[%q]", path, agent)
+		if !slices.Contains(enums.ValidAgents, agent) {
+			return fmt.Errorf("%s: invalid value %q (valid: %s)", agentPath, agent, strings.Join(enums.ValidAgents, ", "))
+		}
+		for i, arg := range args {
+			argPath := fmt.Sprintf("%s[%d]", agentPath, i)
+			if strings.TrimSpace(arg) == "" {
+				return fmt.Errorf("%s: agent arg cannot be empty", argPath)
+			}
 		}
 	}
 	if d.Experiments != nil {

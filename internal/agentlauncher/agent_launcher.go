@@ -11,7 +11,7 @@ type AgentLauncher interface {
 	Name() string
 
 	// Command builds the command string to launch the agent with the given prompt.
-	Command(prompt string) string
+	Command(prompt string, extraArgs ...string) string
 
 	// WithRemoteControl enables remote-control launch behavior when supported.
 	//

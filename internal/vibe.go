@@ -45,6 +45,9 @@ type VibeCommand struct {
 	// Custom agent command
 	AgentCmd string
 
+	// Additional args appended to built-in agent launch commands.
+	AgentArgs []string
+
 	// Model to use
 	Model string
 
@@ -198,12 +201,17 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	}
 	logLaunchingAgent(logger, logctx)
 
+	agentCommand := agent.Command(prompt)
+	if cmd.AgentCmd == "" {
+		agentCommand = agent.Command(prompt, cmd.AgentArgs...)
+	}
+
 	_, err = k.launchAgentSession(agentLaunchCommand{
 		Workspace:           workspaceAbs,
 		SessionName:         sessionName,
 		AgentName:           agentName,
 		Model:               cmd.Model,
-		Command:             agent.Command(prompt),
+		Command:             agentCommand,
 		Detached:            cmd.Detached,
 		Attach:              cmd.Attach,
 		ReplaceExisting:     cmd.Clone.Force,

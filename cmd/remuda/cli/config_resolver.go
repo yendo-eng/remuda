@@ -789,6 +789,14 @@ func mergeOverlayV1IntoConfig(cfg *configfile.V1, overlay configfile.OverlayV1, 
 		if overlay.Defaults.AgentCmd != nil {
 			cfg.Defaults.AgentCmd = overlay.Defaults.AgentCmd
 		}
+		if overlay.Defaults.AgentArgs != nil {
+			if cfg.Defaults.AgentArgs == nil {
+				cfg.Defaults.AgentArgs = map[string][]string{}
+			}
+			for agent, args := range overlay.Defaults.AgentArgs {
+				cfg.Defaults.AgentArgs[agent] = append([]string(nil), args...)
+			}
+		}
 		if overlay.Defaults.UsePrompts != nil {
 			cfg.Defaults.UsePrompts = overlay.Defaults.UsePrompts
 		}

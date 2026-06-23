@@ -1,5 +1,7 @@
 package agentlauncher
 
+import "strings"
+
 // bashLauncher starts an interactive bash shell as the "agent".
 // The prompt is ignored; this is useful for manual sessions/testing.
 type bashLauncher struct{}
@@ -8,7 +10,12 @@ func Bash() AgentLauncher { return bashLauncher{} }
 
 func (b bashLauncher) Name() string { return "bash" }
 
-func (b bashLauncher) Command(prompt string) string { return "bash -l" }
+func (b bashLauncher) Command(prompt string, extraArgs ...string) string {
+	var bld strings.Builder
+	bld.WriteString("bash -l")
+	appendExtraArgs(&bld, extraArgs)
+	return bld.String()
+}
 
 func (b bashLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool) {
 	return b, false
