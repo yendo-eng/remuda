@@ -197,7 +197,11 @@ func TestSessionResume_ClaudeModelAndPromptFlags(t *testing.T) {
 	require.Contains(t, cmd, "claude --continue")
 	require.Contains(t, cmd, "--model 'claude-sonnet-4.6'")
 	require.Contains(t, cmd, "'continue with tests'")
-	require.Contains(t, cmd, "REMUDA_MODEL='claude-sonnet-4.6'")
+	require.NotContains(t, cmd, "REMUDA_MODEL")
+
+	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_MODEL")
+	require.True(t, ok)
+	require.Equal(t, "claude-sonnet-4.6", value)
 }
 
 func TestSessionResume_DetachedTmuxExportsImplicitAnthropicForClaudeContainer(t *testing.T) {
@@ -417,7 +421,11 @@ func TestSessionResume_CustomAgentCommandAppendsPrompt(t *testing.T) {
 	cmd, ok := mgr.started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "my-resume 'pick this up'")
-	require.Contains(t, cmd, "REMUDA_AGENT='opencode'")
+	require.NotContains(t, cmd, "REMUDA_AGENT")
+
+	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_AGENT")
+	require.True(t, ok)
+	require.Equal(t, "opencode", value)
 }
 
 func TestSessionResume_OpenAIKeyOverridesEnvironment(t *testing.T) {

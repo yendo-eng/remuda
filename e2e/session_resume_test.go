@@ -137,7 +137,10 @@ func TestSessionResume(t *testing.T) {
 		require.Contains(t, sess.CommandRan, "claude --continue")
 		require.Contains(t, sess.CommandRan, "--model 'claude-sonnet-4.6'")
 		require.Contains(t, sess.CommandRan, "'continue with changelog updates'")
-		require.Contains(t, sess.CommandRan, "REMUDA_MODEL='claude-sonnet-4.6'")
+		require.NotContains(t, sess.CommandRan, "REMUDA_MODEL")
+		value, ok := sessionEnvValue(sess.StartEnv, "REMUDA_MODEL")
+		require.True(t, ok)
+		require.Equal(t, "claude-sonnet-4.6", value)
 	})
 
 	t.Run("returns clear error for unsupported built-in resume agent", func(t *testing.T) {
