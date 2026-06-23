@@ -15,7 +15,7 @@ This document covers the main commands provided by Remuda.
 - `remuda workspaces remove [--dry-run] [--force] <target>...`: remove one or more explicit workspaces by absolute path or `org/repo/workspace` identifier.
 - `remuda config validate`: validate the resolved config file (missing config is treated as success).
 - `remuda session <subcommand>`: manage running sessions created by Remuda. Subcommands: `list`, `attach`, `readbuf`, `send`, `path`, `kill`, `inactive`, `resume`, `reap`, `shell`, `edit`. See [Session Management](session-management.md).
-  - `session resume` supports the same post-clone launch flags as `vibe`: `--agent`, `--model`, `--reasoning-level`, `--agent-cmd`, `--use`, `--no-use`, `--jira`, `--gh-issue`, `--openai-api-key`, `--profile`, `--yolo`, plus detached/attach/container flags and an optional trailing prompt arg.
+  - `session resume` supports the same post-clone launch flags as `vibe`: `--agent`, `--model`, `--reasoning-level`, `--agent-cmd`, `--use`, `--no-use`, `--jira`, `--github-issue` (alias: `--gh-issue`), `--openai-api-key`, `--profile`, `--yolo`, plus detached/attach/container flags and an optional trailing prompt arg.
   - `session resume` is stateless: Remuda does not detect which agent created the original session. Use the same agent that created the workspace session history.
   - `session resume` defaults to Codex unless config/env defaults resolve to Claude via existing resume-default logic.
   - Clone-creation flags (`--repo`, `--repo-url`, `--full-clone`, `--no-clone-hooks`, wizard repo-selection) are intentionally not supported on `session resume`.

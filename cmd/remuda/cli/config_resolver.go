@@ -642,7 +642,7 @@ func sessionResumeFlagTakesValue(flag string) bool {
 	switch flag {
 	case "--agent", "--model", "--reasoning-level", "--agent-cmd",
 		"--jira", "--jira-endpoint", "--jira-user", "--jira-token",
-		"--slack-thread", "--gh-issue", "--use", "--no-use",
+		"--slack-thread", "--github-issue", "--gh-issue", "--use", "--no-use",
 		"--openai-api-key",
 		"--container-name", "--container-opt", "--container-inherit-env",
 		"--session-manager", "--profile":

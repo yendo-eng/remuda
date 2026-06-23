@@ -104,7 +104,7 @@ func parseIssueReference(raw, defaultRepo string) (issueReference, error) {
 		return issueReference{}, fmt.Errorf("issue reference %q must be a URL, owner/repo#number, or numeric id", raw)
 	}
 	if strings.TrimSpace(defaultRepo) == "" {
-		return issueReference{}, fmt.Errorf("--gh-issue %q requires --repo/--repo-url or a fully qualified issue URL", raw)
+		return issueReference{}, fmt.Errorf("--github-issue/--gh-issue %q requires --repo/--repo-url or a fully qualified issue URL", raw)
 	}
 	return issueReference{
 		repoSlug: defaultRepo,

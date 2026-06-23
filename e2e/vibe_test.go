@@ -378,7 +378,7 @@ func TestVibeContextEngineering(t *testing.T) {
 		"--no-container",
 		"--jira", "ABC-123",
 		"--slack-thread", threadURL,
-		"--gh-issue", issueSlug + "#" + issueNumber,
+		"--github-issue", issueSlug + "#" + issueNumber,
 		"--agent-cmd", "echo ",
 		"prompt",
 	}
