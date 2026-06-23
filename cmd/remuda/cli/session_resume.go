@@ -142,7 +142,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 		}
 	}
 
-	return ctx.Remuda.SessionResume(ctx.ctx, internal.SessionResumeCommand{
+	cmd := internal.SessionResumeCommand{
 		Workspace:           selectedAbs,
 		Agent:               agentName,
 		Model:               c.Model,
@@ -157,7 +157,12 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 		ContainerName:       c.ContainerName,
 		ContainerOpts:       c.ContainerOpt,
 		ContainerInheritEnv: c.ContainerInheritEnv,
-	})
+	}
+	if flagExplicit(kctx, "openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
+		cmd.EnvOverrides = map[string]string{"OPENAI_API_KEY": c.OpenAIAPIKey}
+	}
+
+	return ctx.Remuda.SessionResume(ctx.ctx, cmd)
 }
 
 func applyPerRepoOverlaysForPickedSessionResume(ctx Context, kctx *kong.Context, workspace string) error {
