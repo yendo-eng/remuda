@@ -126,7 +126,8 @@ Run `remuda vibe --help` for more options. Common flags:
   `--config model_reasoning_effort=<level>` (validated against `none|minimal|low|medium|high|xhigh`);
   for Claude this maps to `--effort <level>`.
 - `--yolo` – enable agent-specific approval/sandbox bypass behavior. Codex maps
-  this to `--dangerously-bypass-approvals-and-sandbox`; Claude maps this to
+  this to `--dangerously-bypass-approvals-and-sandbox` plus
+  `--dangerously-bypass-hook-trust`; Claude maps this to
   `--dangerously-skip-permissions`.
 - `--remote` – request agent remote control when supported. For Claude this maps
   to `--remote-control <session-name>`, where Remuda uses the run's session
