@@ -334,6 +334,7 @@ func TestSessionResumeCodex_YoloAddsBypassFlags(t *testing.T) {
 	require.True(t, ok)
 	require.Contains(t, cmd, "codex resume --last")
 	require.Contains(t, cmd, "--dangerously-bypass-approvals-and-sandbox")
+	require.Contains(t, cmd, "--dangerously-bypass-hook-trust")
 	require.Contains(t, cmd, "shell_environment_policy.ignore_default_excludes")
 }
 
