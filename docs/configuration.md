@@ -51,7 +51,8 @@ or populate values automatically, but you can configure them explicitly:
   to forward into container sessions. Equivalent to repeating `--container-inherit-env`.
 - `REMUDA_YOLO` – set to `true` to enable yolo mode (ignore sandboxing/approvals for
   supported agents) by default. Equivalent to passing `--yolo` (`codex` maps to
-  `--dangerously-bypass-approvals-and-sandbox`, `claude` maps to
+  `--dangerously-bypass-approvals-and-sandbox` plus
+  `--dangerously-bypass-hook-trust`, `claude` maps to
   `--dangerously-skip-permissions`).
 - `REMUDA_SESSION_MANAGER` – select the session manager used for detached runs.
   Accepts `tmux` (default) or `zellij`. Equivalent to passing
