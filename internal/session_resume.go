@@ -98,7 +98,7 @@ func normalizeSessionResumeAgent(agent string) string {
 func codexResumeCommand(yolo bool, reasoningLevel string) string {
 	command := "codex resume --last"
 	if yolo {
-		command += " --dangerously-bypass-approvals-and-sandbox --config shell_environment_policy.ignore_default_excludes=\"true\""
+		command += " --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --config shell_environment_policy.ignore_default_excludes=\"true\""
 	}
 	reasoningLevel = strings.TrimSpace(reasoningLevel)
 	if reasoningLevel != "" {

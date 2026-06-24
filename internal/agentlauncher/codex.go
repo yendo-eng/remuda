@@ -30,6 +30,7 @@ func (c codexLauncher) Command(prompt string, extraArgs ...string) string {
 	b.WriteString("codex")
 	if c.Yolo {
 		b.WriteString(" --dangerously-bypass-approvals-and-sandbox")
+		b.WriteString(" --dangerously-bypass-hook-trust")
 		// Allow env passthrough inside Codex's sandbox in yolo mode
 		b.WriteString(" --config shell_environment_policy.ignore_default_excludes=\"true\"")
 	}

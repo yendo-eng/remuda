@@ -15,6 +15,7 @@ func TestCodexLauncher_YoloAddsFlag(t *testing.T) {
 	cmd := l.Command("do stuff")
 	// Expect the dangerous bypass flag to be present for Codex when --yolo is set.
 	assert.Contains(t, cmd, "--dangerously-bypass-approvals-and-sandbox", "missing yolo flag")
+	assert.Contains(t, cmd, "--dangerously-bypass-hook-trust", "missing hook trust bypass flag")
 	// Expect env passthrough config to be present as well.
 	assert.Contains(t, cmd, "shell_environment_policy.ignore_default_excludes=\"true\"", "missing env passthrough config")
 	// And ensure --full-auto is not present when yolo is set.
@@ -26,6 +27,7 @@ func TestCodexLauncher_NoYoloNoFlag(t *testing.T) {
 	cmd := l.Command("do stuff")
 	// Expect the dangerous bypass flag to be absent by default.
 	assert.NotContains(t, cmd, "--dangerously-bypass-approvals-and-sandbox", "unexpected yolo flag")
+	assert.NotContains(t, cmd, "--dangerously-bypass-hook-trust", "unexpected hook trust bypass flag")
 	// Ensure unsupported full-auto is never emitted in default mode.
 	assert.NotContains(t, cmd, "--full-auto", "full-auto should never be emitted")
 }
