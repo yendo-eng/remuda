@@ -215,8 +215,13 @@ func (m *defaultTmuxManager) ReadBuffer(name string, lines int) (string, error) 
 
 	content := strings.ReplaceAll(string(out), "\r\n", "\n")
 	linesSlice := strings.Split(content, "\n")
-	if lines > 0 && len(linesSlice) > lines {
-		linesSlice = linesSlice[len(linesSlice)-lines:]
+	if lines > 0 {
+		for len(linesSlice) > 0 && strings.TrimSpace(linesSlice[len(linesSlice)-1]) == "" {
+			linesSlice = linesSlice[:len(linesSlice)-1]
+		}
+		if len(linesSlice) > lines {
+			linesSlice = linesSlice[len(linesSlice)-lines:]
+		}
 	}
 
 	return strings.Join(linesSlice, "\n"), nil
