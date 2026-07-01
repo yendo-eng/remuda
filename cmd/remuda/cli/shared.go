@@ -71,7 +71,7 @@ type ContextEngineeringOptions struct {
 	SlackThread  []string     `name:"slack-thread" help:"Slack thread URL to import as context (repeatable, requires SLACK_TOKEN)."`
 	GitHubIssue  []string     `name:"github-issue" aliases:"gh-issue" help:"GitHub issue URL or number to prepend as context (repeatable; number requires repo inference)."`
 	Use          []PromptName `kong:"name=use,short=u,help='Prepend one or more saved prompts (repeatable). Custom prompts override built-ins when names collide.',env='REMUDA_USE_PROMPTS',predictor='prompt-name'"`
-	NoUse        []PromptName `kong:"name=no-use,help='Exclude one or more saved prompts (repeatable).',predictor='prompt-name'"`
+	NoUse        []PromptName `kong:"name=no-use,help='Exclude one or more saved prompts (repeatable).',predictor='no-use-prompt-name'"`
 }
 
 type PromptContextInput struct {

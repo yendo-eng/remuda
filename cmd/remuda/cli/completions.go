@@ -34,7 +34,8 @@ func RemudaPredictors(kctx Context, parser *kong.Kong) map[string]complete.Predi
 	homeDir, _ := homeDirFromContext(kctx)
 	return map[string]complete.Predictor{
 		"session-name":            PredictSessionNames(kctx.Remuda),
-		"prompt-name":             PredictPromptNames(kctx.Remuda),
+		"prompt-name":             PredictPromptNames(kctx),
+		"no-use-prompt-name":      PredictNoUsePromptNames(kctx),
 		"profile-name":            PredictProfileNames(kctx),
 		"repo-alias":              PredictRepoAliases(kctx.Remuda),
 		"model":                   PredictModel(kctx, parser),
@@ -99,18 +100,131 @@ func PredictSessionNames(k internal.Remuda) complete.PredictFunc {
 	}
 }
 
-func PredictPromptNames(k internal.Remuda) complete.Predictor {
+func PredictPromptNames(kctx Context) complete.Predictor {
 	return complete.PredictFunc(func(a complete.Args) []string {
-		promptList, err := prompts.List()
+		return allPromptNames(kctx)
+	})
+}
+
+func PredictNoUsePromptNames(kctx Context) complete.Predictor {
+	return complete.PredictFunc(func(a complete.Args) []string {
+		useDefaults := resolvedUsePromptDefaults(kctx)
+		useFromFlags := promptNamesFromFlagValues(a.All, "--use", "-u")
+		noUseFromFlags := promptNamesFromFlagValues(a.All, "--no-use")
+		use := mergePromptNames(useDefaults, useFromFlags)
+
+		effective := (ContextEngineeringOptions{
+			Use:   use,
+			NoUse: noUseFromFlags,
+		}).effectiveUsePromptNames()
+		if len(effective) == 0 {
+			return nil
+		}
+
+		effectiveSet := make(map[string]struct{}, len(effective))
+		for _, name := range effective {
+			effectiveSet[name] = struct{}{}
+		}
+
+		all := allPromptNames(kctx)
+		if len(all) == 0 {
+			return nil
+		}
+		out := make([]string, 0, len(all))
+		for _, name := range all {
+			if _, ok := effectiveSet[name]; ok {
+				out = append(out, name)
+			}
+		}
+		return out
+	})
+}
+
+func allPromptNames(kctx Context) []string {
+	provider := kctx.Remuda.Env
+	promptList, err := prompts.ListWithEnv(provider)
+	if err != nil {
+		return nil
+	}
+	names := make([]string, 0, len(promptList))
+	for _, prompt := range promptList {
+		names = append(names, prompt.Name)
+	}
+	return names
+}
+
+func resolvedUsePromptDefaults(kctx Context) []PromptName {
+	env := envFromContext(kctx)
+	if envSet(env, "REMUDA_USE_PROMPTS") {
+		names, err := promptNamesFromDefaults(splitFlexibleList(env.Getenv("REMUDA_USE_PROMPTS")))
 		if err != nil {
 			return nil
 		}
-		names := make([]string, 0, len(promptList))
-		for _, prompt := range promptList {
-			names = append(names, prompt.Name)
-		}
 		return names
-	})
+	}
+
+	cfg := kctx.ConfigFile
+	if cfg == nil {
+		var err error
+		cfg, _, err = loadConfigV1(kctx)
+		if err != nil {
+			return nil
+		}
+	}
+	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.UsePrompts == nil {
+		return nil
+	}
+	names, err := promptNamesFromDefaults(*cfg.Defaults.UsePrompts)
+	if err != nil {
+		return nil
+	}
+	return names
+}
+
+func promptNamesFromFlagValues(args []string, flags ...string) []PromptName {
+	rawValues := flagValues(args, flags...)
+	if len(rawValues) == 0 {
+		return nil
+	}
+	out := make([]PromptName, 0, len(rawValues))
+	for _, raw := range rawValues {
+		parsed, err := promptNamesFromDefaults(splitFlexibleList(raw))
+		if err != nil {
+			continue
+		}
+		out = append(out, parsed...)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func flagValues(args []string, flags ...string) []string {
+	if len(args) == 0 || len(flags) == 0 {
+		return nil
+	}
+	out := []string{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		for _, flag := range flags {
+			if arg == flag {
+				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					out = append(out, args[i+1])
+				}
+				break
+			}
+			if strings.HasPrefix(arg, flag+"=") {
+				out = append(out, strings.TrimPrefix(arg, flag+"="))
+				break
+			}
+			if flag == "-u" && strings.HasPrefix(arg, "-u") && len(arg) > 2 {
+				out = append(out, arg[2:])
+				break
+			}
+		}
+	}
+	return out
 }
 
 func PredictProfileNames(kctx Context) complete.Predictor {

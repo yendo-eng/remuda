@@ -183,6 +183,7 @@ Notes:
 - Config-based exclusions are available via `defaults.no_use`, `per_repo.<repo>.defaults.no_use`, and `profiles.<name>.no_use`.
 - Unknown prompt names in `--no-use` are errors, matching `--use`.
 - `--no-use` does not require a prompt, so it can be used when starting an empty prompt run.
+- Shell completion for `--no-use` only sees tokens left of the cursor. Put `--use` before `--no-use` when you want those values to influence `--no-use` suggestions.
 
 Example:
 
