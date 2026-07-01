@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/yendo-eng/remuda/internal/session"
@@ -91,13 +92,26 @@ func (f *MockSessionManager) Attach(name string) error {
 func (f *MockSessionManager) ReadBuffer(name string, lines int) (string, error) {
 	f.LastReadName = name
 	f.LastReadLines = lines
+	if lines < 0 {
+		lines = 200
+	}
+
+	truncate := func(buf string) string {
+		content := strings.ReplaceAll(buf, "\r\n", "\n")
+		linesSlice := strings.Split(content, "\n")
+		if lines > 0 && len(linesSlice) > lines {
+			linesSlice = linesSlice[len(linesSlice)-lines:]
+		}
+		return strings.Join(linesSlice, "\n")
+	}
+
 	// Check per-session buffer first
 	if f.ReadBufs != nil {
 		if buf, ok := f.ReadBufs[name]; ok {
-			return buf, nil
+			return truncate(buf), nil
 		}
 	}
-	return f.ReadBuf, nil
+	return truncate(f.ReadBuf), nil
 }
 
 func (f *MockSessionManager) Send(name string, payload string, appendNewline bool) error {

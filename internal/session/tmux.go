@@ -202,22 +202,24 @@ func (m *defaultTmuxManager) ReadBuffer(name string, lines int) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	// Capture from the first pane of the first window. Use negative -S to
-	// start relative to the end of the history (tmux semantics).
-	target := fmt.Sprintf("%s:0.0", resolved)
-	start := "-"
-	switch {
-	case lines > 0:
-		start = fmt.Sprintf("-%d", lines)
-	case lines < 0:
-		// Don't expect negative values, but fall back to a reasonable default.
-		start = "-200"
+	if lines < 0 {
+		lines = 200
 	}
-	out, err := util.RunCmdOutputWithLogger(m.logger, "tmux", "capture-pane", "-p", "-S", start, "-t", target)
+
+	// Capture from the first pane of the first window.
+	target := fmt.Sprintf("%s:0.0", resolved)
+	out, err := util.RunCmdOutputWithLogger(m.logger, "tmux", "capture-pane", "-p", "-S", "-", "-t", target)
 	if err != nil {
 		return "", fmt.Errorf("tmux capture-pane: %w", err)
 	}
-	return string(out), nil
+
+	content := strings.ReplaceAll(string(out), "\r\n", "\n")
+	linesSlice := strings.Split(content, "\n")
+	if lines > 0 && len(linesSlice) > lines {
+		linesSlice = linesSlice[len(linesSlice)-lines:]
+	}
+
+	return strings.Join(linesSlice, "\n"), nil
 }
 
 func (m *defaultTmuxManager) Send(name string, payload string, appendNewline bool) error {
