@@ -352,6 +352,71 @@ func TestPredictNoUsePromptNames_NoDefaultsAndNoUseFlagsReturnsEmpty(t *testing.
 	require.Empty(t, got)
 }
 
+func TestPredictNoUsePromptNames_UsesPerRepoDefaultsForRepoAlias(t *testing.T) {
+	github.ResetRepoAliases()
+	t.Cleanup(github.ResetRepoAliases)
+
+	home := t.TempDir()
+	env := cli.EnvMap{
+		"REMUDA_CONFIG":   "",
+		"XDG_CONFIG_HOME": "",
+	}
+
+	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
+	require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+defaults:
+  use_prompts:
+    - small-commits
+repos:
+  aliases:
+    acme-widgets: https://github.com/acme/widgets.git
+per_repo:
+  acme/widgets:
+    defaults:
+      use_prompts:
+        - prototype
+`), 0o644))
+
+	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
+	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
+		All: []string{"vibe", "--repo", "acme-widgets", "--no-use"},
+	})
+	require.ElementsMatch(t, []string{"prototype"}, got)
+}
+
+func TestPredictNoUsePromptNames_UsesPerRepoDefaultsFromDefaultRepo(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	env := cli.EnvMap{
+		"REMUDA_CONFIG":   "",
+		"XDG_CONFIG_HOME": "",
+	}
+
+	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
+	require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+defaults:
+  use_prompts:
+    - small-commits
+repos:
+  default_repo_url: https://github.com/acme/widgets.git
+per_repo:
+  acme/widgets:
+    defaults:
+      use_prompts:
+        - minimal-change
+`), 0o644))
+
+	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
+	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
+		All: []string{"vibe", "--no-use"},
+	})
+	require.ElementsMatch(t, []string{"minimal-change"}, got)
+}
+
 func TestRemudaPredictors_WorkspaceDir_PredictsDirectories(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

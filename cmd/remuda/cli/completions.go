@@ -109,7 +109,7 @@ func PredictPromptNames(kctx Context) complete.Predictor {
 func PredictNoUsePromptNames(kctx Context) complete.Predictor {
 	return complete.PredictFunc(func(a complete.Args) []string {
 		useFromFlags := promptNamesFromFlagValues(a.All, "--use", "-u")
-		use := resolvedUsePromptDefaultsForNoUse(kctx, useFromFlags)
+		use := resolvedUsePromptDefaultsForNoUse(kctx, a.All, useFromFlags)
 		noUseFromFlags := promptNamesFromFlagValues(a.All, "--no-use")
 
 		effective := (ContextEngineeringOptions{
@@ -139,7 +139,7 @@ func PredictNoUsePromptNames(kctx Context) complete.Predictor {
 	})
 }
 
-func resolvedUsePromptDefaultsForNoUse(kctx Context, useFromFlags []PromptName) []PromptName {
+func resolvedUsePromptDefaultsForNoUse(kctx Context, args []string, useFromFlags []PromptName) []PromptName {
 	env := envFromContext(kctx)
 	if envSet(env, "REMUDA_USE_PROMPTS") {
 		// Match runtime precedence: explicit --use replaces env defaults.
@@ -153,7 +153,7 @@ func resolvedUsePromptDefaultsForNoUse(kctx Context, useFromFlags []PromptName) 
 		return names
 	}
 
-	useDefaults := resolvedConfigUsePromptDefaults(kctx)
+	useDefaults := resolvedConfigUsePromptDefaults(kctx, args)
 	return mergePromptNames(useDefaults, useFromFlags)
 }
 
@@ -170,14 +170,21 @@ func allPromptNames(kctx Context) []string {
 	return names
 }
 
-func resolvedConfigUsePromptDefaults(kctx Context) []PromptName {
-	cfg := kctx.ConfigFile
-	if cfg == nil {
-		var err error
-		cfg, _, err = loadConfigV1(kctx)
-		if err != nil {
-			return nil
-		}
+func resolvedConfigUsePromptDefaults(kctx Context, args []string) []PromptName {
+	cfg, _, err := loadConfigV1(kctx)
+	if err != nil || cfg == nil {
+		return nil
+	}
+
+	// Keep alias catalog aligned with config before inferring --repo values.
+	if cfg.Repos != nil && len(cfg.Repos.Aliases) > 0 {
+		github.MergeRepoAliases(cfg.Repos.Aliases)
+	}
+	if err := applyPerRepoOverlay(kctx, cfg, args); err != nil {
+		return nil
+	}
+	if err := applyProfileOverlay(kctx, cfg, args); err != nil {
+		return nil
 	}
 	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.UsePrompts == nil {
 		return nil
