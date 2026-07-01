@@ -16,6 +16,15 @@ import (
 	"github.com/yendo-eng/remuda/internal/github"
 )
 
+var builtinPromptNames = []string{
+	"small-commits",
+	"make-pr",
+	"update-docs",
+	"refactor-cohesion",
+	"minimal-change",
+	"prototype",
+}
+
 func TestPredictModel_UsesConfigDefaultAgent(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
@@ -246,6 +255,101 @@ func TestPredictRepoAliases_ReturnsConfiguredAliases(t *testing.T) {
 
 	got := cli.PredictRepoAliases(internal.Remuda{}).Predict(complete.Args{})
 	require.Equal(t, []string{"alpha", "zz"}, got)
+}
+
+func TestPredictPromptNames_ReturnsAllPrompts(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	env := cli.EnvMap{
+		"REMUDA_USE_PROMPTS": "make-pr",
+		"REMUDA_CONFIG":      "",
+		"XDG_CONFIG_HOME":    "",
+	}
+
+	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
+	got := cli.PredictPromptNames(ctx).Predict(complete.Args{All: []string{"vibe", "--use"}})
+	require.ElementsMatch(t, builtinPromptNames, got)
+}
+
+func TestPredictNoUsePromptNames_UsesConfigDefaultsAndUseFlags(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	env := cli.EnvMap{
+		"REMUDA_CONFIG":   "",
+		"XDG_CONFIG_HOME": "",
+	}
+
+	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
+	require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+defaults:
+  use_prompts:
+    - small-commits
+    - make-pr
+`), 0o644))
+
+	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
+	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
+		All: []string{"vibe", "--use", "minimal-change", "--no-use"},
+	})
+	require.ElementsMatch(t, []string{"small-commits", "make-pr", "minimal-change"}, got)
+}
+
+func TestPredictNoUsePromptNames_EnvOverridesConfigDefaults(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	env := cli.EnvMap{
+		"REMUDA_USE_PROMPTS": "prototype",
+		"REMUDA_CONFIG":      "",
+		"XDG_CONFIG_HOME":    "",
+	}
+
+	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
+	require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+defaults:
+  use_prompts:
+    - make-pr
+`), 0o644))
+
+	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
+	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
+		All: []string{"vibe", "--use", "make-pr", "--no-use"},
+	})
+	require.ElementsMatch(t, []string{"prototype", "make-pr"}, got)
+}
+
+func TestPredictNoUsePromptNames_ExcludesAlreadyTypedNoUse(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	env := cli.EnvMap{
+		"REMUDA_USE_PROMPTS": "make-pr,small-commits",
+		"REMUDA_CONFIG":      "",
+		"XDG_CONFIG_HOME":    "",
+	}
+
+	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
+	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
+		All: []string{"vibe", "--no-use", "make-pr", "--no-use"},
+	})
+	require.ElementsMatch(t, []string{"small-commits"}, got)
+}
+
+func TestPredictNoUsePromptNames_NoDefaultsAndNoUseFlagsReturnsEmpty(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	env := cli.EnvMap{
+		"REMUDA_CONFIG":   "",
+		"XDG_CONFIG_HOME": "",
+	}
+
+	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
+	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
+		All: []string{"vibe", "--no-use"},
+	})
+	require.Empty(t, got)
 }
 
 func TestRemudaPredictors_WorkspaceDir_PredictsDirectories(t *testing.T) {
