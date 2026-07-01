@@ -108,10 +108,9 @@ func PredictPromptNames(kctx Context) complete.Predictor {
 
 func PredictNoUsePromptNames(kctx Context) complete.Predictor {
 	return complete.PredictFunc(func(a complete.Args) []string {
-		useDefaults := resolvedUsePromptDefaults(kctx)
 		useFromFlags := promptNamesFromFlagValues(a.All, "--use", "-u")
+		use := resolvedUsePromptDefaultsForNoUse(kctx, useFromFlags)
 		noUseFromFlags := promptNamesFromFlagValues(a.All, "--no-use")
-		use := mergePromptNames(useDefaults, useFromFlags)
 
 		effective := (ContextEngineeringOptions{
 			Use:   use,
@@ -140,6 +139,24 @@ func PredictNoUsePromptNames(kctx Context) complete.Predictor {
 	})
 }
 
+func resolvedUsePromptDefaultsForNoUse(kctx Context, useFromFlags []PromptName) []PromptName {
+	env := envFromContext(kctx)
+	if envSet(env, "REMUDA_USE_PROMPTS") {
+		// Match runtime precedence: explicit --use replaces env defaults.
+		if len(useFromFlags) > 0 {
+			return mergePromptNames(nil, useFromFlags)
+		}
+		names, err := promptNamesFromDefaults(splitFlexibleList(env.Getenv("REMUDA_USE_PROMPTS")))
+		if err != nil {
+			return nil
+		}
+		return names
+	}
+
+	useDefaults := resolvedConfigUsePromptDefaults(kctx)
+	return mergePromptNames(useDefaults, useFromFlags)
+}
+
 func allPromptNames(kctx Context) []string {
 	provider := kctx.Remuda.Env
 	promptList, err := prompts.ListWithEnv(provider)
@@ -153,16 +170,7 @@ func allPromptNames(kctx Context) []string {
 	return names
 }
 
-func resolvedUsePromptDefaults(kctx Context) []PromptName {
-	env := envFromContext(kctx)
-	if envSet(env, "REMUDA_USE_PROMPTS") {
-		names, err := promptNamesFromDefaults(splitFlexibleList(env.Getenv("REMUDA_USE_PROMPTS")))
-		if err != nil {
-			return nil
-		}
-		return names
-	}
-
+func resolvedConfigUsePromptDefaults(kctx Context) []PromptName {
 	cfg := kctx.ConfigFile
 	if cfg == nil {
 		var err error
