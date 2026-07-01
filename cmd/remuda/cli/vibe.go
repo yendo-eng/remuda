@@ -26,7 +26,7 @@ type VibeCmd struct {
 	// Branch overrides the default of using --name for git branch checkout.
 	Branch string `name:"branch" help:"Checkout this branch instead of deriving from --name."`
 
-	Profile string `name:"profile" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
+	Profile string `name:"profile" short:"p" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
 
 	Yolo bool `name:"yolo" env:"REMUDA_YOLO" negatable:"" help:"Ignore sandboxing/approvals for supported agents (Codex/Claude)."`
 

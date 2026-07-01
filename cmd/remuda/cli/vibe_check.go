@@ -14,7 +14,7 @@ import (
 type VibeCheckCmd struct {
 	Name    string `name:"name" optional:"" help:"Workspace name; defaults to <branch>-code-review (or PR head branch + -code-review when --pr is set)."`
 	Wizard  bool   `name:"wizard" help:"Launch interactive wizard for this command (requires a TTY)."`
-	Profile string `name:"profile" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
+	Profile string `name:"profile" short:"p" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
 
 	// Clone selection
 	CloneRepoOption

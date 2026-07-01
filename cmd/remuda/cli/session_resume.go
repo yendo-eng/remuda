@@ -20,7 +20,7 @@ type SessionResumeCmd struct {
 	WorkspaceDir string `arg:"" optional:"" name:"workspace-dir" help:"Workspace directory to resume." predictor:"workspace-dir"`
 	Prompt       string `arg:"" optional:"" name:"prompt" help:"Prompt to send after resuming. Use '-' to read from STDIN."`
 	Pick         bool   `name:"pick" help:"Use fzf to interactively select an inactive workspace to resume."`
-	Profile      string `name:"profile" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
+	Profile      string `name:"profile" short:"p" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
 	Yolo         bool   `name:"yolo" env:"REMUDA_YOLO" negatable:"" help:"Ignore sandboxing/approvals for supported agents (Codex/Claude)."`
 }
 
