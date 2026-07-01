@@ -19,6 +19,18 @@ func TestSessionReadbufZeroLinesReadsEntireBuffer(t *testing.T) {
 	require.Equal(t, "log contents", res.Stdout)
 }
 
+func TestSessionReadbufRespectsLinesForSingleSession(t *testing.T) {
+	t.Parallel()
+	sess := &testutils.MockSessionManager{ReadBuf: "line1\nline2\nline3\nline4"}
+
+	h := testutils.NewHarness(t, testutils.WithSessionManager(sess))
+
+	res := h.RunOK("session", "readbuf", "--name", "org/repo/feat", "-n", "2")
+	require.Equal(t, "org/repo/feat", sess.LastReadName)
+	require.Equal(t, 2, sess.LastReadLines)
+	require.Equal(t, "line3\nline4", res.Stdout)
+}
+
 func TestSessionReadbufRejectsNegativeLines(t *testing.T) {
 	t.Parallel()
 	sess := &testutils.MockSessionManager{}
@@ -44,6 +56,19 @@ org/repo/feat2:3: lineC
 `
 	res := h.RunOK("session", "readbuf", "--all")
 	require.Equal(t, expected, res.Stdout)
+}
+
+func TestSessionReadbufAllRespectsLinesPerSession(t *testing.T) {
+	t.Parallel()
+	sess := &testutils.MockSessionManager{}
+	sess.AddSessionWithBuffer("org/repo/feat1", "line1\nline2\nline3")
+	sess.AddSessionWithBuffer("org/repo/feat2", "lineA\nlineB")
+	h := testutils.NewHarness(t, testutils.WithSessionManager(sess))
+
+	res := h.RunOK("session", "readbuf", "--all", "-n", "1")
+	require.Equal(t, `org/repo/feat1:1: line3
+org/repo/feat2:1: lineB
+`, res.Stdout)
 }
 
 func TestSessionReadbufAllWithNoSessions(t *testing.T) {
