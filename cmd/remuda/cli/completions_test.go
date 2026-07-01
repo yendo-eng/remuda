@@ -296,7 +296,7 @@ defaults:
 	require.ElementsMatch(t, []string{"small-commits", "make-pr", "minimal-change"}, got)
 }
 
-func TestPredictNoUsePromptNames_EnvOverridesConfigDefaults(t *testing.T) {
+func TestPredictNoUsePromptNames_ExplicitUseReplacesEnvDefaults(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	env := cli.EnvMap{
@@ -318,7 +318,7 @@ defaults:
 	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
 		All: []string{"vibe", "--use", "make-pr", "--no-use"},
 	})
-	require.ElementsMatch(t, []string{"prototype", "make-pr"}, got)
+	require.ElementsMatch(t, []string{"make-pr"}, got)
 }
 
 func TestPredictNoUsePromptNames_ExcludesAlreadyTypedNoUse(t *testing.T) {
