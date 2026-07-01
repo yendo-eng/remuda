@@ -13,6 +13,7 @@ import (
 	"github.com/posener/complete"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
+	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/prompts"
@@ -176,16 +177,10 @@ func resolvedConfigUsePromptDefaults(kctx Context, args []string) []PromptName {
 		return nil
 	}
 
-	// Keep alias catalog aligned with config before inferring --repo values.
-	if cfg.Repos != nil && len(cfg.Repos.Aliases) > 0 {
-		github.MergeRepoAliases(cfg.Repos.Aliases)
-	}
-	if err := applyPerRepoOverlay(kctx, cfg, args); err != nil {
+	if err := applyCompletionOverlaysForUsePrompts(kctx, cfg, args); err != nil {
 		return nil
 	}
-	if err := applyProfileOverlay(kctx, cfg, args); err != nil {
-		return nil
-	}
+
 	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.UsePrompts == nil {
 		return nil
 	}
@@ -194,6 +189,76 @@ func resolvedConfigUsePromptDefaults(kctx Context, args []string) []PromptName {
 		return nil
 	}
 	return names
+}
+
+func applyCompletionOverlaysForUsePrompts(kctx Context, cfg *configfile.V1, args []string) error {
+	if cfg == nil {
+		return nil
+	}
+
+	// Keep alias catalog aligned with config before inferring --repo values.
+	if cfg.Repos != nil && len(cfg.Repos.Aliases) > 0 {
+		github.MergeRepoAliases(cfg.Repos.Aliases)
+	}
+
+	repoSlug := inferRepoSlugForCompletion(kctx, cfg, args)
+	if repoSlug != "" && len(cfg.PerRepo) > 0 {
+		if overlay, ok := cfg.PerRepo[repoSlug]; ok {
+			mergeOverlayV1IntoConfig(cfg, overlay, true)
+			if overlay.Repos != nil && len(overlay.Repos.Aliases) > 0 {
+				github.MergeRepoAliases(overlay.Repos.Aliases)
+			}
+		}
+	}
+
+	env := envFromContext(kctx)
+	if explicit, ok := findProfileFlagValue(args); ok && strings.TrimSpace(explicit) != "" {
+		return applyProfileOverlayByName(cfg, explicit)
+	}
+	if envProfile := strings.TrimSpace(env.Getenv("REMUDA_PROFILE")); envProfile != "" {
+		return applyProfileOverlayByName(cfg, envProfile)
+	}
+	if repoSlug != "" {
+		if overlay, ok := cfg.PerRepo[repoSlug]; ok && overlay.Profile != nil {
+			return applyPerRepoProfileOverlayByName(cfg, repoSlug, *overlay.Profile)
+		}
+	}
+	return nil
+}
+
+func inferRepoSlugForCompletion(kctx Context, cfg *configfile.V1, args []string) string {
+	if repoURL, ok := findFlagValue(args, "repo-url"); ok {
+		if slug := repoSlugFromURL(github.ExpandRepoURL(repoURL)); slug != "" {
+			return normalizeRepoSlug(slug)
+		}
+	}
+	if repoAlias, ok := findFlagValue(args, "repo"); ok {
+		if repoURL, ok := github.ExpandRepoAlias(repoAlias); ok {
+			if slug := repoSlugFromURL(repoURL); slug != "" {
+				return normalizeRepoSlug(slug)
+			}
+		}
+	}
+	if workspace, ok := findFlagValue(args, "in"); ok {
+		if slug := repoSlugFromWorkspacePath(kctx, cfg, workspace); slug != "" {
+			return normalizeRepoSlug(slug)
+		}
+	}
+	if cfg != nil && cfg.Repos != nil {
+		if cfg.Repos.DefaultRepoURL != nil && strings.TrimSpace(*cfg.Repos.DefaultRepoURL) != "" {
+			if slug := repoSlugFromURL(github.ExpandRepoURL(*cfg.Repos.DefaultRepoURL)); slug != "" {
+				return normalizeRepoSlug(slug)
+			}
+		}
+		if cfg.Repos.DefaultRepo != nil && strings.TrimSpace(*cfg.Repos.DefaultRepo) != "" {
+			if repoURL, ok := github.ExpandRepoAlias(*cfg.Repos.DefaultRepo); ok {
+				if slug := repoSlugFromURL(repoURL); slug != "" {
+					return normalizeRepoSlug(slug)
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func promptNamesFromFlagValues(args []string, flags ...string) []PromptName {

@@ -291,7 +291,7 @@ defaults:
 
 	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
 	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
-		All: []string{"vibe", "--use", "minimal-change", "--no-use"},
+		All: []string{"--use", "minimal-change", "--no-use"},
 	})
 	require.ElementsMatch(t, []string{"small-commits", "make-pr", "minimal-change"}, got)
 }
@@ -316,7 +316,7 @@ defaults:
 
 	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
 	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
-		All: []string{"vibe", "--use", "make-pr", "--no-use"},
+		All: []string{"--use", "make-pr", "--no-use"},
 	})
 	require.ElementsMatch(t, []string{"make-pr"}, got)
 }
@@ -332,7 +332,7 @@ func TestPredictNoUsePromptNames_ExcludesAlreadyTypedNoUse(t *testing.T) {
 
 	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
 	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
-		All: []string{"vibe", "--no-use", "make-pr", "--no-use"},
+		All: []string{"--no-use", "make-pr", "--no-use"},
 	})
 	require.ElementsMatch(t, []string{"small-commits"}, got)
 }
@@ -347,7 +347,7 @@ func TestPredictNoUsePromptNames_NoDefaultsAndNoUseFlagsReturnsEmpty(t *testing.
 
 	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
 	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
-		All: []string{"vibe", "--no-use"},
+		All: []string{"--no-use"},
 	})
 	require.Empty(t, got)
 }
@@ -381,7 +381,7 @@ per_repo:
 
 	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
 	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
-		All: []string{"vibe", "--repo", "acme-widgets", "--no-use"},
+		All: []string{"--repo", "acme-widgets", "--no-use"},
 	})
 	require.ElementsMatch(t, []string{"prototype"}, got)
 }
@@ -412,9 +412,42 @@ per_repo:
 
 	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
 	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
-		All: []string{"vibe", "--no-use"},
+		All: []string{"--no-use"},
 	})
 	require.ElementsMatch(t, []string{"minimal-change"}, got)
+}
+
+func TestPredictNoUsePromptNames_PrefersProfileFromEnv(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	env := cli.EnvMap{
+		"REMUDA_PROFILE":  "question",
+		"REMUDA_CONFIG":   "",
+		"XDG_CONFIG_HOME": "",
+	}
+
+	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
+	require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+repos:
+  default_repo_url: https://github.com/acme/widgets.git
+profiles:
+  question:
+    use_prompts:
+      - prototype
+per_repo:
+  acme/widgets:
+    defaults:
+      use_prompts:
+        - minimal-change
+`), 0o644))
+
+	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
+	got := cli.PredictNoUsePromptNames(ctx).Predict(complete.Args{
+		All: []string{"--no-use"},
+	})
+	require.ElementsMatch(t, []string{"prototype"}, got)
 }
 
 func TestRemudaPredictors_WorkspaceDir_PredictsDirectories(t *testing.T) {
