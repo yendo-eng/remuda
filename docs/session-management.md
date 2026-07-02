@@ -62,6 +62,10 @@ remuda workspaces list --active
 # List inactive workspaces (no active session); one path per line for scripting
 remuda workspaces list --inactive
 
+# Rename an inactive workspace (absolute path or org/repo/workspace)
+remuda workspaces rename ~/.remuda/repos/acme-org/example-repo/feature-login-audit feature-login-refactor
+remuda workspaces rename acme-org/example-repo/feature-login-audit feature-login-refactor
+
 # Resume the most recent session in an inactive workspace
 remuda session resume ~/.remuda/repos/acme-org/example-repo/feature-login-audit
 remuda session resume --pick
@@ -81,6 +85,12 @@ remuda session reap --older-than 336h --pick
 `remuda workspaces list`, `remuda workspaces list --active`, and
 `remuda workspaces list --inactive` all respect `workspaces.ignore` patterns
 from config. `--active` and `--inactive` are mutually exclusive.
+`remuda workspaces rename` only supports inactive workspaces and renames both the
+workspace path and the default branch (`<old-name>` -> `<new-name>`).
+
+For containerized Codex sessions, the in-container workspace path is derived
+from the host absolute path. Renaming a workspace changes that derived path, so
+later container resume may not align with prior conversation history.
 
 `remuda session resume` supports the same post-clone launch flags as `remuda vibe`:
 
