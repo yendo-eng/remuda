@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -203,7 +203,7 @@ func workspaceRelPath(base, workspace string) (string, error) {
 	}
 	org, repo, folder := util.SplitWorkspacePath(base, workspace)
 	if org == "" || repo == "" || folder == "" {
-		return "", errors.New("workspace must be at depth 3 under repos base dir (org/repo/folder)")
+		return "", pkgerrors.New("workspace must be at depth 3 under repos base dir (org/repo/folder)")
 	}
 	return path.Join(org, repo, folder), nil
 }
@@ -212,10 +212,10 @@ func validateIgnorePatterns(patterns []string) error {
 	for _, pattern := range patterns {
 		pattern = strings.TrimSpace(pattern)
 		if pattern == "" {
-			return errors.New("ignore pattern is empty")
+			return pkgerrors.New("ignore pattern is empty")
 		}
 		if _, err := path.Match(pattern, "org/repo/workspace"); err != nil {
-			return errors.Wrapf(err, "invalid ignore pattern %q", pattern)
+			return pkgerrors.Wrapf(err, "invalid ignore pattern %q", pattern)
 		}
 	}
 	return nil
@@ -225,11 +225,11 @@ func matchIgnorePatterns(patterns []string, rel string) (bool, error) {
 	for _, pattern := range patterns {
 		pattern = strings.TrimSpace(pattern)
 		if pattern == "" {
-			return false, errors.New("ignore pattern is empty")
+			return false, pkgerrors.New("ignore pattern is empty")
 		}
 		matched, err := path.Match(pattern, rel)
 		if err != nil {
-			return false, errors.Wrapf(err, "invalid ignore pattern %q", pattern)
+			return false, pkgerrors.Wrapf(err, "invalid ignore pattern %q", pattern)
 		}
 		if matched {
 			return true, nil
@@ -240,25 +240,25 @@ func matchIgnorePatterns(patterns []string, rel string) (bool, error) {
 
 func validateWorkspacePath(base, workspace string) error {
 	if base == "" {
-		return errors.New("repos base dir is empty")
+		return pkgerrors.New("repos base dir is empty")
 	}
 
 	baseAbs, err := filepath.Abs(base)
 	if err != nil {
-		return errors.Wrap(err, "abs repos base dir")
+		return pkgerrors.Wrap(err, "abs repos base dir")
 	}
 	workspaceAbs, err := filepath.Abs(workspace)
 	if err != nil {
-		return errors.Wrap(err, "abs workspace")
+		return pkgerrors.Wrap(err, "abs workspace")
 	}
 
 	rel, err := filepath.Rel(baseAbs, workspaceAbs)
 	if err != nil {
-		return errors.Wrap(err, "rel workspace")
+		return pkgerrors.Wrap(err, "rel workspace")
 	}
 	rel = filepath.ToSlash(rel)
 	if rel == ".." || strings.HasPrefix(rel, "../") {
-		return errors.New("workspace must be within repos base dir")
+		return pkgerrors.New("workspace must be within repos base dir")
 	}
 
 	segments := []string{}
@@ -268,12 +268,12 @@ func validateWorkspacePath(base, workspace string) error {
 		}
 	}
 	if len(segments) != 3 {
-		return errors.New("workspace must be at depth 3 under repos base dir (org/repo/folder)")
+		return pkgerrors.New("workspace must be at depth 3 under repos base dir (org/repo/folder)")
 	}
 
 	for _, s := range segments {
 		if s == ".." {
-			return errors.New("workspace must be within repos base dir")
+			return pkgerrors.New("workspace must be within repos base dir")
 		}
 	}
 
@@ -281,7 +281,7 @@ func validateWorkspacePath(base, workspace string) error {
 		".repo_cache": {},
 	}
 	if _, ok := excluded[segments[2]]; ok {
-		return errors.New("workspace folder is not a prunable workspace")
+		return pkgerrors.New("workspace folder is not a prunable workspace")
 	}
 
 	return nil

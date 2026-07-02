@@ -1,14 +1,13 @@
 package session
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -21,12 +20,12 @@ const (
 	SessionManagerZellij SupportedSessionManager = "zellij"
 )
 
-var ErrSessionNotFound = errors.New("session not found")
+var ErrSessionNotFound = pkgerrors.New("session not found")
 
 func (s *SupportedSessionManager) UnmarshalText(text []byte) error {
 	val := strings.ToLower(strings.TrimSpace(string(text)))
 	if !slices.Contains(enums.ValidSessionManagers, val) {
-		return fmt.Errorf("unknown session manager %q (valid: %s)",
+		return pkgerrors.Errorf("unknown session manager %q (valid: %s)",
 			string(text), strings.Join(enums.ValidSessionManagers, ", "))
 	}
 	*s = SupportedSessionManager(val)
@@ -102,15 +101,15 @@ func (s SessionInfo) IsRemudaSession() bool {
 // maps org/repo/folder → base/org/repo/folder.
 func (s SessionInfo) WorkspacePath(base string) (string, error) {
 	if !s.IsRemudaSession() {
-		return "", errors.New("not a Remuda session")
+		return "", pkgerrors.New("not a Remuda session")
 	}
 
 	parts := strings.Split(strings.TrimSpace(s.Name), "/")
 	if len(parts) != 3 {
-		return "", errors.New("invalid session name format")
+		return "", pkgerrors.New("invalid session name format")
 	}
 	if parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		return "", errors.New("invalid session name format")
+		return "", pkgerrors.New("invalid session name format")
 	}
 	org, repo, folder := parts[0], parts[1], parts[2]
 	// First try the direct mapping.

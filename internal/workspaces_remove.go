@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -42,7 +42,7 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) (
 		seen[workspaceAbs] = struct{}{}
 
 		if err := validateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
-			failures = append(failures, errors.Wrapf(err, "invalid workspace %q", workspaceAbs).Error())
+			failures = append(failures, pkgerrors.Wrapf(err, "invalid workspace %q", workspaceAbs).Error())
 			continue
 		}
 
@@ -79,7 +79,7 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) (
 	}
 
 	if len(failures) > 0 {
-		return removed, errors.New(strings.Join(failures, "\n"))
+		return removed, pkgerrors.New(strings.Join(failures, "\n"))
 	}
 
 	return removed, nil
@@ -119,7 +119,7 @@ func (k Remuda) PruneOneSession(
 ) error {
 	logger := k.logger()
 	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspace); err != nil {
-		return errors.Wrapf(err, "invalid workspace %q", workspace)
+		return pkgerrors.Wrapf(err, "invalid workspace %q", workspace)
 	}
 	if dryRun {
 		return nil
@@ -138,12 +138,12 @@ func (k Remuda) PruneOneSession(
 			if force {
 				logger.Warn().Err(err).Str("cache", cache).Str("workspace", workspace).Msg("worktree remove failed")
 			} else {
-				return errors.Wrapf(err, "remove linked git worktree %q (rerun with --force to override)", workspace)
+				return pkgerrors.Wrapf(err, "remove linked git worktree %q (rerun with --force to override)", workspace)
 			}
 		}
 	}
 	if err := os.RemoveAll(workspace); err != nil {
-		return errors.Wrapf(err, "remove workspace %q", workspace)
+		return pkgerrors.Wrapf(err, "remove workspace %q", workspace)
 	}
 
 	return nil

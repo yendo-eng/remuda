@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -49,12 +49,12 @@ func (k Remuda) killOne(
 			return err
 		}
 		if res == nil {
-			return errors.Errorf("no pull request associated with session %q; cannot merge", name)
+			return pkgerrors.Errorf("no pull request associated with session %q; cannot merge", name)
 		}
 		if res.Merged {
 			k.IO.Outf("Merged PR #%d for session %q (%s) with flags: %s\n", res.Number, name, res.URL, strings.Join(mergeFlags, " "))
 		} else {
-			return errors.Errorf("failed to merge PR #%d for session %q", res.Number, name)
+			return pkgerrors.Errorf("failed to merge PR #%d for session %q", res.Number, name)
 		}
 		closePRComment = nil
 
@@ -95,11 +95,11 @@ func (k Remuda) killOne(
 func (k Remuda) workspacePathForSession(sessionName string) (string, error) {
 	workspace, err := session.SessionInfo{Name: sessionName}.WorkspacePath(k.Config.ReposBaseDir)
 	if err != nil {
-		return "", errors.Wrap(err, "get workspace path from session name")
+		return "", pkgerrors.Wrap(err, "get workspace path from session name")
 	}
 	abs, err := filepath.Abs(workspace)
 	if err != nil {
-		return "", errors.Wrap(err, "resolve workspace path")
+		return "", pkgerrors.Wrap(err, "resolve workspace path")
 	}
 	return abs, nil
 }
@@ -109,7 +109,7 @@ func (k Remuda) cleanupWorkspaceForSession(sessionName string) error {
 	logger := k.logger()
 	ws, err := session.SessionInfo{Name: sessionName}.WorkspacePath(k.Config.ReposBaseDir)
 	if err != nil {
-		return errors.Wrap(err, "get workspace path from session name")
+		return pkgerrors.Wrap(err, "get workspace path from session name")
 	}
 
 	// Compute cache dir to remove worktree from.

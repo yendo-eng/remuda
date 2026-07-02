@@ -1,11 +1,12 @@
 package jira
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 func FormatIssue(issue Issue, comments []Comment) (string, error) {
 	key := strings.TrimSpace(issue.Key)
 	if key == "" {
-		return "", errors.New("jira issue key cannot be empty")
+		return "", pkgerrors.New("jira issue key cannot be empty")
 	}
 
 	summary := strings.TrimSpace(issue.Summary)
@@ -41,7 +42,7 @@ func FormatIssue(issue Issue, comments []Comment) (string, error) {
 			if id == "" {
 				id = fmt.Sprintf("%d", i+1)
 			}
-			return "", fmt.Errorf("render comment %s body: %w", id, err)
+			return "", pkgerrors.Wrapf(err, "render comment %s body", id)
 		}
 		commentBodies[i] = body
 	}

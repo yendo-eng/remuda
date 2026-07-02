@@ -3,7 +3,7 @@ package jira
 import (
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
@@ -30,7 +30,7 @@ func BuildContext(jira Jira, ids []string) (string, error) {
 	for _, id := range ids {
 		text, err := jira.GetTicket(id)
 		if err != nil {
-			return "", errors.Wrapf(err, "get ticket %s", id)
+			return "", pkgerrors.Wrapf(err, "get ticket %s", id)
 		}
 		sb.WriteString("---------- Ticket ")
 		sb.WriteString(id)

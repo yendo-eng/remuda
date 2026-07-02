@@ -1,12 +1,13 @@
 package util
 
 import (
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // CopyFile copies a regular file from src to dst, creating dst with the same
@@ -48,7 +49,7 @@ func CopyDir(src, dst string) error {
 		return err
 	}
 	if !info.IsDir() {
-		return &fs.PathError{Op: "copydir", Path: src, Err: fmt.Errorf("not a directory")}
+		return &fs.PathError{Op: "copydir", Path: src, Err: pkgerrors.Errorf("not a directory")}
 	}
 	if err := os.MkdirAll(dst, info.Mode()&os.ModePerm); err != nil {
 		return err

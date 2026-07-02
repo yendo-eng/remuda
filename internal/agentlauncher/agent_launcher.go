@@ -3,7 +3,7 @@ package agentlauncher
 import (
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // AgentLauncher builds the concrete shell command for the coding agent.
@@ -51,7 +51,7 @@ func IsSupportedAgent(agent string) bool {
 	return err == nil
 }
 
-var ErrUnsupportedAgent = errors.New("unsupported agent")
+var ErrUnsupportedAgent = pkgerrors.New("unsupported agent")
 
 // ModelAgentDefault is a sentinel value meaning "do not pass an explicit model".
 // When supplied, Remuda will omit any model flag so the underlying agent CLI
@@ -114,6 +114,6 @@ func ParseWithReasoning(
 	case AgentDebug:
 		return Debug(), model, nil
 	default:
-		return nil, "", errors.Wrapf(ErrUnsupportedAgent, "agent '%s'", agent)
+		return nil, "", pkgerrors.Wrapf(ErrUnsupportedAgent, "agent '%s'", agent)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -45,7 +45,7 @@ type agentLaunchResult struct {
 func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, error) {
 	workspace := strings.TrimSpace(cmd.Workspace)
 	if workspace == "" {
-		return agentLaunchResult{}, errors.New("workspace path is empty")
+		return agentLaunchResult{}, pkgerrors.New("workspace path is empty")
 	}
 
 	workspaceAbs, err := filepath.Abs(workspace)
@@ -102,10 +102,10 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 			logger := k.logger()
 			logger.Debug().Str("session", sessionName).Msg("existing session found; killing due to --force")
 			if err := k.Session.Kill(sessionName); err != nil {
-				return agentLaunchResult{}, errors.Wrapf(err, "killing existing session %q", sessionName)
+				return agentLaunchResult{}, pkgerrors.Wrapf(err, "killing existing session %q", sessionName)
 			}
-		} else if !errors.Is(err, session.ErrSessionNotFound) {
-			return agentLaunchResult{}, errors.Wrapf(err, "checking for existing session %q", sessionName)
+		} else if !pkgerrors.Is(err, session.ErrSessionNotFound) {
+			return agentLaunchResult{}, pkgerrors.Wrapf(err, "checking for existing session %q", sessionName)
 		}
 	}
 

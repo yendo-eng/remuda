@@ -2,11 +2,12 @@ package jira
 
 import (
 	"errors"
-	"fmt"
+
 	"os"
 	"path/filepath"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/configfile"
 )
 
@@ -15,9 +16,9 @@ const (
 	xdgConfigHomeEnvVar    = "XDG_CONFIG_HOME"
 	configPathSuffix       = "remuda/config.yaml"
 	legacyConfigPathSuffix = ".remuda/config.yaml"
-	missingEndpointHint = "REMUDA_JIRA_ENDPOINT"
-	missingUserHint     = "REMUDA_JIRA_USER"
-	missingAPITokenHint = "REMUDA_JIRA_API_TOKEN (or REMUDA_JIRA_TOKEN)" //nolint:gosec // G101: user-facing env-var hint, not a credential.
+	missingEndpointHint    = "REMUDA_JIRA_ENDPOINT"
+	missingUserHint        = "REMUDA_JIRA_USER"
+	missingAPITokenHint    = "REMUDA_JIRA_API_TOKEN (or REMUDA_JIRA_TOKEN)" //nolint:gosec // G101: user-facing env-var hint, not a credential.
 	missingConfigKeysHint  = "jira.endpoint, jira.user, jira.api_token"
 )
 
@@ -102,7 +103,7 @@ func discoverRemudaConfigPath(
 	if override, ok := lookupFirstNonEmptyEnv(lookupEnv, remudaConfigEnvVar); ok {
 		expanded, expandErr := expandHomePath(override, userHomeDir)
 		if expandErr != nil {
-			return "", true, fmt.Errorf("expand %s path %q: %w", remudaConfigEnvVar, override, expandErr)
+			return "", true, pkgerrors.Wrapf(expandErr, "expand %s path %q", remudaConfigEnvVar, override)
 		}
 		return expanded, true, nil
 	}
@@ -111,7 +112,7 @@ func discoverRemudaConfigPath(
 		xdgPath := filepath.Join(xdgHome, configPathSuffix)
 		exists, existsErr := pathExists(xdgPath)
 		if existsErr != nil {
-			return "", false, fmt.Errorf("check Remuda config %q: %w", xdgPath, existsErr)
+			return "", false, pkgerrors.Wrapf(existsErr, "check Remuda config %q", xdgPath)
 		}
 		if exists {
 			return xdgPath, false, nil
@@ -120,7 +121,7 @@ func discoverRemudaConfigPath(
 		fallbackPath := filepath.Join(home, ".config", configPathSuffix)
 		exists, existsErr := pathExists(fallbackPath)
 		if existsErr != nil {
-			return "", false, fmt.Errorf("check Remuda config %q: %w", fallbackPath, existsErr)
+			return "", false, pkgerrors.Wrapf(existsErr, "check Remuda config %q", fallbackPath)
 		}
 		if exists {
 			return fallbackPath, false, nil
@@ -134,7 +135,7 @@ func discoverRemudaConfigPath(
 	legacyPath := filepath.Join(home, legacyConfigPathSuffix)
 	exists, existsErr := pathExists(legacyPath)
 	if existsErr != nil {
-		return "", false, fmt.Errorf("check Remuda config %q: %w", legacyPath, existsErr)
+		return "", false, pkgerrors.Wrapf(existsErr, "check Remuda config %q", legacyPath)
 	}
 	if exists {
 		return legacyPath, false, nil
@@ -154,7 +155,7 @@ func expandHomePath(raw string, userHomeDir func() (string, error)) (string, err
 			return "", err
 		}
 		if strings.TrimSpace(home) == "" {
-			return "", errors.New("home directory is empty")
+			return "", pkgerrors.New("home directory is empty")
 		}
 		return filepath.Join(home, strings.TrimPrefix(trimmed, "~/")), nil
 	}
@@ -164,7 +165,7 @@ func expandHomePath(raw string, userHomeDir func() (string, error)) (string, err
 			return "", err
 		}
 		if strings.TrimSpace(home) == "" {
-			return "", errors.New("home directory is empty")
+			return "", pkgerrors.New("home directory is empty")
 		}
 		return home, nil
 	}
@@ -193,12 +194,12 @@ func readConfigFile(path string, strict bool, readFile func(string) ([]byte, err
 		if errors.Is(err, os.ErrNotExist) && !strict {
 			return resolvedFileConfig{}, nil
 		}
-		return resolvedFileConfig{}, fmt.Errorf("read Remuda config %q: %w", trimmedPath, err)
+		return resolvedFileConfig{}, pkgerrors.Wrapf(err, "read Remuda config %q", trimmedPath)
 	}
 
 	cfg, err := configfile.ParseV1(raw)
 	if err != nil {
-		return resolvedFileConfig{}, fmt.Errorf("parse Remuda config %q: %w", trimmedPath, err)
+		return resolvedFileConfig{}, pkgerrors.Wrapf(err, "parse Remuda config %q", trimmedPath)
 	}
 	if cfg.Jira == nil {
 		return resolvedFileConfig{}, nil
@@ -271,5 +272,5 @@ func missingConfigError(missing []string, configPath string) error {
 		sb.WriteString(configPath)
 		sb.WriteString(".")
 	}
-	return errors.New(sb.String())
+	return pkgerrors.New(sb.String())
 }

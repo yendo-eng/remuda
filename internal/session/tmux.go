@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -113,7 +114,7 @@ func (m *defaultTmuxManager) List() ([]SessionInfo, error) {
 		if strings.Contains(out, "no server running") || strings.Contains(out, "no sessions") {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("tmux list-sessions: %w", err)
+		return nil, pkgerrors.Wrap(err, "tmux list-sessions")
 	}
 
 	return parseTmuxListOutput(string(out)), nil
@@ -210,7 +211,7 @@ func (m *defaultTmuxManager) ReadBuffer(name string, lines int) (string, error) 
 	target := fmt.Sprintf("%s:0.0", resolved)
 	out, err := util.RunCmdOutputWithLogger(m.logger, "tmux", "capture-pane", "-p", "-S", "-", "-t", target)
 	if err != nil {
-		return "", fmt.Errorf("tmux capture-pane: %w", err)
+		return "", pkgerrors.Wrap(err, "tmux capture-pane")
 	}
 
 	content := strings.ReplaceAll(string(out), "\r\n", "\n")
@@ -236,7 +237,7 @@ func (m *defaultTmuxManager) Send(name string, payload string, appendNewline boo
 
 	if payload != "" {
 		if err := util.RunCmdWithLogger(m.logger, "tmux", "send-keys", "-t", target, "-l", payload); err != nil {
-			return fmt.Errorf("tmux send-keys: %w", err)
+			return pkgerrors.Wrap(err, "tmux send-keys")
 		}
 	}
 
@@ -245,7 +246,7 @@ func (m *defaultTmuxManager) Send(name string, payload string, appendNewline boo
 		// treat the follow-up Enter as a submit instead of more pasted text.
 		time.Sleep(200 * time.Millisecond)
 		if err := util.RunCmdWithLogger(m.logger, "tmux", "send-keys", "-t", target, "Enter"); err != nil {
-			return fmt.Errorf("tmux send-keys: %w", err)
+			return pkgerrors.Wrap(err, "tmux send-keys")
 		}
 	}
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+
 	"io"
 	"net/http"
 	"net/url"
@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 const (
@@ -94,16 +96,16 @@ func NewHTTPClient(cfg AuthConfig, opts ...HTTPClientOption) (Client, error) {
 func parseJiraEndpoint(raw string) (*url.URL, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return nil, errors.New("missing Jira configuration fields: endpoint. Set REMUDA_JIRA_ENDPOINT")
+		return nil, pkgerrors.New("missing Jira configuration fields: endpoint. Set REMUDA_JIRA_ENDPOINT")
 	}
 
 	parsed, err := url.Parse(trimmed)
 	if err != nil {
-		return nil, fmt.Errorf("parse Jira endpoint %q: %w", trimmed, err)
+		return nil, pkgerrors.Wrapf(err, "parse Jira endpoint %q", trimmed)
 	}
 
 	if parsed.Scheme == "" || parsed.Host == "" {
-		return nil, fmt.Errorf("jira endpoint must include scheme and host: %q", trimmed)
+		return nil, pkgerrors.Errorf("jira endpoint must include scheme and host: %q", trimmed)
 	}
 
 	// Ensure ResolveReference treats endpoint path as a directory.
@@ -117,7 +119,7 @@ func parseJiraEndpoint(raw string) (*url.URL, error) {
 func (c *httpClient) GetIssue(ctx context.Context, key string) (Issue, error) {
 	trimmedKey := strings.TrimSpace(key)
 	if trimmedKey == "" {
-		return Issue{}, errors.New("jira issue key cannot be empty")
+		return Issue{}, pkgerrors.New("jira issue key cannot be empty")
 	}
 
 	query := url.Values{}
@@ -135,7 +137,7 @@ func (c *httpClient) GetIssue(ctx context.Context, key string) (Issue, error) {
 func (c *httpClient) GetComments(ctx context.Context, key string) ([]Comment, error) {
 	trimmedKey := strings.TrimSpace(key)
 	if trimmedKey == "" {
-		return nil, errors.New("jira issue key cannot be empty")
+		return nil, pkgerrors.New("jira issue key cannot be empty")
 	}
 
 	startAt := 0
@@ -191,7 +193,7 @@ func (c *httpClient) getJSON(ctx context.Context, path string, query url.Values,
 
 	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
-		return fmt.Errorf("create jira request: %w", err)
+		return pkgerrors.Wrap(err, "create jira request")
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -212,7 +214,7 @@ func (c *httpClient) getJSON(ctx context.Context, path string, query url.Values,
 
 	dec := json.NewDecoder(resp.Body)
 	if err := dec.Decode(out); err != nil {
-		return fmt.Errorf("decode Jira response: %w", err)
+		return pkgerrors.Wrap(err, "decode Jira response")
 	}
 
 	return nil
@@ -220,12 +222,12 @@ func (c *httpClient) getJSON(ctx context.Context, path string, query url.Values,
 
 func mapTransportError(err error, requestErr error, requestTimeout time.Duration) error {
 	if errors.Is(requestErr, context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf("jira request timed out after %s", requestTimeout)
+		return pkgerrors.Errorf("jira request timed out after %s", requestTimeout)
 	}
 	if errors.Is(requestErr, context.Canceled) || errors.Is(err, context.Canceled) {
 		return context.Canceled
 	}
-	return fmt.Errorf("jira request failed: %w", err)
+	return pkgerrors.Wrap(err, "jira request failed")
 }
 
 func mapStatusError(resp *http.Response, issueKey string) error {
@@ -234,24 +236,24 @@ func mapStatusError(resp *http.Response, issueKey string) error {
 
 	switch resp.StatusCode {
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return fmt.Errorf(
+		return pkgerrors.Errorf(
 			"jira authentication failed (status %d): verify REMUDA_JIRA_API_TOKEN and permissions for %s",
 			resp.StatusCode,
 			issueKey,
 		)
 	case http.StatusNotFound:
-		return fmt.Errorf("jira issue %s not found or inaccessible (status 404)", issueKey)
+		return pkgerrors.Errorf("jira issue %s not found or inaccessible (status 404)", issueKey)
 	case http.StatusTooManyRequests:
 		retryAfter := strings.TrimSpace(resp.Header.Get("Retry-After"))
 		if retryAfter != "" {
-			return fmt.Errorf("jira API rate limited (status 429): retry after %s seconds", retryAfter)
+			return pkgerrors.Errorf("jira API rate limited (status 429): retry after %s seconds", retryAfter)
 		}
-		return errors.New("jira API rate limited (status 429): retry later")
+		return pkgerrors.New("jira API rate limited (status 429): retry later")
 	default:
 		if detail != "" {
-			return fmt.Errorf("jira API request failed with status %d: %s", resp.StatusCode, detail)
+			return pkgerrors.Errorf("jira API request failed with status %d: %s", resp.StatusCode, detail)
 		}
-		return fmt.Errorf("jira API request failed with status %d", resp.StatusCode)
+		return pkgerrors.Errorf("jira API request failed with status %d", resp.StatusCode)
 	}
 }
 
@@ -297,7 +299,7 @@ func extractJiraErrorDetail(body []byte) string {
 func (c *httpClient) resolveURL(path string, query url.Values) (*url.URL, error) {
 	relative, err := url.Parse(strings.TrimPrefix(path, "/"))
 	if err != nil {
-		return nil, fmt.Errorf("build Jira request URL for %q: %w", path, err)
+		return nil, pkgerrors.Wrapf(err, "build Jira request URL for %q", path)
 	}
 	relative.RawQuery = query.Encode()
 	return c.endpoint.ResolveReference(relative), nil
@@ -360,11 +362,11 @@ type nameField struct {
 func mapIssue(payload issueResponse) (Issue, error) {
 	created, err := parseJiraTimestamp(payload.Fields.Created)
 	if err != nil {
-		return Issue{}, fmt.Errorf("parse issue created timestamp: %w", err)
+		return Issue{}, pkgerrors.Wrap(err, "parse issue created timestamp")
 	}
 	updated, err := parseJiraTimestamp(payload.Fields.Updated)
 	if err != nil {
-		return Issue{}, fmt.Errorf("parse issue updated timestamp: %w", err)
+		return Issue{}, pkgerrors.Wrap(err, "parse issue updated timestamp")
 	}
 
 	return Issue{
@@ -387,11 +389,11 @@ func mapComments(payload []commentResponse) ([]Comment, error) {
 	for _, raw := range payload {
 		created, err := parseJiraTimestamp(raw.Created)
 		if err != nil {
-			return nil, fmt.Errorf("parse comment %s created timestamp: %w", raw.ID, err)
+			return nil, pkgerrors.Wrapf(err, "parse comment %s created timestamp", raw.ID)
 		}
 		updated, err := parseJiraTimestamp(raw.Updated)
 		if err != nil {
-			return nil, fmt.Errorf("parse comment %s updated timestamp: %w", raw.ID, err)
+			return nil, pkgerrors.Wrapf(err, "parse comment %s updated timestamp", raw.ID)
 		}
 
 		comments = append(comments, Comment{
@@ -423,7 +425,7 @@ func parseJiraTimestamp(raw string) (time.Time, error) {
 		}
 	}
 
-	return time.Time{}, fmt.Errorf("unsupported Jira timestamp %q", raw)
+	return time.Time{}, pkgerrors.Errorf("unsupported Jira timestamp %q", raw)
 }
 
 func mapJiraUser(user *jiraUser) *User {

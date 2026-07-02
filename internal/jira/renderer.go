@@ -2,11 +2,12 @@ package jira
 
 import (
 	"encoding/json"
-	"fmt"
+
 	stdhtml "html"
 	"strconv"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/net/html"
 )
 
@@ -24,7 +25,7 @@ func RenderADFToText(raw json.RawMessage) (string, error) {
 
 	var root adfNode
 	if err := json.Unmarshal(raw, &root); err != nil {
-		return "", fmt.Errorf("parse ADF: %w", err)
+		return "", pkgerrors.Wrap(err, "parse ADF")
 	}
 
 	text := strings.TrimSpace(renderADFBlock(root))

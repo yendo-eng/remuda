@@ -3,13 +3,14 @@ package slack
 import (
 	"context"
 	"encoding/json"
-	"errors"
+
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/env"
 )
 
@@ -44,7 +45,7 @@ func fetchSlackThread(threadURL string, provider env.Provider) (string, error) {
 	provider = env.OrDefault(provider)
 	token := strings.TrimSpace(provider.Getenv("SLACK_TOKEN"))
 	if token == "" {
-		return "", errors.New("SLACK_TOKEN environment variable is required when --slack-thread is used")
+		return "", pkgerrors.New("SLACK_TOKEN environment variable is required when --slack-thread is used")
 	}
 
 	params := url.Values{}
@@ -66,7 +67,7 @@ func fetchSlackThread(threadURL string, provider env.Provider) (string, error) {
 		reqURL := &url.URL{Scheme: "https", Host: "slack.com", Path: "/api/conversations.replies", RawQuery: params.Encode()}
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqURL.String(), nil)
 		if err != nil {
-			return "", fmt.Errorf("creating slack request: %w", err)
+			return "", pkgerrors.Wrap(err, "creating slack request")
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Accept", "application/json")
@@ -74,7 +75,7 @@ func fetchSlackThread(threadURL string, provider env.Provider) (string, error) {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			return "", fmt.Errorf("calling Slack conversations.replies: %w", err)
+			return "", pkgerrors.Wrap(err, "calling Slack conversations.replies")
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -82,21 +83,21 @@ func fetchSlackThread(threadURL string, provider env.Provider) (string, error) {
 			if resp.Body != nil {
 				_ = resp.Body.Close()
 			}
-			return "", fmt.Errorf("slack API returned %s", status)
+			return "", pkgerrors.Errorf("slack API returned %s", status)
 		}
 
 		var payload slackRepliesResponse
 		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 			_ = resp.Body.Close()
-			return "", fmt.Errorf("decoding Slack response: %w", err)
+			return "", pkgerrors.Wrap(err, "decoding Slack response")
 		}
 		_ = resp.Body.Close()
 
 		if !payload.OK {
 			if payload.Error != "" {
-				return "", fmt.Errorf("slack API error: %s", payload.Error)
+				return "", pkgerrors.Errorf("slack API error: %s", payload.Error)
 			}
-			return "", errors.New("slack API returned ok=false")
+			return "", pkgerrors.New("slack API returned ok=false")
 		}
 
 		messages = append(messages, payload.Messages...)
@@ -195,7 +196,7 @@ func parseInt64(s string) (int64, error) {
 	var n int64
 	for _, ch := range s {
 		if ch < '0' || ch > '9' {
-			return 0, fmt.Errorf("non-digit in timestamp")
+			return 0, pkgerrors.Errorf("non-digit in timestamp")
 		}
 		n = n*10 + int64(ch-'0')
 	}
@@ -228,7 +229,7 @@ func BuildSlackThreadContext(
 func parseSlackThreadURL(raw string) (slackThreadInfo, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
-		return slackThreadInfo{}, fmt.Errorf("invalid Slack thread URL: %w", err)
+		return slackThreadInfo{}, pkgerrors.Wrap(err, "invalid Slack thread URL")
 	}
 
 	channel := ""
@@ -268,7 +269,7 @@ func parseSlackThreadURL(raw string) (slackThreadInfo, error) {
 	}
 
 	if channel == "" || threadTS == "" {
-		return slackThreadInfo{}, fmt.Errorf("unable to extract channel and thread timestamp from Slack URL: %s", raw)
+		return slackThreadInfo{}, pkgerrors.Errorf("unable to extract channel and thread timestamp from Slack URL: %s", raw)
 	}
 
 	return slackThreadInfo{ChannelID: channel, ThreadTS: threadTS}, nil

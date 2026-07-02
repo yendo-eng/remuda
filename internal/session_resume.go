@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -46,15 +46,15 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 
 	workspace := strings.TrimSpace(cmd.Workspace)
 	if workspace == "" {
-		return errors.New("workspace path is required")
+		return pkgerrors.New("workspace path is required")
 	}
 	workspaceAbs, err := filepath.Abs(workspace)
 	if err != nil {
-		return errors.Wrap(err, "failed to expand workspace path")
+		return pkgerrors.Wrap(err, "failed to expand workspace path")
 	}
 
 	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
-		return errors.Wrapf(err, "invalid workspace %q", workspaceAbs)
+		return pkgerrors.Wrapf(err, "invalid workspace %q", workspaceAbs)
 	}
 	if err := k.ensureWorkspaceInactive(workspaceAbs); err != nil {
 		return err
@@ -111,9 +111,9 @@ func sessionResumeCommandForAgent(agent, model string, yolo bool, reasoningLevel
 	case "codex":
 		return codexResumeCommand(model, yolo, reasoningLevel, prompt), nil
 	case "opencode", "bash":
-		return "", errors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
+		return "", pkgerrors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
 	default:
-		return "", errors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
+		return "", pkgerrors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
 	}
 }
 
@@ -198,7 +198,7 @@ func (k Remuda) ensureWorkspaceInactive(workspaceAbs string) error {
 			wsAbs = ws
 		}
 		if wsAbs == targetAbs {
-			return errors.Errorf("workspace %q is active (session %q); refuse to resume", targetAbs, s.Name)
+			return pkgerrors.Errorf("workspace %q is active (session %q); refuse to resume", targetAbs, s.Name)
 		}
 	}
 	return nil

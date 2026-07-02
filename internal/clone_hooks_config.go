@@ -2,10 +2,11 @@ package internal
 
 import (
 	"context"
-	"fmt"
+
 	"os/exec"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/env"
 )
 
@@ -20,7 +21,7 @@ func NewConfigCloneHook(name string, argv []string) CloneHook {
 
 func runConfigCloneHook(ctx CloneHookContext, argv []string) error {
 	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
-		return fmt.Errorf("configured clone hook argv is empty")
+		return pkgerrors.Errorf("configured clone hook argv is empty")
 	}
 
 	//nolint:gosec // G204: clone hooks are explicit trusted config and intentionally executed.
@@ -35,9 +36,9 @@ func runConfigCloneHook(ctx CloneHookContext, argv []string) error {
 
 	msg := strings.TrimSpace(string(out))
 	if msg == "" {
-		return fmt.Errorf("%s: %w", strings.Join(argv, " "), err)
+		return pkgerrors.Wrapf(err, "%s", strings.Join(argv, " "))
 	}
-	return fmt.Errorf("%s: %w: %s", strings.Join(argv, " "), err, msg)
+	return pkgerrors.Wrapf(err, "%s: %s", strings.Join(argv, " "), msg)
 }
 
 func withInjectedCloneHookEnv(ctx CloneHookContext) []string {

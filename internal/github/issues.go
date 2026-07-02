@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // Issue represents a GitHub issue fetched via gh issue view.
@@ -56,22 +58,22 @@ type issueReference struct {
 func parseIssueReference(raw, defaultRepo string) (issueReference, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return issueReference{}, fmt.Errorf("github issue reference cannot be empty")
+		return issueReference{}, pkgerrors.Errorf("github issue reference cannot be empty")
 	}
 	if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
 		u, err := url.Parse(trimmed)
 		if err != nil {
-			return issueReference{}, fmt.Errorf("invalid issue URL %q: %w", raw, err)
+			return issueReference{}, pkgerrors.Wrapf(err, "invalid issue URL %q", raw)
 		}
 		segments := strings.Split(strings.Trim(u.Path, "/"), "/")
 		if len(segments) < 4 {
-			return issueReference{}, fmt.Errorf("issue URL %q does not look like https://github.com/<owner>/<repo>/issues/<number>", raw)
+			return issueReference{}, pkgerrors.Errorf("issue URL %q does not look like https://github.com/<owner>/<repo>/issues/<number>", raw)
 		}
 		owner := segments[0]
 		repo := segments[1]
 		number := segments[len(segments)-1]
 		if !isDigits(number) {
-			return issueReference{}, fmt.Errorf("issue number %q in %s is not numeric", number, raw)
+			return issueReference{}, pkgerrors.Errorf("issue number %q in %s is not numeric", number, raw)
 		}
 		slug := owner + "/" + repo
 		return issueReference{
@@ -85,13 +87,13 @@ func parseIssueReference(raw, defaultRepo string) (issueReference, error) {
 		before := strings.TrimSpace(parts[0])
 		after := strings.TrimPrefix(strings.TrimSpace(parts[1]), "#")
 		if before == "" || after == "" {
-			return issueReference{}, fmt.Errorf("invalid issue reference %q", raw)
+			return issueReference{}, pkgerrors.Errorf("invalid issue reference %q", raw)
 		}
 		if strings.Count(before, "/") != 1 {
-			return issueReference{}, fmt.Errorf("issue reference %q must be owner/repo#number", raw)
+			return issueReference{}, pkgerrors.Errorf("issue reference %q must be owner/repo#number", raw)
 		}
 		if !isDigits(after) {
-			return issueReference{}, fmt.Errorf("issue number %q in %s is not numeric", after, raw)
+			return issueReference{}, pkgerrors.Errorf("issue number %q in %s is not numeric", after, raw)
 		}
 		return issueReference{
 			repoSlug: before,
@@ -101,10 +103,10 @@ func parseIssueReference(raw, defaultRepo string) (issueReference, error) {
 	}
 	number := strings.TrimPrefix(trimmed, "#")
 	if !isDigits(number) {
-		return issueReference{}, fmt.Errorf("issue reference %q must be a URL, owner/repo#number, or numeric id", raw)
+		return issueReference{}, pkgerrors.Errorf("issue reference %q must be a URL, owner/repo#number, or numeric id", raw)
 	}
 	if strings.TrimSpace(defaultRepo) == "" {
-		return issueReference{}, fmt.Errorf("--github-issue/--gh-issue %q requires --repo/--repo-url or a fully qualified issue URL", raw)
+		return issueReference{}, pkgerrors.Errorf("--github-issue/--gh-issue %q requires --repo/--repo-url or a fully qualified issue URL", raw)
 	}
 	return issueReference{
 		repoSlug: defaultRepo,

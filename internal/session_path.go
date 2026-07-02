@@ -1,11 +1,10 @@
 package internal
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -14,13 +13,13 @@ import (
 func (k Remuda) SessionWorkspacePath(sessionName string) (string, error) {
 	name := strings.TrimSpace(sessionName)
 	if name == "" {
-		return "", errors.New("session name is required")
+		return "", pkgerrors.New("session name is required")
 	}
 
 	sess, err := k.Session.Find(name)
 	if err != nil {
-		if errors.Is(err, session.ErrSessionNotFound) {
-			return "", fmt.Errorf("session %q not found", name)
+		if pkgerrors.Is(err, session.ErrSessionNotFound) {
+			return "", pkgerrors.Errorf("session %q not found", name)
 		}
 		return "", err
 	}
@@ -32,7 +31,7 @@ func (k Remuda) SessionWorkspacePath(sessionName string) (string, error) {
 
 	absPath, err := filepath.Abs(workspace)
 	if err != nil {
-		return "", errors.Wrap(err, "resolve workspace path")
+		return "", pkgerrors.Wrap(err, "resolve workspace path")
 	}
 
 	return absPath, nil

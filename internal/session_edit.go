@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -19,7 +19,7 @@ func (k Remuda) SessionEdit(sessionName, editorCmd string) error {
 
 	cmd := strings.TrimSpace(editorCmd)
 	if cmd == "" {
-		return errors.New("editor command is required")
+		return pkgerrors.New("editor command is required")
 	}
 
 	return launchEditor(k.logger(), k.IO, cmd, workspace, k.envProvider())
@@ -38,7 +38,7 @@ func launchEditor(logger zerolog.Logger, io IO, editorCmd, workspace string, pro
 	cmd.Stdout = io.Out
 	cmd.Stderr = io.Err
 
-	return errors.Wrapf(cmd.Run(), "launch editor %q", editorCmd)
+	return pkgerrors.Wrapf(cmd.Run(), "launch editor %q", editorCmd)
 }
 
 func singleQuote(value string) string {

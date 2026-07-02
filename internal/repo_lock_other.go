@@ -3,8 +3,9 @@
 package internal
 
 import (
-	"fmt"
 	"os"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // Platforms without syscall.Flock support still open/close the lock file so
@@ -17,7 +18,7 @@ type repoMutationLock struct {
 func acquireRepoMutationLock(lockPath string) (repoMutationLock, error) {
 	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
-		return repoMutationLock{}, fmt.Errorf("opening %s: %w", lockPath, err)
+		return repoMutationLock{}, pkgerrors.Wrapf(err, "opening %s", lockPath)
 	}
 	return repoMutationLock{
 		file: file,
@@ -30,7 +31,7 @@ func (l repoMutationLock) release() error {
 		return nil
 	}
 	if err := l.file.Close(); err != nil {
-		return fmt.Errorf("closing %s: %w", l.path, err)
+		return pkgerrors.Wrapf(err, "closing %s", l.path)
 	}
 	return nil
 }

@@ -1,9 +1,9 @@
 package internal
 
 import (
-	"errors"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -21,7 +21,7 @@ func (k Remuda) SessionReapCandidates(
 	now time.Time,
 ) ([]session.SessionInfo, []ReapedSession, error) {
 	if olderThan <= 0 {
-		return nil, nil, errors.New("olderThan must be positive")
+		return nil, nil, pkgerrors.New("olderThan must be positive")
 	}
 
 	sessions, err := k.Session.List()

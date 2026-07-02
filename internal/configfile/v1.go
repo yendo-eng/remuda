@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/util"
 	"gopkg.in/yaml.v3"
@@ -95,7 +96,7 @@ func (c *ContainerV1) UnmarshalYAML(value *yaml.Node) error {
 		}
 		var enabled bool
 		if err := value.Decode(&enabled); err != nil {
-			return fmt.Errorf("container: expected mapping or boolean")
+			return pkgerrors.Errorf("container: expected mapping or boolean")
 		}
 		*c = ContainerV1{Enabled: &enabled}
 		return nil
@@ -111,13 +112,13 @@ func (c *ContainerV1) UnmarshalYAML(value *yaml.Node) error {
 		*c = ContainerV1(out)
 		return nil
 	default:
-		return fmt.Errorf("container: expected mapping or boolean")
+		return pkgerrors.Errorf("container: expected mapping or boolean")
 	}
 }
 
 func validateContainerMappingKeys(node *yaml.Node) error {
 	if node == nil || node.Kind != yaml.MappingNode {
-		return fmt.Errorf("container: expected mapping or boolean")
+		return pkgerrors.Errorf("container: expected mapping or boolean")
 	}
 	for i := 0; i < len(node.Content)-1; i += 2 {
 		key := node.Content[i].Value
@@ -125,7 +126,7 @@ func validateContainerMappingKeys(node *yaml.Node) error {
 		case "enabled", "image", "opts", "inherit_env":
 			continue
 		default:
-			return fmt.Errorf("container.%s: unknown field", key)
+			return pkgerrors.Errorf("container.%s: unknown field", key)
 		}
 	}
 	return nil
@@ -153,14 +154,14 @@ func ParseV1(yamlBytes []byte) (*V1, error) {
 
 	var h header
 	if err := yaml.Unmarshal(yamlBytes, &h); err != nil {
-		return nil, fmt.Errorf("parse config yaml: %w", err)
+		return nil, pkgerrors.Wrap(err, "parse config yaml")
 	}
 
 	if h.Version == 0 {
-		return nil, fmt.Errorf("config version is required (expected %d)", Version1)
+		return nil, pkgerrors.Errorf("config version is required (expected %d)", Version1)
 	}
 	if h.Version != Version1 {
-		return nil, fmt.Errorf("unsupported config version %d (expected %d)", h.Version, Version1)
+		return nil, pkgerrors.Errorf("unsupported config version %d (expected %d)", h.Version, Version1)
 	}
 
 	// Use strict YAML decoding to reject unknown keys.
@@ -168,7 +169,7 @@ func ParseV1(yamlBytes []byte) (*V1, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(yamlBytes))
 	dec.KnownFields(true)
 	if err := dec.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("parse config v1: %w", err)
+		return nil, pkgerrors.Wrap(err, "parse config v1")
 	}
 	if err := cfg.normalizePerRepoKeys(); err != nil {
 		return nil, err
@@ -189,7 +190,7 @@ func (c *V1) normalizePerRepoKeys() error {
 	for slug, overlay := range c.PerRepo {
 		canon := strings.ToLower(strings.TrimSpace(slug))
 		if prev, ok := seen[canon]; ok {
-			return fmt.Errorf("per_repo key %q duplicates %q (case-insensitive)", slug, prev)
+			return pkgerrors.Errorf("per_repo key %q duplicates %q (case-insensitive)", slug, prev)
 		}
 		seen[canon] = slug
 		normalized[canon] = overlay
@@ -201,7 +202,7 @@ func (c *V1) normalizePerRepoKeys() error {
 
 func (c V1) Validate() error {
 	if c.Version != Version1 {
-		return fmt.Errorf("unsupported config version %d (expected %d)", c.Version, Version1)
+		return pkgerrors.Errorf("unsupported config version %d (expected %d)", c.Version, Version1)
 	}
 
 	// Validate repos.aliases if present.
@@ -236,7 +237,7 @@ func (c V1) Validate() error {
 	// Profile names are case-sensitive; no normalization is applied.
 	for name, defaults := range c.Profiles {
 		if err := validateProfileName(name); err != nil {
-			return fmt.Errorf("profiles[%q]: %w", name, err)
+			return pkgerrors.Wrapf(err, "profiles[%q]", name)
 		}
 		if err := defaults.validate(fmt.Sprintf("profiles[%q]", name)); err != nil {
 			return err
@@ -256,7 +257,7 @@ func (c V1) Validate() error {
 		}
 		if overlay.Session != nil {
 			if overlay.Session.Prune != nil {
-				return fmt.Errorf("%s.session.prune: not supported (session prune ignores are global-only)", prefix)
+				return pkgerrors.Errorf("%s.session.prune: not supported (session prune ignores are global-only)", prefix)
 			}
 			if err := overlay.Session.validate(prefix + ".session"); err != nil {
 				return err
@@ -269,7 +270,7 @@ func (c V1) Validate() error {
 		}
 		if overlay.Profile != nil {
 			if err := validateProfileName(strings.TrimSpace(*overlay.Profile)); err != nil {
-				return fmt.Errorf("%s.profile: %w", prefix, err)
+				return pkgerrors.Wrapf(err, "%s.profile", prefix)
 			}
 		}
 		if err := validateCloneHooks(prefix, overlay.CloneHooks); err != nil {
@@ -283,7 +284,7 @@ func (c V1) Validate() error {
 func (s SessionV1) validate(path string) error {
 	if s.Manager != nil {
 		if !slices.Contains(enums.ValidSessionManagers, *s.Manager) {
-			return fmt.Errorf("%s.manager: invalid value %q (valid: %s)",
+			return pkgerrors.Errorf("%s.manager: invalid value %q (valid: %s)",
 				path, *s.Manager, strings.Join(enums.ValidSessionManagers, ", "))
 		}
 	}
@@ -319,10 +320,10 @@ func validateIgnorePatternList(path string, patterns []string) error {
 	for i, pattern := range patterns {
 		entryPath := fmt.Sprintf("%s[%d]", path, i)
 		if strings.TrimSpace(pattern) == "" {
-			return fmt.Errorf("%s: ignore pattern cannot be empty", entryPath)
+			return pkgerrors.Errorf("%s: ignore pattern cannot be empty", entryPath)
 		}
 		if _, err := pathpkg.Match(pattern, "workspace"); err != nil {
-			return fmt.Errorf("%s: invalid pattern %q: %w", entryPath, pattern, err)
+			return pkgerrors.Wrapf(err, "%s: invalid pattern %q", entryPath, pattern)
 		}
 	}
 	return nil
@@ -332,18 +333,18 @@ func (j JiraV1) validate(path string) error {
 	if j.Endpoint != nil {
 		trimmed := strings.TrimSpace(*j.Endpoint)
 		if trimmed == "" {
-			return fmt.Errorf("%s.endpoint: cannot be empty", path)
+			return pkgerrors.Errorf("%s.endpoint: cannot be empty", path)
 		}
 		parsed, err := url.Parse(trimmed)
 		if err != nil {
-			return fmt.Errorf("%s.endpoint: invalid URL %q: %w", path, *j.Endpoint, err)
+			return pkgerrors.Wrapf(err, "%s.endpoint: invalid URL %q", path, *j.Endpoint)
 		}
 		if parsed.Scheme == "" || parsed.Host == "" {
-			return fmt.Errorf("%s.endpoint: must include scheme and host", path)
+			return pkgerrors.Errorf("%s.endpoint: must include scheme and host", path)
 		}
 	}
 	if j.User != nil && strings.TrimSpace(*j.User) == "" {
-		return fmt.Errorf("%s.user: cannot be empty", path)
+		return pkgerrors.Errorf("%s.user: cannot be empty", path)
 	}
 	return nil
 }
@@ -353,10 +354,10 @@ func (r ReposV1) validate(path string) error {
 		aliasPath := fmt.Sprintf("%s.aliases[%q]", path, alias)
 		trimmedURL := strings.TrimSpace(url)
 		if trimmedURL == "" {
-			return fmt.Errorf("%s: alias URL cannot be empty", aliasPath)
+			return pkgerrors.Errorf("%s: alias URL cannot be empty", aliasPath)
 		}
 		if strings.HasPrefix(trimmedURL, "-") {
-			return fmt.Errorf("%s: alias URL %q is invalid (cannot start with '-')", aliasPath, url)
+			return pkgerrors.Errorf("%s: alias URL %q is invalid (cannot start with '-')", aliasPath, url)
 		}
 	}
 	return nil
@@ -365,25 +366,25 @@ func (r ReposV1) validate(path string) error {
 func (d DefaultsV1) validate(path string) error {
 	if d.Agent != nil {
 		if !slices.Contains(enums.ValidAgents, *d.Agent) {
-			return fmt.Errorf("%s.agent: invalid value %q (valid: %s)",
+			return pkgerrors.Errorf("%s.agent: invalid value %q (valid: %s)",
 				path, *d.Agent, strings.Join(enums.ValidAgents, ", "))
 		}
 	}
 	if d.SlugifyReasoningLevel != nil {
 		if !slices.Contains(enums.ValidSlugifyReasoningLevels, *d.SlugifyReasoningLevel) {
-			return fmt.Errorf("%s.slugify_reasoning_level: invalid value %q (valid: %s)",
+			return pkgerrors.Errorf("%s.slugify_reasoning_level: invalid value %q (valid: %s)",
 				path, *d.SlugifyReasoningLevel, strings.Join(enums.ValidSlugifyReasoningLevels, ", "))
 		}
 	}
 	for agent, args := range d.AgentArgs {
 		agentPath := fmt.Sprintf("%s.agent_args[%q]", path, agent)
 		if !slices.Contains(enums.ValidAgents, agent) {
-			return fmt.Errorf("%s: invalid value %q (valid: %s)", agentPath, agent, strings.Join(enums.ValidAgents, ", "))
+			return pkgerrors.Errorf("%s: invalid value %q (valid: %s)", agentPath, agent, strings.Join(enums.ValidAgents, ", "))
 		}
 		for i, arg := range args {
 			argPath := fmt.Sprintf("%s[%d]", agentPath, i)
 			if strings.TrimSpace(arg) == "" {
-				return fmt.Errorf("%s: agent arg cannot be empty", argPath)
+				return pkgerrors.Errorf("%s: agent arg cannot be empty", argPath)
 			}
 		}
 	}
@@ -391,7 +392,7 @@ func (d DefaultsV1) validate(path string) error {
 		for i, exp := range *d.Experiments {
 			expPath := fmt.Sprintf("%s.experiments[%d]", path, i)
 			if strings.TrimSpace(exp) == "" {
-				return fmt.Errorf("%s: experiment name cannot be empty", expPath)
+				return pkgerrors.Errorf("%s: experiment name cannot be empty", expPath)
 			}
 		}
 	}
@@ -415,7 +416,7 @@ func (m MergeV1) validate(path string) error {
 	for i, flag := range *m.GHFlags {
 		flagPath := fmt.Sprintf("%s.gh_flags[%d]", path, i)
 		if strings.TrimSpace(flag) == "" {
-			return fmt.Errorf("%s: merge flag cannot be empty", flagPath)
+			return pkgerrors.Errorf("%s: merge flag cannot be empty", flagPath)
 		}
 	}
 	return nil
@@ -438,10 +439,10 @@ func validateCloneHooks(path string, hooks []CloneHookV1) error {
 	for i, hook := range hooks {
 		hookPath := fmt.Sprintf("%s.clone_hooks[%d]", path, i)
 		if len(hook.Argv) == 0 {
-			return fmt.Errorf("%s.argv: cannot be empty", hookPath)
+			return pkgerrors.Errorf("%s.argv: cannot be empty", hookPath)
 		}
 		if strings.TrimSpace(hook.Argv[0]) == "" {
-			return fmt.Errorf("%s.argv[0]: executable cannot be empty", hookPath)
+			return pkgerrors.Errorf("%s.argv[0]: executable cannot be empty", hookPath)
 		}
 	}
 	return nil
@@ -449,27 +450,27 @@ func validateCloneHooks(path string, hooks []CloneHookV1) error {
 
 func validateRepoSlug(slug string) error {
 	if strings.TrimSpace(slug) == "" {
-		return fmt.Errorf("per_repo key must be a non-empty repo slug (expected owner/repo)")
+		return pkgerrors.Errorf("per_repo key must be a non-empty repo slug (expected owner/repo)")
 	}
 	if strings.Count(slug, "/") != 1 {
-		return fmt.Errorf("per_repo key %q is not a valid repo slug (expected owner/repo)", slug)
+		return pkgerrors.Errorf("per_repo key %q is not a valid repo slug (expected owner/repo)", slug)
 	}
 	parts := strings.SplitN(slug, "/", 2)
 	if parts[0] == "" || parts[1] == "" {
-		return fmt.Errorf("per_repo key %q is not a valid repo slug (expected owner/repo)", slug)
+		return pkgerrors.Errorf("per_repo key %q is not a valid repo slug (expected owner/repo)", slug)
 	}
 	return nil
 }
 
 func validateProfileName(name string) error {
 	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("profile name must be non-empty")
+		return pkgerrors.Errorf("profile name must be non-empty")
 	}
 	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
-		return fmt.Errorf("profile name %q cannot start or end with '/'", name)
+		return pkgerrors.Errorf("profile name %q cannot start or end with '/'", name)
 	}
 	if strings.Contains(name, "//") {
-		return fmt.Errorf("profile name %q cannot contain empty segments", name)
+		return pkgerrors.Errorf("profile name %q cannot contain empty segments", name)
 	}
 	for _, r := range name {
 		switch {
@@ -481,7 +482,7 @@ func validateProfileName(name string) error {
 			r == '/':
 			continue
 		default:
-			return fmt.Errorf("profile name %q contains invalid character %q (allowed: ASCII letters, digits, '_', '-', '/')", name, r)
+			return pkgerrors.Errorf("profile name %q contains invalid character %q (allowed: ASCII letters, digits, '_', '-', '/')", name, r)
 		}
 	}
 	return nil
@@ -489,7 +490,7 @@ func validateProfileName(name string) error {
 
 func validateEnvVarName(path string, name string) error {
 	if err := util.ValidateEnvVarName(name); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+		return pkgerrors.Wrapf(err, "%s", path)
 	}
 	return nil
 }

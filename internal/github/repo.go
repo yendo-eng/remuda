@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 func ParseRepo(url string) (org, repo string, err error) {
@@ -11,7 +13,7 @@ func ParseRepo(url string) (org, repo string, err error) {
 
 	parts := strings.Split(trimmed, "/")
 	if len(parts) < 2 {
-		return "", "", fmt.Errorf("unable to parse repo URL: %s", url)
+		return "", "", pkgerrors.Errorf("unable to parse repo URL: %s", url)
 	}
 	repo = parts[len(parts)-1]
 	org = parts[len(parts)-2]
@@ -19,7 +21,7 @@ func ParseRepo(url string) (org, repo string, err error) {
 		org = org[colon+1:]
 	}
 	if org == "" || repo == "" {
-		return "", "", fmt.Errorf("unable to parse repo URL: %s", url)
+		return "", "", pkgerrors.Errorf("unable to parse repo URL: %s", url)
 	}
 	return org, repo, err
 }
@@ -83,7 +85,7 @@ func RepoOrURL(url string, alias string) (string, error) {
 
 	fullURL, ok := ExpandRepoAlias(alias)
 	if !ok {
-		return "", fmt.Errorf("unknown repo alias: %s", alias)
+		return "", pkgerrors.Errorf("unknown repo alias: %s", alias)
 	}
 
 	return fullURL, nil
@@ -153,7 +155,7 @@ func ResetRepoAliases() {
 func RepoSlugFromURL(repoURL string) (string, error) {
 	repoURL = strings.TrimSpace(repoURL)
 	if repoURL == "" {
-		return "", fmt.Errorf("repository URL is required to resolve GitHub issue context")
+		return "", pkgerrors.Errorf("repository URL is required to resolve GitHub issue context")
 	}
 	trimmed := strings.TrimSuffix(repoURL, ".git")
 	trimmed = strings.TrimSuffix(trimmed, "/")
@@ -161,14 +163,14 @@ func RepoSlugFromURL(repoURL string) (string, error) {
 	case strings.HasPrefix(trimmed, "git@"):
 		colon := strings.Index(trimmed, ":")
 		if colon == -1 || colon+1 >= len(trimmed) {
-			return "", fmt.Errorf("unable to parse git URL: %s", repoURL)
+			return "", pkgerrors.Errorf("unable to parse git URL: %s", repoURL)
 		}
 		return trimmed[colon+1:], nil
 	case strings.HasPrefix(trimmed, "ssh://"):
 		// ssh://git@github.com/owner/repo
 		parts := strings.Split(trimmed, "/")
 		if len(parts) < 4 {
-			return "", fmt.Errorf("unable to parse ssh URL: %s", repoURL)
+			return "", pkgerrors.Errorf("unable to parse ssh URL: %s", repoURL)
 		}
 		owner := parts[len(parts)-2]
 		repo := parts[len(parts)-1]
@@ -176,7 +178,7 @@ func RepoSlugFromURL(repoURL string) (string, error) {
 	case strings.HasPrefix(trimmed, "https://") || strings.HasPrefix(trimmed, "http://"):
 		parts := strings.Split(trimmed, "/")
 		if len(parts) < 3 {
-			return "", fmt.Errorf("unable to parse https URL: %s", repoURL)
+			return "", pkgerrors.Errorf("unable to parse https URL: %s", repoURL)
 		}
 		owner := parts[len(parts)-2]
 		repo := parts[len(parts)-1]
@@ -186,20 +188,20 @@ func RepoSlugFromURL(repoURL string) (string, error) {
 			return trimmed, nil
 		}
 	}
-	return "", fmt.Errorf("unable to derive owner/repo slug from %s", repoURL)
+	return "", pkgerrors.Errorf("unable to derive owner/repo slug from %s", repoURL)
 }
 
 // ValidateRepoURL ensures a repository URL looks like a supported git remote URL.
 func ValidateRepoURL(repoURL string) error {
 	trimmed := strings.TrimSpace(repoURL)
 	if trimmed == "" {
-		return fmt.Errorf("repository URL is required")
+		return pkgerrors.Errorf("repository URL is required")
 	}
 	if !strings.HasPrefix(trimmed, "https://") &&
 		!strings.HasPrefix(trimmed, "http://") &&
 		!strings.HasPrefix(trimmed, "ssh://") &&
 		!strings.HasPrefix(trimmed, "git@") {
-		return fmt.Errorf("repository URL must start with https://, http://, ssh://, or git@")
+		return pkgerrors.Errorf("repository URL must start with https://, http://, ssh://, or git@")
 	}
 	_, err := RepoSlugFromURL(trimmed)
 	return err
