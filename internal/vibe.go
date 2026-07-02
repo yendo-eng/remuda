@@ -385,8 +385,9 @@ func wrapWithCrashRecoverySleep(cmd string) string {
 }
 
 // codexDockerVolumeMountOptions prepares Docker volume mount options for the Codex CLI.
-// It forwards authentication artifacts (auth.json + config.toml) plus ~/.codex/prompts and ~/.codex/rules
-// whenever they are available so custom slash commands and rules work inside --container sessions.
+// It forwards authentication artifacts (auth.json + config.toml) plus ~/.codex/prompts, ~/.codex/rules,
+// ~/.codex/skills, and ~/.codex/AGENTS.md whenever they are available so custom instructions and slash
+// command state work inside --container sessions.
 // If the OPENAI_API_KEY is not set or any file operations fail, it returns only the mounts that can be derived
 // (for example the prompts directory) and logs warnings for auth-related failures.
 func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider) []string {
@@ -395,10 +396,12 @@ func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider)
 	promptMount := codexPromptsMountOptions(provider)
 	rulesMount := codexRulesMountOptions(provider)
 	skillsMount := codexSkillsMountOptions(logger, provider)
+	agentsMount := codexAgentsMountOptions(provider)
 	stateMount := codexStateMountOptions(logger, provider)
 	promptsApplied := false
 	rulesApplied := false
 	skillsApplied := false
+	agentsApplied := false
 	stateApplied := false
 	if key := provider.Getenv("OPENAI_API_KEY"); strings.TrimSpace(key) != "" {
 		if tmpDir, tmpErr := os.MkdirTemp("", "codex-auth-*"); tmpErr == nil {
@@ -440,6 +443,10 @@ func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider)
 					opts = append(opts, skillsMount...)
 					skillsApplied = true
 				}
+				if len(agentsMount) > 0 {
+					opts = append(opts, agentsMount...)
+					agentsApplied = true
+				}
 				containerOpts = append(opts, containerOpts...)
 			} else {
 				logger.Warn().Err(writeErr).Msg("failed writing Codex auth.json; continuing without mount")
@@ -450,6 +457,9 @@ func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider)
 	}
 	if len(stateMount) > 0 && !stateApplied {
 		containerOpts = append(stateMount, containerOpts...)
+	}
+	if len(agentsMount) > 0 && !agentsApplied {
+		containerOpts = append(agentsMount, containerOpts...)
 	}
 	if len(skillsMount) > 0 && !skillsApplied {
 		containerOpts = append(skillsMount, containerOpts...)
@@ -515,6 +525,21 @@ func codexSkillsMountOptions(logger zerolog.Logger, provider env.Provider) []str
 		return nil
 	}
 	return []string{fmt.Sprintf("-v %q:/root/.codex/skills:ro", skillsDir)}
+}
+
+// codexAgentsMountOptions returns a read-only bind mount for ~/.codex/AGENTS.md when present.
+func codexAgentsMountOptions(provider env.Provider) []string {
+	provider = env.OrDefault(provider)
+	home, herr := provider.UserHomeDir()
+	if herr != nil {
+		return nil
+	}
+	agentsPath := filepath.Join(home, ".codex", "AGENTS.md")
+	info, err := os.Stat(agentsPath)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	return []string{fmt.Sprintf("-v %q:/root/.codex/AGENTS.md:ro", agentsPath)}
 }
 
 func codexStateMountOptions(logger zerolog.Logger, provider env.Provider) []string {

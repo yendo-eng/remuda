@@ -23,6 +23,8 @@ func TestCodexDockerVolumeMountOptions_IncludesPromptsMountWithAuthArtifacts(t *
 	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
 	skillsDir := filepath.Join(tmpHome, ".codex", "skills")
 	require.NoError(t, os.MkdirAll(skillsDir, 0o755))
+	agentsPath := filepath.Join(tmpHome, ".codex", "AGENTS.md")
+	require.NoError(t, os.WriteFile(agentsPath, []byte("agent instructions"), 0o644))
 	cfgPath := filepath.Join(tmpHome, ".codex", "config.toml")
 	require.NoError(t, os.WriteFile(cfgPath, []byte("version = 1"), 0o644))
 
@@ -36,6 +38,7 @@ func TestCodexDockerVolumeMountOptions_IncludesPromptsMountWithAuthArtifacts(t *
 	require.True(t, containsMountWithSource(opts, promptsDir, ":/root/.codex/prompts:ro"))
 	require.True(t, containsMountWithSource(opts, rulesDir, ":/root/.codex/rules:ro"))
 	require.True(t, containsMountWithSource(opts, skillsDir, ":/root/.codex/skills:ro"))
+	require.True(t, containsMountWithSource(opts, agentsPath, ":/root/.codex/AGENTS.md:ro"))
 	require.FileExists(t, filepath.Join(tmpHome, ".codex", "history.jsonl"))
 	require.DirExists(t, filepath.Join(tmpHome, ".codex", "sessions"))
 }
@@ -50,18 +53,32 @@ func TestCodexDockerVolumeMountOptions_ForwardsPromptsWithoutOpenAIKey(t *testin
 	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
 	skillsDir := filepath.Join(tmpHome, ".codex", "skills")
 	require.NoError(t, os.MkdirAll(skillsDir, 0o755))
+	agentsPath := filepath.Join(tmpHome, ".codex", "AGENTS.md")
+	require.NoError(t, os.WriteFile(agentsPath, []byte("agent instructions"), 0o644))
 
 	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
 	expected := []string{
 		fmt.Sprintf("-v %q:/root/.codex/prompts:ro", promptsDir),
 		fmt.Sprintf("-v %q:/root/.codex/rules:ro", rulesDir),
 		fmt.Sprintf("-v %q:/root/.codex/skills:ro", skillsDir),
+		fmt.Sprintf("-v %q:/root/.codex/AGENTS.md:ro", agentsPath),
 		fmt.Sprintf("-v %q:/root/.codex/history.jsonl:rw", filepath.Join(tmpHome, ".codex", "history.jsonl")),
 		fmt.Sprintf("-v %q:/root/.codex/sessions:rw", filepath.Join(tmpHome, ".codex", "sessions")),
 	}
 	require.Equal(t, expected, opts)
 	require.FileExists(t, filepath.Join(tmpHome, ".codex", "history.jsonl"))
 	require.DirExists(t, filepath.Join(tmpHome, ".codex", "sessions"))
+}
+
+func TestCodexDockerVolumeMountOptions_SkipsAgentsMountWhenFileMissing(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	promptsDir := filepath.Join(tmpHome, ".codex", "prompts")
+	require.NoError(t, os.MkdirAll(promptsDir, 0o755))
+
+	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	require.False(t, containsMountSuffix(opts, ":/root/.codex/AGENTS.md:ro"))
 }
 
 func containsMountSuffix(opts []string, suffix string) bool {
