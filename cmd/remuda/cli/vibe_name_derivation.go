@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -108,7 +109,7 @@ func slugifyNameSeed(ctx Context, seed string, slugifyReasoningLevel string) (st
 
 	slug, slugErr := service.Slugify(slugCtx, seed)
 	if slugErr != nil {
-		if ctx.ctx.Err() != nil || pkgerrors.Is(slugErr, context.Canceled) {
+		if ctx.ctx.Err() != nil || errors.Is(slugErr, context.Canceled) {
 			return "", pkgerrors.Wrap(slugErr, "slugify workspace name")
 		}
 		logger.Debug().Err(slugErr).Msg("llm slugify failed; falling back to local slugify")

@@ -2,6 +2,7 @@ package github
 
 import (
 	"encoding/json"
+	"errors"
 
 	"os"
 	"os/exec"
@@ -69,7 +70,7 @@ func (gh *ghCLI) SetLogger(logger zerolog.Logger) {
 func (gh *ghCLI) ClosePullRequest(workspacePath string, comment string) (*PRCloseResult, error) {
 	info, err := os.Stat(workspacePath)
 	if err != nil {
-		if pkgerrors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil, pkgerrors.Errorf("workspace %q not found; cannot close PR", workspacePath)
 		}
 		return nil, pkgerrors.Wrapf(err, "stat workspace %q", workspacePath)
@@ -80,7 +81,7 @@ func (gh *ghCLI) ClosePullRequest(workspacePath string, comment string) (*PRClos
 
 	prInfo, err := fetchPRInfoFromGh(gh.logger, workspacePath, gh.env)
 	if err != nil {
-		if pkgerrors.Is(err, errNoPRFound) {
+		if errors.Is(err, errNoPRFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -108,7 +109,7 @@ func (gh *ghCLI) ClosePullRequest(workspacePath string, comment string) (*PRClos
 func (gh *ghCLI) MergePullRequest(workspacePath string, mergeFlags []string) (*PRMergeResult, error) {
 	info, err := os.Stat(workspacePath)
 	if err != nil {
-		if pkgerrors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil, pkgerrors.Errorf("workspace %q not found; cannot merge PR", workspacePath)
 		}
 		return nil, pkgerrors.Wrapf(err, "stat workspace %q", workspacePath)
@@ -119,7 +120,7 @@ func (gh *ghCLI) MergePullRequest(workspacePath string, mergeFlags []string) (*P
 
 	prInfo, err := fetchPRInfoFromGh(gh.logger, workspacePath, gh.env)
 	if err != nil {
-		if pkgerrors.Is(err, errNoPRFound) {
+		if errors.Is(err, errNoPRFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -171,7 +172,7 @@ func (gh *ghCLI) PRDiff(cwd, ref string) (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		var ee *exec.ExitError
-		if pkgerrors.As(err, &ee) {
+		if errors.As(err, &ee) {
 			return "", pkgerrors.Wrapf(err, "gh pr diff (stderr: %s)", string(ee.Stderr))
 		}
 		return "", pkgerrors.Wrap(err, "gh pr diff")
@@ -202,7 +203,7 @@ func ghPRView(logger zerolog.Logger, cwd, repoSlug, ref string, provider env.Pro
 	if err != nil {
 		// If the command writes to stderr, include it in the error context.
 		var ee *exec.ExitError
-		if pkgerrors.As(err, &ee) {
+		if errors.As(err, &ee) {
 			return nil, pkgerrors.Wrapf(err, "gh pr view (stderr: %s)", string(ee.Stderr))
 		}
 		return nil, pkgerrors.Wrap(err, "gh pr view")
@@ -227,7 +228,7 @@ func (gh *ghCLI) IssueView(repoSlug, ref string) (*Issue, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		var ee *exec.ExitError
-		if pkgerrors.As(err, &ee) {
+		if errors.As(err, &ee) {
 			return nil, pkgerrors.Wrapf(err, "gh issue view (stderr: %s)", string(ee.Stderr))
 		}
 		return nil, pkgerrors.Wrap(err, "gh issue view")
