@@ -1,9 +1,10 @@
 package env
 
 import (
-	"errors"
 	"os"
 	"sort"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // Provider supplies environment and home directory lookups.
@@ -51,10 +52,10 @@ func OrDefault(provider Provider) Provider {
 }
 
 // ErrHomeDirUnavailable indicates that the home directory could not be resolved.
-var ErrHomeDirUnavailable = errors.New("home directory not set")
+var ErrHomeDirUnavailable = pkgerrors.New("home directory not set")
 
 // ErrWorkingDirUnavailable indicates that the working directory could not be resolved.
-var ErrWorkingDirUnavailable = errors.New("working directory not set")
+var ErrWorkingDirUnavailable = pkgerrors.New("working directory not set")
 
 // StaticProvider is a map-backed provider useful for tests.
 type StaticProvider struct {

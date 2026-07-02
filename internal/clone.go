@@ -2,12 +2,13 @@ package internal
 
 import (
 	"errors"
-	"fmt"
+
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -56,7 +57,7 @@ func (k Remuda) Clone(
 	// Owner: rwx, Group: rx, Others: rx
 	const dirPermissions = fs.FileMode(0o755)
 	if err := os.MkdirAll(baseDir, dirPermissions); err != nil {
-		return "", fmt.Errorf("creating base directory: %w", err)
+		return "", pkgerrors.Wrap(err, "creating base directory")
 	}
 
 	// Workspace folder equals provided name
@@ -93,21 +94,21 @@ func (k Remuda) Clone(
 		if cmd.Force {
 			logger.Info().Str("target", target).Msg("force removing existing workspace")
 			if err := k.PruneOneSession(target, true, false, true); err != nil {
-				return fmt.Errorf("removing existing workspace: %w", err)
+				return pkgerrors.Wrap(err, "removing existing workspace")
 			}
 		}
 
 		if cmd.FullClone {
 			if err := os.MkdirAll(filepath.Dir(target), dirPermissions); err != nil {
-				return fmt.Errorf("creating workspace parent: %w", err)
+				return pkgerrors.Wrap(err, "creating workspace parent")
 			}
 			if err := util.CopyDir(cacheDir, target); err != nil {
 				_ = os.RemoveAll(target)
-				return fmt.Errorf("copying repo cache: %w", err)
+				return pkgerrors.Wrap(err, "copying repo cache")
 			}
 			if err := removeCopiedWorktrees(target); err != nil {
 				_ = os.RemoveAll(target)
-				return fmt.Errorf("cleaning copied worktrees: %w", err)
+				return pkgerrors.Wrap(err, "cleaning copied worktrees")
 			}
 
 			// The cache directory may contain local, uncommitted changes. Since a
@@ -119,18 +120,18 @@ func (k Remuda) Clone(
 			// caller gets a clear failure instead of later, confusing errors.
 			if err := util.RunCmdWithLogger(logger, "git", "-C", target, "reset", "--hard"); err != nil {
 				_ = os.RemoveAll(target)
-				return fmt.Errorf("reset copied repo to HEAD: %w", err)
+				return pkgerrors.Wrap(err, "reset copied repo to HEAD")
 			}
 			if err := util.RunCmdWithLogger(logger, "git", "-C", target, "clean", "-fdx"); err != nil {
 				_ = os.RemoveAll(target)
-				return fmt.Errorf("clean copied repo working tree: %w", err)
+				return pkgerrors.Wrap(err, "clean copied repo working tree")
 			}
 		} else {
 			// Instead of copying the entire cached repository, create a linked worktree.
 			// This is much faster and avoids wasting disk space while still giving the
 			// caller an independent working directory.
 			if err := git.WorktreeAdd(k.Git, cacheDir, target, cmd.Force); err != nil {
-				return fmt.Errorf("adding git worktree: %w", err)
+				return pkgerrors.Wrap(err, "adding git worktree")
 			}
 		}
 
@@ -145,9 +146,9 @@ func (k Remuda) Clone(
 		// does not linger in the repository. If that removal itself fails we
 		// surface both errors.
 		if cleanErr := cleanupWorkspace(k.Git, baseDir, cacheDir, target, cmd.FullClone); cleanErr != nil {
-			return "", fmt.Errorf("checking out branch: %w; additionally, cleaning worktree: %s", err, cleanErr.Error())
+			return "", pkgerrors.Wrapf(err, "checking out branch; additionally, cleaning worktree: %s", cleanErr.Error())
 		}
-		return "", fmt.Errorf("checking out branch: %w", err)
+		return "", pkgerrors.Wrap(err, "checking out branch")
 	}
 
 	// If there's an upstream, pull fast-forward. If not, try to set tracking to
@@ -181,9 +182,9 @@ func (k Remuda) Clone(
 			Logger:      &logger,
 		}); err != nil {
 			if cleanErr := cleanupWorkspace(k.Git, baseDir, cacheDir, target, cmd.FullClone); cleanErr != nil {
-				return "", fmt.Errorf("running clone hooks: %w; additionally, cleaning worktree: %s", err, cleanErr.Error())
+				return "", pkgerrors.Wrapf(err, "running clone hooks; additionally, cleaning worktree: %s", cleanErr.Error())
 			}
-			return "", fmt.Errorf("running clone hooks: %w", err)
+			return "", pkgerrors.Wrap(err, "running clone hooks")
 		}
 	} else {
 		logger.Info().

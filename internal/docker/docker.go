@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -32,9 +33,9 @@ type LoggerSetter interface {
 	SetLogger(logger zerolog.Logger)
 }
 
-var ErrNotRunning = errors.New("docker is not running")
+var ErrNotRunning = pkgerrors.New("docker is not running")
 
-var ErrContainerNotFound = errors.New("docker container not found")
+var ErrContainerNotFound = pkgerrors.New("docker container not found")
 
 // BuildContainerAuthOpts returns recommended docker run options to forward
 // GitHub and SSH auth into the container, when available on the host.

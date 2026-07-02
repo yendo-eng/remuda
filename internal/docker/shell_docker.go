@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -32,10 +32,10 @@ func (s shellDocker) CheckRunning() error {
 	if err != nil {
 		msg := strings.TrimSpace(string(output))
 		if msg != "" {
-			return errors.Wrapf(ErrNotRunning, "docker daemon check failed: %s", msg)
+			return pkgerrors.Wrapf(ErrNotRunning, "docker daemon check failed: %s", msg)
 		}
 
-		return errors.Wrapf(ErrNotRunning, "docker daemon check failed: %s", err.Error())
+		return pkgerrors.Wrapf(ErrNotRunning, "docker daemon check failed: %s", err.Error())
 	}
 	return nil
 }
@@ -45,20 +45,20 @@ func (s shellDocker) ContainerRunning(container string) (bool, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		var ee *exec.ExitError
-		if errors.As(err, &ee) {
+		if pkgerrors.As(err, &ee) {
 			msg := strings.TrimSpace(string(ee.Stderr))
 			lower := strings.ToLower(msg)
 			if strings.Contains(lower, "no such object") || strings.Contains(lower, "no such container") || strings.Contains(lower, "not found") {
-				return false, errors.Wrapf(ErrContainerNotFound, "docker inspect %q: %s", container, msg)
+				return false, pkgerrors.Wrapf(ErrContainerNotFound, "docker inspect %q: %s", container, msg)
 			}
-			return false, errors.Wrapf(err, "docker inspect %q: %s", container, msg)
+			return false, pkgerrors.Wrapf(err, "docker inspect %q: %s", container, msg)
 		}
-		return false, errors.Wrapf(err, "docker inspect %q", container)
+		return false, pkgerrors.Wrapf(err, "docker inspect %q", container)
 	}
 
 	state := strings.TrimSpace(string(out))
 	if state == "" {
-		return false, errors.Errorf("docker inspect %q returned empty state", container)
+		return false, pkgerrors.Errorf("docker inspect %q returned empty state", container)
 	}
 	return state == "true", nil
 }

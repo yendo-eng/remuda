@@ -1,8 +1,9 @@
 package agentlauncher
 
 import (
-	"fmt"
 	"strings"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // CodexReasoningLevels is the canonical list of reasoning levels supported by Codex.
@@ -53,7 +54,7 @@ func ValidateReasoningLevel(agent, model, level string) error {
 
 	allowed := SupportedReasoningLevels(agent, model)
 	if len(allowed) == 0 {
-		return fmt.Errorf("reasoning-level %q is not supported for agent %q (model %q)", level, agent, model)
+		return pkgerrors.Errorf("reasoning-level %q is not supported for agent %q (model %q)", level, agent, model)
 	}
 
 	for _, candidate := range allowed {
@@ -62,6 +63,6 @@ func ValidateReasoningLevel(agent, model, level string) error {
 		}
 	}
 
-	return fmt.Errorf("reasoning-level %q is invalid for agent %q (model %q). valid values: %s",
+	return pkgerrors.Errorf("reasoning-level %q is invalid for agent %q (model %q). valid values: %s",
 		level, agent, model, strings.Join(allowed, ", "))
 }

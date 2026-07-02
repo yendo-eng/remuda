@@ -4,10 +4,12 @@ package internal
 
 import (
 	"errors"
-	"fmt"
+
 	"math"
 	"os"
 	"syscall"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 type repoMutationLock struct {
@@ -18,18 +20,18 @@ type repoMutationLock struct {
 func acquireRepoMutationLock(lockPath string) (repoMutationLock, error) {
 	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return repoMutationLock{}, fmt.Errorf("opening %s: %w", lockPath, err)
+		return repoMutationLock{}, pkgerrors.Wrapf(err, "opening %s", lockPath)
 	}
 
 	fd, err := fileDescriptorInt(file)
 	if err != nil {
 		_ = file.Close()
-		return repoMutationLock{}, fmt.Errorf("locking %s: %w", lockPath, err)
+		return repoMutationLock{}, pkgerrors.Wrapf(err, "locking %s", lockPath)
 	}
 
 	if err := syscall.Flock(fd, syscall.LOCK_EX); err != nil {
 		_ = file.Close()
-		return repoMutationLock{}, fmt.Errorf("locking %s: %w", lockPath, err)
+		return repoMutationLock{}, pkgerrors.Wrapf(err, "locking %s", lockPath)
 	}
 
 	return repoMutationLock{
@@ -47,30 +49,30 @@ func (l repoMutationLock) release() error {
 	if err != nil {
 		closeErr := l.file.Close()
 		if closeErr == nil {
-			return fmt.Errorf("unlocking %s: %w", l.path, err)
+			return pkgerrors.Wrapf(err, "unlocking %s", l.path)
 		}
-		return fmt.Errorf("unlock/close %s: %w", l.path, errors.Join(err, closeErr))
+		return pkgerrors.Wrapf(errors.Join(err, closeErr), "unlock/close %s", l.path)
 	}
 
 	unlockErr := syscall.Flock(fd, syscall.LOCK_UN)
 	closeErr := l.file.Close()
 	if unlockErr == nil {
 		if closeErr != nil {
-			return fmt.Errorf("closing %s: %w", l.path, closeErr)
+			return pkgerrors.Wrapf(closeErr, "closing %s", l.path)
 		}
 		return nil
 	}
 	if closeErr == nil {
-		return fmt.Errorf("unlocking %s: %w", l.path, unlockErr)
+		return pkgerrors.Wrapf(unlockErr, "unlocking %s", l.path)
 	}
 
-	return fmt.Errorf("unlock/close %s: %w", l.path, errors.Join(unlockErr, closeErr))
+	return pkgerrors.Wrapf(errors.Join(unlockErr, closeErr), "unlock/close %s", l.path)
 }
 
 func fileDescriptorInt(file *os.File) (int, error) {
 	fd := file.Fd()
 	if fd > uintptr(math.MaxInt) {
-		return 0, fmt.Errorf("file descriptor %d exceeds int range", fd)
+		return 0, pkgerrors.Errorf("file descriptor %d exceeds int range", fd)
 	}
 	return int(fd), nil
 }

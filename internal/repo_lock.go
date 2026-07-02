@@ -1,15 +1,16 @@
 package internal
 
 import (
-	"fmt"
 	"path/filepath"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 func withRepoMutationLock(baseDir string, fn func() error) (err error) {
 	lockPath := filepath.Join(baseDir, ".repo_cache.lock")
 	lock, err := acquireRepoMutationLock(lockPath)
 	if err != nil {
-		return fmt.Errorf("acquiring repo mutation lock: %w", err)
+		return pkgerrors.Wrap(err, "acquiring repo mutation lock")
 	}
 
 	defer func() {
@@ -18,10 +19,10 @@ func withRepoMutationLock(baseDir string, fn func() error) (err error) {
 			return
 		}
 		if err == nil {
-			err = fmt.Errorf("releasing repo mutation lock: %w", unlockErr)
+			err = pkgerrors.Wrap(unlockErr, "releasing repo mutation lock")
 			return
 		}
-		err = fmt.Errorf("%w; additionally, releasing repo mutation lock: %s", err, unlockErr.Error())
+		err = pkgerrors.Wrapf(err, "additionally, releasing repo mutation lock: %s", unlockErr.Error())
 	}()
 
 	return fn()

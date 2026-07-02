@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/docker"
@@ -102,13 +102,13 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		cmd.Model = agentlauncher.EffectiveModel(cmd.Agent, cmd.Model)
 		resolvedReasoningLevel, err := resolveReasoningLevel(logger, cmd.Agent, cmd.Model, cmd.AgentCmd, cmd.ReasoningLevel)
 		if err != nil {
-			return errors.Wrap(err, "reasoning-level")
+			return pkgerrors.Wrap(err, "reasoning-level")
 		}
 		cmd.ReasoningLevel = resolvedReasoningLevel
 
 		parsed, resolvedModel, err := agentlauncher.ParseWithReasoning(cmd.Agent, cmd.Model, cmd.ReasoningLevel, cmd.Yolo)
 		if err != nil {
-			return errors.Wrap(err, "agent")
+			return pkgerrors.Wrap(err, "agent")
 		}
 		cmd.Model = resolvedModel
 		agent = parsed
@@ -135,7 +135,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	if strings.TrimSpace(cmd.ExistingWorkspace) != "" {
 		expanded, err := filepath.Abs(cmd.ExistingWorkspace)
 		if err != nil {
-			return errors.Wrap(err, "failed to expand workspace path")
+			return pkgerrors.Wrap(err, "failed to expand workspace path")
 		}
 		cmd.ExistingWorkspace = expanded
 
@@ -144,12 +144,12 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		var err error
 		workspace, err = k.Clone(cmd.Clone)
 		if err != nil {
-			return errors.Wrap(err, "clone")
+			return pkgerrors.Wrap(err, "clone")
 		}
 	}
 
 	if strings.TrimSpace(workspace) == "" {
-		return errors.New("workspace path is empty")
+		return pkgerrors.New("workspace path is empty")
 	}
 
 	workspaceAbs, err := filepath.Abs(workspace)
@@ -266,7 +266,7 @@ func (k Remuda) composeLaunchCommand(
 
 	containerImage := strings.TrimSpace(cmd.ContainerName)
 	if containerImage == "" {
-		return "", "", errors.New(
+		return "", "", pkgerrors.New(
 			"container mode requires an explicit image; pass --container-name or configure defaults.container.image (including profiles.<name>.container.image or per_repo.<slug>.defaults.container.image)",
 		)
 	}
@@ -367,7 +367,7 @@ func containerInheritEnvOpts(names []string) ([]string, error) {
 			continue
 		}
 		if !util.IsValidEnvVarName(name) {
-			return nil, errors.Errorf("invalid env var name %q", raw)
+			return nil, pkgerrors.Errorf("invalid env var name %q", raw)
 		}
 		opts = append(opts, "-e "+name)
 	}
@@ -580,7 +580,7 @@ func ensureRegularFile(path string, perm os.FileMode) error {
 		if st.Mode().IsRegular() {
 			return nil
 		}
-		return errors.Errorf("%s exists but is not a regular file", path)
+		return pkgerrors.Errorf("%s exists but is not a regular file", path)
 	}
 	if !os.IsNotExist(err) {
 		return err

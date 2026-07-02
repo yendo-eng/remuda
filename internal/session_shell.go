@@ -3,11 +3,12 @@ package internal
 import (
 	"context"
 	"errors"
-	"fmt"
+
 	"os"
 	"os/exec"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 )
@@ -15,7 +16,7 @@ import (
 func (k Remuda) SessionShell(sessionName string) error {
 	name := strings.TrimSpace(sessionName)
 	if name == "" {
-		return fmt.Errorf("session name is required")
+		return pkgerrors.Errorf("session name is required")
 	}
 
 	workspace, err := k.SessionWorkspacePath(name)
@@ -24,14 +25,14 @@ func (k Remuda) SessionShell(sessionName string) error {
 	}
 	if st, err := os.Stat(workspace); err != nil || !st.IsDir() {
 		if err == nil {
-			err = fmt.Errorf("not a directory")
+			err = pkgerrors.Errorf("not a directory")
 		}
-		return fmt.Errorf("workspace path %q is not accessible: %w", workspace, err)
+		return pkgerrors.Wrapf(err, "workspace path %q is not accessible", workspace)
 	}
 
 	containerName := docker.ContainerNameFromSession(name)
 	if strings.TrimSpace(containerName) == "" {
-		return fmt.Errorf("unable to derive container name from session %q", name)
+		return pkgerrors.Errorf("unable to derive container name from session %q", name)
 	}
 
 	if k.Docker == nil {
@@ -40,7 +41,7 @@ func (k Remuda) SessionShell(sessionName string) error {
 	}
 
 	if err := k.Docker.CheckRunning(); err != nil {
-		return fmt.Errorf("docker unavailable: %w (use --host to open a host shell in the workspace)", err)
+		return pkgerrors.Wrap(err, "docker unavailable (use --host to open a host shell in the workspace)")
 	}
 
 	running, err := k.Docker.ContainerRunning(containerName)
@@ -49,14 +50,14 @@ func (k Remuda) SessionShell(sessionName string) error {
 			k.IO.Errf("container %q unavailable (%v); opening host shell in %s\n", containerName, err, workspace)
 			return runHostShell(name, workspace, k.IO, k.envProvider())
 		}
-		return fmt.Errorf("checking container %q state: %w", containerName, err)
+		return pkgerrors.Wrapf(err, "checking container %q state", containerName)
 	}
 	if !running {
-		return fmt.Errorf("container %q is not running (use --host to open a host shell in the workspace)", containerName)
+		return pkgerrors.Errorf("container %q is not running (use --host to open a host shell in the workspace)", containerName)
 	}
 
 	if err := k.Docker.Exec(containerName, "cd /workspace && exec ${SHELL:-/bin/bash}"); err != nil {
-		return fmt.Errorf("docker exec %q failed: %w", containerName, err)
+		return pkgerrors.Wrapf(err, "docker exec %q failed", containerName)
 	}
 
 	return nil
@@ -65,7 +66,7 @@ func (k Remuda) SessionShell(sessionName string) error {
 func (k Remuda) SessionHostShell(sessionName string) error {
 	name := strings.TrimSpace(sessionName)
 	if name == "" {
-		return fmt.Errorf("session name is required")
+		return pkgerrors.Errorf("session name is required")
 	}
 
 	workspace, err := k.SessionWorkspacePath(name)
@@ -74,9 +75,9 @@ func (k Remuda) SessionHostShell(sessionName string) error {
 	}
 	if st, err := os.Stat(workspace); err != nil || !st.IsDir() {
 		if err == nil {
-			err = fmt.Errorf("not a directory")
+			err = pkgerrors.Errorf("not a directory")
 		}
-		return fmt.Errorf("workspace path %q is not accessible: %w", workspace, err)
+		return pkgerrors.Wrapf(err, "workspace path %q is not accessible", workspace)
 	}
 
 	return runHostShell(name, workspace, k.IO, k.envProvider())

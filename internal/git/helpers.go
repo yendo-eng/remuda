@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
@@ -50,17 +50,17 @@ func CheckoutOrCreateBranch(logger zerolog.Logger, git Git, path, branch string)
 	// failures printed by git during probing.
 	if LocalBranchExists(git, path, branch) {
 		err := git.Checkout(path, branch)
-		return errors.Wrapf(err, "checkout '%s'", branch)
+		return pkgerrors.Wrapf(err, "checkout '%s'", branch)
 	}
 
 	if RemoteBranchExists(git, path, branch) {
 		err := git.Checkout(path, "-b", branch, "--track", fmt.Sprintf("origin/%s", branch))
-		return errors.Wrapf(err, "checkout tracking branch '%s'", branch)
+		return pkgerrors.Wrapf(err, "checkout tracking branch '%s'", branch)
 	}
 
 	// Fallback: create a new local branch from current HEAD without upstream.
 	err := git.Checkout(path, "-b", branch)
-	return errors.Wrapf(err, "create new branch '%s'", branch)
+	return pkgerrors.Wrapf(err, "create new branch '%s'", branch)
 }
 
 // LocalBranchExists returns true if refs/heads/<branch> exists in the repo

@@ -1,15 +1,15 @@
 package util
 
 import (
-	"errors"
-	"fmt"
 	"strings"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 func ValidateEnvVarName(name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return errors.New("env var name cannot be empty")
+		return pkgerrors.New("env var name cannot be empty")
 	}
 	for i := 0; i < len(name); i++ {
 		ch := name[i]
@@ -18,12 +18,12 @@ func ValidateEnvVarName(name string) error {
 		isUnderscore := ch == '_'
 		if i == 0 {
 			if !isLetter && !isUnderscore {
-				return fmt.Errorf("invalid env var name %q", name)
+				return pkgerrors.Errorf("invalid env var name %q", name)
 			}
 			continue
 		}
 		if !isLetter && !isDigit && !isUnderscore {
-			return fmt.Errorf("invalid env var name %q", name)
+			return pkgerrors.Errorf("invalid env var name %q", name)
 		}
 	}
 	return nil

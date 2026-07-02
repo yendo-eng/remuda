@@ -2,11 +2,11 @@ package jira
 
 import (
 	"context"
-	"errors"
-	"fmt"
+
 	"strings"
 	"sync"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/logging"
 )
@@ -56,12 +56,12 @@ func (j *httpJira) SetAuthConfigOverride(cfg AuthConfig) {
 func (j *httpJira) GetTicket(id string) (ticket string, err error) {
 	key := strings.TrimSpace(id)
 	if key == "" {
-		return "", errors.New("jira issue key cannot be empty")
+		return "", pkgerrors.New("jira issue key cannot be empty")
 	}
 
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("jira ticket %s: %w", key, err)
+			err = pkgerrors.Wrapf(err, "jira ticket %s", key)
 		}
 	}()
 
@@ -72,7 +72,7 @@ func (j *httpJira) GetTicket(id string) (ticket string, err error) {
 
 	issue, err := client.GetIssue(context.Background(), key)
 	if err != nil {
-		return "", fmt.Errorf("get issue: %w", err)
+		return "", pkgerrors.Wrap(err, "get issue")
 	}
 	if strings.TrimSpace(issue.Key) == "" {
 		issue.Key = key
@@ -80,12 +80,12 @@ func (j *httpJira) GetTicket(id string) (ticket string, err error) {
 
 	comments, err := client.GetComments(context.Background(), key)
 	if err != nil {
-		return "", fmt.Errorf("get comments: %w", err)
+		return "", pkgerrors.Wrap(err, "get comments")
 	}
 
 	formatted, err := FormatIssue(issue, comments)
 	if err != nil {
-		return "", fmt.Errorf("format issue: %w", err)
+		return "", pkgerrors.Wrap(err, "format issue")
 	}
 
 	return formatted, nil
@@ -113,14 +113,14 @@ func (j *httpJira) getClient() (Client, error) {
 	} else {
 		loadedCfg, err := j.loadAuthConfig()
 		if err != nil {
-			return nil, fmt.Errorf("load auth config: %w", err)
+			return nil, pkgerrors.Wrap(err, "load auth config")
 		}
 		cfg = mergeAuthConfig(loadedCfg, j.authOverride)
 	}
 
 	client, err := j.newClient(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("create jira client: %w", err)
+		return nil, pkgerrors.Wrap(err, "create jira client")
 	}
 
 	j.client = client

@@ -1,14 +1,14 @@
 package internal
 
 import (
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
 func (k Remuda) SessionList() ([]session.SessionInfo, error) {
 	sessions, err := k.Session.List()
 	if err != nil {
-		return nil, errors.Wrap(err, "list sessions")
+		return nil, pkgerrors.Wrap(err, "list sessions")
 	}
 
 	filtered := make([]session.SessionInfo, 0, len(sessions))

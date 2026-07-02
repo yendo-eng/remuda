@@ -3,7 +3,7 @@ package session
 import (
 	"bufio"
 	"errors"
-	"fmt"
+
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -46,12 +47,12 @@ func (z *zellijManager) StartWithEnv(sessionName, command string, env []string) 
 	if err != nil {
 		msg := strings.TrimSpace(out)
 		if strings.Contains(strings.ToLower(msg), "create-background") {
-			return fmt.Errorf("zellij does not support --create-background (requires zellij >= 0.40.0); please upgrade zellij or use --session-manager tmux: %w", err)
+			return pkgerrors.Wrap(err, "zellij does not support --create-background (requires zellij >= 0.40.0); please upgrade zellij or use --session-manager tmux")
 		}
 		if msg == "" {
-			return fmt.Errorf("zellij attach --create-background: %w", err)
+			return pkgerrors.Wrap(err, "zellij attach --create-background")
 		}
-		return fmt.Errorf("zellij attach --create-background: %s: %w", msg, err)
+		return pkgerrors.Wrapf(err, "zellij attach --create-background: %s", msg)
 	}
 
 	payload := command + "\n"
@@ -65,9 +66,9 @@ func (z *zellijManager) StartWithEnv(sessionName, command string, env []string) 
 		msg := strings.TrimSpace(out)
 		if time.Now().After(deadline) || !isRetryableZellijActionError(msg) {
 			if msg == "" {
-				return fmt.Errorf("zellij write-chars: %w", err)
+				return pkgerrors.Wrap(err, "zellij write-chars")
 			}
-			return fmt.Errorf("zellij write-chars: %s: %w", msg, err)
+			return pkgerrors.Wrapf(err, "zellij write-chars: %s", msg)
 		}
 
 		time.Sleep(100 * time.Millisecond)
@@ -93,7 +94,7 @@ func (z *zellijManager) List() ([]SessionInfo, error) {
 				return nil, nil
 			}
 		}
-		return nil, fmt.Errorf("zellij list-sessions: %w", err)
+		return nil, pkgerrors.Wrap(err, "zellij list-sessions")
 	}
 
 	return parseZellijListOutput(out), nil
@@ -250,7 +251,7 @@ func (z *zellijManager) ReadBuffer(name string, lines int) (string, error) {
 	}
 
 	if err := util.RunCmdWithLogger(z.logger, "zellij", "--session", encodeZellijSessionName(name), "action", "dump-screen", abs); err != nil {
-		return "", fmt.Errorf("zellij dump-screen: %w", err)
+		return "", pkgerrors.Wrap(err, "zellij dump-screen")
 	}
 
 	data, err := os.ReadFile(abs)
@@ -272,9 +273,9 @@ func (z *zellijManager) Send(name string, payload string, appendNewline bool) er
 	if err != nil {
 		msg := strings.TrimSpace(out)
 		if msg == "" {
-			return fmt.Errorf("zellij write-chars: %w", err)
+			return pkgerrors.Wrap(err, "zellij write-chars")
 		}
-		return fmt.Errorf("zellij write-chars: %s: %w", msg, err)
+		return pkgerrors.Wrapf(err, "zellij write-chars: %s", msg)
 	}
 
 	if appendNewline && !strings.HasSuffix(payload, "\n") && !strings.HasSuffix(payload, "\r") {
@@ -285,9 +286,9 @@ func (z *zellijManager) Send(name string, payload string, appendNewline bool) er
 		if err != nil {
 			msg := strings.TrimSpace(out)
 			if msg == "" {
-				return fmt.Errorf("zellij write-chars: %w", err)
+				return pkgerrors.Wrap(err, "zellij write-chars")
 			}
-			return fmt.Errorf("zellij write-chars: %s: %w", msg, err)
+			return pkgerrors.Wrapf(err, "zellij write-chars: %s", msg)
 		}
 	}
 	return nil

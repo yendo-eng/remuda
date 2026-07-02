@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -122,7 +123,7 @@ func (r *CloneHookRegistry) RunCloneHooks(ctx CloneHookContext) error {
 			Msg("running clone hook")
 
 		if err := hook.Run(ctx); err != nil {
-			return fmt.Errorf("hook %s failed: %w", hook.Name(), err)
+			return pkgerrors.Wrapf(err, "hook %s failed", hook.Name())
 		}
 	}
 	return nil

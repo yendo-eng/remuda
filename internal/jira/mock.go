@@ -1,6 +1,6 @@
 package jira
 
-import "fmt"
+import pkgerrors "github.com/pkg/errors"
 
 type Mock struct {
 	Tickets map[string]string
@@ -9,7 +9,7 @@ type Mock struct {
 func (m Mock) GetTicket(id string) (string, error) {
 	text, ok := m.Tickets[id]
 	if !ok {
-		return "", fmt.Errorf("ticket not found: %s", id)
+		return "", pkgerrors.Errorf("ticket not found: %s", id)
 	}
 	return text, nil
 }
