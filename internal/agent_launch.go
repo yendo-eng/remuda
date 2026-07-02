@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -104,7 +105,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 			if err := k.Session.Kill(sessionName); err != nil {
 				return agentLaunchResult{}, pkgerrors.Wrapf(err, "killing existing session %q", sessionName)
 			}
-		} else if !pkgerrors.Is(err, session.ErrSessionNotFound) {
+		} else if !errors.Is(err, session.ErrSessionNotFound) {
 			return agentLaunchResult{}, pkgerrors.Wrapf(err, "checking for existing session %q", sessionName)
 		}
 	}

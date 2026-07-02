@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -18,7 +19,7 @@ func (k Remuda) SessionWorkspacePath(sessionName string) (string, error) {
 
 	sess, err := k.Session.Find(name)
 	if err != nil {
-		if pkgerrors.Is(err, session.ErrSessionNotFound) {
+		if errors.Is(err, session.ErrSessionNotFound) {
 			return "", pkgerrors.Errorf("session %q not found", name)
 		}
 		return "", err

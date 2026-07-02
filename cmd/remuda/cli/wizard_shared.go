@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	stdErrors "errors"
+	"errors"
 	"fmt"
 	"os/exec"
 	"sort"
@@ -164,7 +164,7 @@ func wizardSelectPR(logger zerolog.Logger, ownerRepo string, initRef string) ([]
 	if len(prs) > 0 {
 		selections, manualChoice, err := wizardSelectPRWithFZF(logger, prs, initRef)
 		if err != nil {
-			if stdErrors.Is(err, errWizardFZFUnavailable) {
+			if errors.Is(err, errWizardFZFUnavailable) {
 				selections, manualChoice, err = wizardSelectPRWithMenu(prs, initRef, prLimit)
 			}
 		}

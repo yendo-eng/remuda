@@ -6,10 +6,14 @@ version: "2"
 run:
   allow-parallel-runners: true
 
-issues:
-
 linters:
   default: all
+  exclusions:
+    rules:
+      # Enforce pkg/errors creation/wrapping in runtime code; tests may use stdlib errors helpers.
+      - path: _test\.go
+        linters:
+          - forbidigo
   disable:
     - containedctx
     - copyloopvar
@@ -86,6 +90,22 @@ linters:
           list-mode: lax
           allow:
             - $gostd
+    # Error-handling convention for km-12pu:
+    # - Error creation/wrapping uses github.com/pkg/errors (imported as pkgerrors).
+    # - Error inspection uses stdlib errors.Is/As/Join.
+    importas:
+      no-unaliased: true
+      alias:
+        - pkg: github.com/pkg/errors
+          alias: pkgerrors
+        - pkg: errors
+          alias: ""
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Errorf$
+          msg: use pkgerrors.Wrap/Wrapf/Errorf instead of fmt.Errorf
+        - pattern: ^errors\.New$
+          msg: use pkgerrors.New instead of stdlib errors.New
     testpackage:
       allow-packages:
         - cli

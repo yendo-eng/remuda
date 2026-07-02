@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"strings"
@@ -45,7 +46,7 @@ func (s shellDocker) ContainerRunning(container string) (bool, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		var ee *exec.ExitError
-		if pkgerrors.As(err, &ee) {
+		if errors.As(err, &ee) {
 			msg := strings.TrimSpace(string(ee.Stderr))
 			lower := strings.ToLower(msg)
 			if strings.Contains(lower, "no such object") || strings.Contains(lower, "no such container") || strings.Contains(lower, "not found") {
