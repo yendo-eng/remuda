@@ -16,22 +16,8 @@ type WorkspacesRemoveCmd struct {
 
 func (c WorkspacesRemoveCmd) Validate() error {
 	for _, target := range c.Targets {
-		trimmed := strings.TrimSpace(target)
-		if trimmed == "" {
-			return errors.New("target cannot be blank")
-		}
-
-		if strings.HasPrefix(trimmed, "~") {
-			if !isSupportedTildePath(trimmed) {
-				return errors.Errorf("invalid target %q: unsupported tilde path", target)
-			}
-			continue
-		}
-		if filepath.IsAbs(trimmed) {
-			continue
-		}
-		if !isWorkspaceIdentifier(trimmed) {
-			return errors.Errorf("invalid target %q: expected absolute path or org/repo/workspace identifier", target)
+		if err := validateWorkspaceTarget(target); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -61,14 +47,11 @@ func (c WorkspacesRemoveCmd) Run(ctx Context) error {
 func resolveWorkspaceTargets(targets []string, ctx Context) ([]string, error) {
 	resolved := make([]string, 0, len(targets))
 	for _, target := range targets {
-		trimmed := strings.TrimSpace(target)
-		if trimmed == "" {
-			return nil, errors.New("target cannot be blank")
+		if err := validateWorkspaceTarget(target); err != nil {
+			return nil, err
 		}
+		trimmed := strings.TrimSpace(target)
 		if strings.HasPrefix(trimmed, "~") {
-			if !isSupportedTildePath(trimmed) {
-				return nil, errors.Errorf("invalid target %q: unsupported tilde path", target)
-			}
 			resolved = append(resolved, absPathFromContext(trimmed, ctx))
 			continue
 		}
@@ -81,6 +64,27 @@ func resolveWorkspaceTargets(targets []string, ctx Context) ([]string, error) {
 		resolved = append(resolved, absPathFromContext(trimmed, ctx))
 	}
 	return resolved, nil
+}
+
+func validateWorkspaceTarget(target string) error {
+	trimmed := strings.TrimSpace(target)
+	if trimmed == "" {
+		return errors.New("target cannot be blank")
+	}
+
+	if strings.HasPrefix(trimmed, "~") {
+		if !isSupportedTildePath(trimmed) {
+			return errors.Errorf("invalid target %q: unsupported tilde path", target)
+		}
+		return nil
+	}
+	if filepath.IsAbs(trimmed) {
+		return nil
+	}
+	if !isWorkspaceIdentifier(trimmed) {
+		return errors.Errorf("invalid target %q: expected absolute path or org/repo/workspace identifier", target)
+	}
+	return nil
 }
 
 func isSupportedTildePath(value string) bool {

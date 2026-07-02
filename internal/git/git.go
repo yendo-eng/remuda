@@ -20,6 +20,9 @@ type Git interface {
 	// WorktreeRemove removes a worktree at the specified path.
 	WorktreeRemove(dir string, args ...string) error
 
+	// WorktreeMove moves an existing worktree to a new path.
+	WorktreeMove(dir, src, dst string) error
+
 	// Checkout checks out the specified branch in the given directory.
 	Checkout(dir string, args ...string) error
 
@@ -70,6 +73,10 @@ func (g *shellGit) WorktreeAdd(baseDir, dir string, args ...string) error {
 func (g *shellGit) WorktreeRemove(dir string, args ...string) error {
 	args = append([]string{"-C", dir, "worktree", "remove"}, args...)
 	return util.RunCmdWithLogger(g.logger, "git", args...)
+}
+
+func (g *shellGit) WorktreeMove(dir, src, dst string) error {
+	return util.RunCmdWithLogger(g.logger, "git", "-C", dir, "worktree", "move", src, dst)
 }
 
 func (g *shellGit) Checkout(dir string, args ...string) error {

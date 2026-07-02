@@ -18,6 +18,7 @@ func (noopGit) Clone(repoURL, dir string) error                          { retur
 func (noopGit) Pull(dir string) error                                    { return nil }
 func (noopGit) WorktreeAdd(dir, branch string, args ...string) error     { return nil }
 func (noopGit) WorktreeRemove(dir string, args ...string) error          { return nil }
+func (noopGit) WorktreeMove(dir, src, dst string) error                  { return nil }
 func (noopGit) Checkout(dir string, args ...string) error                { return nil }
 func (noopGit) ShowRef(dir, ref string, opts ...string) error            { return nil }
 func (noopGit) RevParse(dir, rev string, opts ...string) (string, error) { return "", nil }

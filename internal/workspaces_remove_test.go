@@ -46,6 +46,7 @@ func (g *pruneSpyGit) Checkout(dir string, args ...string) error                
 func (g *pruneSpyGit) ShowRef(dir, ref string, opts ...string) error            { return nil }
 func (g *pruneSpyGit) RevParse(dir, rev string, opts ...string) (string, error) { return "", nil }
 func (g *pruneSpyGit) Branch(dir string, args ...string) error                  { return nil }
+func (g *pruneSpyGit) WorktreeMove(dir, src, dst string) error                  { return nil }
 func (g *pruneSpyGit) WorktreeRemove(dir string, args ...string) error {
 	g.worktreeRemoveCalls++
 	g.worktreeRemoveArgs = append([]string(nil), args...)

@@ -228,6 +228,7 @@ func (g stubGit) Clone(repoURL, dir string) error                          { ret
 func (g stubGit) Pull(dir string) error                                    { return nil }
 func (g stubGit) WorktreeAdd(dir, branch string, args ...string) error     { return nil }
 func (g stubGit) WorktreeRemove(dir string, args ...string) error          { return nil }
+func (g stubGit) WorktreeMove(dir, src, dst string) error                  { return nil }
 func (g stubGit) Checkout(dir string, args ...string) error                { return nil }
 func (g stubGit) ShowRef(dir, ref string, opts ...string) error            { return nil }
 func (g stubGit) RevParse(dir, rev string, opts ...string) (string, error) { return "", nil }
