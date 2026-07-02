@@ -1,10 +1,10 @@
 package testutils
 
 import (
-	"errors"
 	"strings"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -143,7 +143,7 @@ func (f *MockSessionManager) Kill(name string) error {
 }
 
 func errCantFindSession(name string) error {
-	return errors.New("can't find session: " + name)
+	return pkgerrors.New("can't find session: " + name)
 }
 
 // AddSessionWithBuffer adds a session with a specific buffer content.

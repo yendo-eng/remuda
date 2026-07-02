@@ -2,8 +2,8 @@ package cli
 
 import (
 	"bytes"
-	"fmt"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/configfile"
 	"gopkg.in/yaml.v3"
 )
@@ -37,10 +37,10 @@ func renderConfigV1(cfg *configfile.V1, original []byte) ([]byte, error) {
 func parseConfigDocument(data []byte) (*yaml.Node, error) {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("parse config yaml: %w", err)
+		return nil, pkgerrors.Wrap(err, "parse config yaml")
 	}
 	if doc.Kind == 0 {
-		return nil, fmt.Errorf("parse config yaml: empty document")
+		return nil, pkgerrors.Errorf("parse config yaml: empty document")
 	}
 	return &doc, nil
 }
@@ -64,12 +64,12 @@ func applyRepoDefaultsToDocument(doc *yaml.Node, cfg *configfile.V1) error {
 
 	root := documentRoot(doc)
 	if root == nil || root.Kind != yaml.MappingNode {
-		return fmt.Errorf("parse config yaml: expected mapping at document root")
+		return pkgerrors.Errorf("parse config yaml: expected mapping at document root")
 	}
 
 	repos := ensureMappingChild(root, "repos")
 	if repos == nil {
-		return fmt.Errorf("parse config yaml: unable to create repos mapping")
+		return pkgerrors.Errorf("parse config yaml: unable to create repos mapping")
 	}
 
 	if alias != "" {

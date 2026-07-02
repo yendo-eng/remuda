@@ -3,7 +3,7 @@ package cli
 import (
 	"path/filepath"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/configfile"
 )
 
@@ -15,7 +15,7 @@ type WorkspacesListCmd struct {
 
 func (c WorkspacesListCmd) Validate() error {
 	if c.Active && c.Inactive {
-		return errors.New("flags --active and --inactive cannot be used together")
+		return pkgerrors.New("flags --active and --inactive cannot be used together")
 	}
 	return nil
 }
@@ -35,7 +35,7 @@ func (c WorkspacesListCmd) Run(ctx Context) error {
 		workspaces, err = ctx.Remuda.WorkspacesWithIgnore(ignore)
 	}
 	if err != nil {
-		return errors.Wrap(err, "workspaces list")
+		return pkgerrors.Wrap(err, "workspaces list")
 	}
 
 	for _, ws := range workspaces {

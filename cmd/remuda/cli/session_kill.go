@@ -1,10 +1,9 @@
 package cli
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/session"
 )
@@ -16,7 +15,7 @@ type SessionKillNamePickOption struct {
 
 func (o SessionKillNamePickOption) Validate() error {
 	if o.Name == "" && !o.Pick {
-		return errors.New("--name or --pick is required")
+		return pkgerrors.New("--name or --pick is required")
 	}
 	return nil
 }
@@ -45,7 +44,7 @@ func (c SessionKillCmd) Validate() error {
 	}
 	for i, mergeFlag := range c.MergeFlag {
 		if strings.TrimSpace(mergeFlag) == "" {
-			return fmt.Errorf("--merge-flag[%d] cannot be empty", i)
+			return pkgerrors.Errorf("--merge-flag[%d] cannot be empty", i)
 		}
 	}
 	return nil

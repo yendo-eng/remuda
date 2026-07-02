@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal"
 	igit "github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/github"
@@ -36,7 +36,7 @@ func (c VibeCheckCmd) Run(ctx Context) error {
 	cmds := []VibeCheckCmd{c}
 	if c.Wizard {
 		if !ctx.Remuda.IO.IsTerminal() {
-			return fmt.Errorf("--wizard requires an interactive TTY")
+			return pkgerrors.Errorf("--wizard requires an interactive TTY")
 		}
 
 		wizardCmds, err := launchVibeCheckWizard(logging.FromContext(ctx.ctx), c)
@@ -90,11 +90,11 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	}
 
 	if strings.TrimSpace(c.PRRef) != "" && strings.TrimSpace(c.Branch) != "" {
-		return fmt.Errorf("cannot use both branch argument and --pr")
+		return pkgerrors.Errorf("cannot use both branch argument and --pr")
 	}
 
 	if strings.TrimSpace(c.PRRef) == "" && strings.TrimSpace(c.Branch) == "" {
-		return fmt.Errorf("branch is required unless --pr or --wizard is provided")
+		return pkgerrors.Errorf("branch is required unless --pr or --wizard is provided")
 	}
 
 	if strings.TrimSpace(c.PRRef) == "" {
@@ -116,11 +116,11 @@ func (c VibeCheckCmd) run(ctx Context) error {
 		prRepoSlug, _ := github.RepoSlugFromURL(derefString(c.RepoURL))
 		view, err := ctx.Remuda.GitHub.PRViewWithRepo(prRepoSlug, c.PRRef)
 		if err != nil {
-			return errors.Wrap(err, "fetching PR details")
+			return pkgerrors.Wrap(err, "fetching PR details")
 		}
 		head, _ := view["headRefName"].(string)
 		if strings.TrimSpace(head) == "" {
-			return fmt.Errorf("gh pr view output missing headRefName")
+			return pkgerrors.Errorf("gh pr view output missing headRefName")
 		}
 		headBranch = strings.TrimSpace(head)
 		if base, ok := view["baseRefName"].(string); ok {
@@ -136,7 +136,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 		c.Name = defaultReviewName("", headBranch)
 	}
 	if !c.Wizard && strings.TrimSpace(c.Name) == "" {
-		return fmt.Errorf("--name is required unless --wizard is provided")
+		return pkgerrors.Errorf("--name is required unless --wizard is provided")
 	}
 
 	if err := applyUsePromptDefaults(&c.ContextEngineeringOptions, ctx.KongCtx, ctx.ConfigFile, envFromContext(ctx)); err != nil {
@@ -152,7 +152,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 		WrapUsePrompts: wrapUsePrompts,
 	})
 	if err != nil {
-		return errors.Wrap(err, "adding prompt context")
+		return pkgerrors.Wrap(err, "adding prompt context")
 	}
 	agentArgs := effectiveAgentArgs(ctx.ConfigFile, c.Agent, c.AgentArg)
 
@@ -182,7 +182,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	}
 
 	err = ctx.Remuda.Vibe(ctx.ctx, cmd)
-	return errors.Wrap(err, "vibe check")
+	return pkgerrors.Wrap(err, "vibe check")
 }
 
 // buildVibeCheckPrompt builds the review instructions handed to the agent.

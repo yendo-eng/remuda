@@ -2,12 +2,13 @@ package cli
 
 import (
 	"errors"
-	"fmt"
+
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/configfile"
 )
 
@@ -15,10 +16,10 @@ func persistDefaultRepoSelection(kctx Context, alias string, url string) (Config
 	alias = strings.TrimSpace(alias)
 	url = strings.TrimSpace(url)
 	if alias == "" && url == "" {
-		return ConfigFileDiscovery{}, errors.New("repo alias or URL is required")
+		return ConfigFileDiscovery{}, pkgerrors.New("repo alias or URL is required")
 	}
 	if alias != "" && url != "" {
-		return ConfigFileDiscovery{}, errors.New("repo alias and URL are mutually exclusive")
+		return ConfigFileDiscovery{}, pkgerrors.New("repo alias and URL are mutually exclusive")
 	}
 
 	cfg, discovery, raw, err := loadConfigForRepoPersistence(kctx)
@@ -51,7 +52,7 @@ func loadConfigForRepoPersistence(kctx Context) (*configfile.V1, ConfigFileDisco
 		return nil, discovery, nil, err
 	}
 	if discovery.Path == "" {
-		return nil, discovery, nil, errors.New("no config file path available")
+		return nil, discovery, nil, pkgerrors.New("no config file path available")
 	}
 
 	info, err := os.Stat(discovery.Path)
@@ -62,7 +63,7 @@ func loadConfigForRepoPersistence(kctx Context) (*configfile.V1, ConfigFileDisco
 		return nil, discovery, nil, err
 	}
 	if info.IsDir() {
-		return nil, discovery, nil, fmt.Errorf("config file path %q is a directory", discovery.Path)
+		return nil, discovery, nil, pkgerrors.Errorf("config file path %q is a directory", discovery.Path)
 	}
 
 	data, err := os.ReadFile(discovery.Path)
@@ -123,10 +124,10 @@ func ensureConfigPathWritable(path string) error {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
-		return fmt.Errorf("stat config file %q: %w", path, err)
+		return pkgerrors.Wrapf(err, "stat config file %q", path)
 	}
 	if info.IsDir() {
-		return fmt.Errorf("config file path %q is a directory", path)
+		return pkgerrors.Errorf("config file path %q is a directory", path)
 	}
 	return nil
 }
@@ -144,32 +145,32 @@ func primaryConfigPath(kctx Context) (string, error) {
 		if homeErr == nil {
 			homeErr = errHomeDirUnavailable
 		}
-		return "", fmt.Errorf("resolve user home dir: %w", homeErr)
+		return "", pkgerrors.Wrap(homeErr, "resolve user home dir")
 	}
 	return filepath.Join(home, ".config", "remuda", "config.yaml"), nil
 }
 
 func writeConfigV1(path string, cfg *configfile.V1, original []byte) error {
 	if strings.TrimSpace(path) == "" {
-		return errors.New("config file path is required")
+		return pkgerrors.New("config file path is required")
 	}
 	if cfg == nil {
-		return errors.New("config is required")
+		return pkgerrors.New("config is required")
 	}
 
 	data, err := renderConfigV1(cfg, original)
 	if err != nil {
-		return fmt.Errorf("marshal config: %w", err)
+		return pkgerrors.Wrap(err, "marshal config")
 	}
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("create config directory %q: %w", dir, err)
+		return pkgerrors.Wrapf(err, "create config directory %q", dir)
 	}
 
 	tmp, err := os.CreateTemp(dir, "config-*.yaml")
 	if err != nil {
-		return fmt.Errorf("create temp config: %w", err)
+		return pkgerrors.Wrap(err, "create temp config")
 	}
 	defer func() {
 		_ = os.Remove(tmp.Name())
@@ -177,26 +178,26 @@ func writeConfigV1(path string, cfg *configfile.V1, original []byte) error {
 
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
-		return fmt.Errorf("write config temp file: %w", err)
+		return pkgerrors.Wrap(err, "write config temp file")
 	}
 	if err := tmp.Chmod(0o644); err != nil {
 		_ = tmp.Close()
-		return fmt.Errorf("chmod config temp file: %w", err)
+		return pkgerrors.Wrap(err, "chmod config temp file")
 	}
 	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close config temp file: %w", err)
+		return pkgerrors.Wrap(err, "close config temp file")
 	}
 
 	if err := os.Rename(tmp.Name(), path); err != nil {
-		return fmt.Errorf("replace config file: %w", err)
+		return pkgerrors.Wrap(err, "replace config file")
 	}
 
 	written, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("read written config: %w", err)
+		return pkgerrors.Wrap(err, "read written config")
 	}
 	if _, err := configfile.ParseV1(written); err != nil {
-		return fmt.Errorf("validate written config: %w", err)
+		return pkgerrors.Wrap(err, "validate written config")
 	}
 
 	return nil

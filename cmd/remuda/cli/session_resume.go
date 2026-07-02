@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -39,23 +39,23 @@ func (c *SessionResumeCmd) Validate() error {
 		hasWorkspace = false
 	}
 	if hasWorkspace && c.Pick {
-		return errors.New("cannot combine <workspace-dir> with --pick")
+		return pkgerrors.New("cannot combine <workspace-dir> with --pick")
 	}
 	if !hasWorkspace && !c.Pick {
-		return errors.New("exactly one of <workspace-dir> and --pick is required")
+		return pkgerrors.New("exactly one of <workspace-dir> and --pick is required")
 	}
 	if c.Pick {
 		return nil
 	}
 	if strings.TrimSpace(c.WorkspaceDir) == "" {
-		return errors.New("<workspace-dir> cannot be blank")
+		return pkgerrors.New("<workspace-dir> cannot be blank")
 	}
 	return nil
 }
 
 func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 	if c.Pick && !ctx.Remuda.IO.IsTerminal() {
-		return errors.New("--pick requires an interactive TTY")
+		return pkgerrors.New("--pick requires an interactive TTY")
 	}
 
 	logger := logging.FromContext(ctx.ctx)
@@ -63,7 +63,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 	if c.Pick {
 		inactive, err := ctx.Remuda.InactiveWorkspacesWithIgnore(configuredPruneIgnorePatterns(ctx.ConfigFile))
 		if err != nil {
-			return errors.Wrap(err, "list inactive workspaces")
+			return pkgerrors.Wrap(err, "list inactive workspaces")
 		}
 		if len(inactive) == 0 {
 			ctx.Remuda.IO.Outln("No inactive workspaces to resume.")
@@ -72,10 +72,10 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 
 		picked, err := pickOneWorkspaceWithFZF(logger, envFromContext(ctx), inactive, ctx.Remuda.Config.ReposBaseDir)
 		if err != nil {
-			return errors.Wrap(err, "pick workspace")
+			return pkgerrors.Wrap(err, "pick workspace")
 		}
 		if strings.TrimSpace(picked) == "" {
-			return errors.New("no workspace selected")
+			return pkgerrors.New("no workspace selected")
 		}
 		selected = picked
 	} else {
@@ -89,7 +89,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 
 	selectedAbs := absPathFromContext(selected, ctx)
 	if err := internal.ValidateWorkspacePath(ctx.Remuda.Config.ReposBaseDir, selectedAbs); err != nil {
-		return errors.Wrapf(err, "invalid workspace %q", selectedAbs)
+		return pkgerrors.Wrapf(err, "invalid workspace %q", selectedAbs)
 	}
 	if c.Pick {
 		if err := applyPerRepoOverlaysForPickedSessionResume(ctx, kctx, selectedAbs); err != nil {
@@ -129,7 +129,7 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 			GitHubRepoSlug: repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, selectedAbs),
 		})
 		if err != nil {
-			return errors.Wrap(err, "adding prompt context")
+			return pkgerrors.Wrap(err, "adding prompt context")
 		}
 		if len(addedContext) > 0 {
 			var fullPrompt strings.Builder

@@ -1,9 +1,10 @@
 package cli
 
 import (
-	"errors"
 	"os"
 	"sort"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // EnvProvider supplies environment lookups for a single CLI invocation.
@@ -55,7 +56,7 @@ func (m EnvMap) Environ() []string {
 	return out
 }
 
-var errHomeDirUnavailable = errors.New("home directory not set")
+var errHomeDirUnavailable = pkgerrors.New("home directory not set")
 
 func defaultEnvProvider() EnvProvider {
 	return osEnvProvider{}

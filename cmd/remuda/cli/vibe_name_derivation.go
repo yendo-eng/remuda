@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/llm"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -55,7 +55,7 @@ func deriveWorkspaceNameFromJira(ctx Context, opts ContextEngineeringOptions, sl
 		return "", false, nil
 	}
 	if ctx.Remuda.Jira == nil {
-		return "", true, errors.New("jira client is not configured")
+		return "", true, pkgerrors.New("jira client is not configured")
 	}
 
 	firstKey := normalizedJira[0]
@@ -69,7 +69,7 @@ func deriveWorkspaceNameFromJira(ctx Context, opts ContextEngineeringOptions, sl
 
 	ticketText, err := ctx.Remuda.Jira.GetTicket(firstKey)
 	if err != nil {
-		return "", true, errors.Wrapf(err, "get ticket %s", firstKey)
+		return "", true, pkgerrors.Wrapf(err, "get ticket %s", firstKey)
 	}
 	title := extractJiraTitleFromTicketText(ticketText, firstKey)
 	logger := logging.FromContext(ctx.ctx)
@@ -82,7 +82,7 @@ func deriveWorkspaceNameFromJira(ctx Context, opts ContextEngineeringOptions, sl
 
 	titleSlug, err := slugifyNameSeed(ctx, title, slugifyReasoningLevel)
 	if err != nil {
-		return "", true, errors.Wrap(err, "slugify jira ticket title")
+		return "", true, pkgerrors.Wrap(err, "slugify jira ticket title")
 	}
 	titleSlug = strings.TrimSpace(titleSlug)
 	if titleSlug == "" {
@@ -108,13 +108,13 @@ func slugifyNameSeed(ctx Context, seed string, slugifyReasoningLevel string) (st
 
 	slug, slugErr := service.Slugify(slugCtx, seed)
 	if slugErr != nil {
-		if ctx.ctx.Err() != nil || errors.Is(slugErr, context.Canceled) {
-			return "", errors.Wrap(slugErr, "slugify workspace name")
+		if ctx.ctx.Err() != nil || pkgerrors.Is(slugErr, context.Canceled) {
+			return "", pkgerrors.Wrap(slugErr, "slugify workspace name")
 		}
 		logger.Debug().Err(slugErr).Msg("llm slugify failed; falling back to local slugify")
 		localSlug, err := llm.LocalSlugify(seed)
 		if err != nil {
-			return "", errors.Wrap(err, "local slugify workspace name")
+			return "", pkgerrors.Wrap(err, "local slugify workspace name")
 		}
 		slug = localSlug
 	}

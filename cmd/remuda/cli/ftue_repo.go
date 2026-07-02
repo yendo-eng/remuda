@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/huh"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/github"
 )
 
@@ -68,7 +68,7 @@ func ftueSelectRepo() (repoChoice, bool, error) {
 		Description("Save this repository as the default for future runs").
 		Value(&remember).
 		Run(); err != nil {
-		return repoChoice{}, false, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return repoChoice{}, false, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 
 	return choice, remember, nil

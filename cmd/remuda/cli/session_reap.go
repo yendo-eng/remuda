@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal"
@@ -23,7 +23,7 @@ type DurationFlag struct {
 func (d *DurationFlag) UnmarshalText(text []byte) error {
 	raw := strings.TrimSpace(string(text))
 	if raw == "" {
-		return errors.New("duration is required")
+		return pkgerrors.New("duration is required")
 	}
 	parsed, err := time.ParseDuration(raw)
 	if err != nil {
@@ -43,19 +43,19 @@ type SessionReapCmd struct {
 
 func (c *SessionReapCmd) Validate() error {
 	if c.OlderThan.Duration <= 0 {
-		return errors.New("--older-than must be positive")
+		return pkgerrors.New("--older-than must be positive")
 	}
 	return nil
 }
 
 func (c *SessionReapCmd) Run(ctx Context) error {
 	if c.Pick && !ctx.Remuda.IO.IsTerminal() && !hasTTY() {
-		return errors.New("--pick requires an interactive TTY")
+		return pkgerrors.New("--pick requires an interactive TTY")
 	}
 
 	candidates, skipped, err := ctx.Remuda.SessionReapCandidates(c.OlderThan.Duration, time.Now())
 	if err != nil {
-		return errors.Wrap(err, "list reap candidates")
+		return pkgerrors.Wrap(err, "list reap candidates")
 	}
 
 	if len(candidates) == 0 {
@@ -74,17 +74,17 @@ func (c *SessionReapCmd) Run(ctx Context) error {
 	if c.Pick {
 		selected, err := pickSessionNamesWithFZF(logging.FromContext(ctx.ctx), names, ctx.Remuda.Session, true)
 		if err != nil {
-			return errors.Wrap(err, "pick sessions")
+			return pkgerrors.Wrap(err, "pick sessions")
 		}
 		if len(selected) == 0 {
-			return errors.New("no sessions selected")
+			return pkgerrors.New("no sessions selected")
 		}
 		names = selected
 	}
 
 	results, err := ctx.Remuda.SessionReap(names, c.Cleanup, c.DryRun)
 	if err != nil {
-		return errors.Wrap(err, "session reap")
+		return pkgerrors.Wrap(err, "session reap")
 	}
 
 	writeReapSkipped(ctx, skipped)
@@ -149,7 +149,7 @@ func pickSessionNamesWithFZF(
 	multi bool,
 ) ([]string, error) {
 	if _, err := exec.LookPath("fzf"); err != nil {
-		return nil, fmt.Errorf("fzf not found in PATH; please install fzf or omit --pick")
+		return nil, pkgerrors.Errorf("fzf not found in PATH; please install fzf or omit --pick")
 	}
 
 	var b bytes.Buffer
@@ -161,7 +161,7 @@ func pickSessionNamesWithFZF(
 		fmt.Fprintln(&b, name)
 	}
 	if b.Len() == 0 {
-		return nil, fmt.Errorf("no sessions available to pick")
+		return nil, pkgerrors.Errorf("no sessions available to pick")
 	}
 
 	args := []string{}
@@ -186,7 +186,7 @@ func pickSessionNamesWithFZF(
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("fzf selection error: %w", err)
+		return nil, pkgerrors.Wrap(err, "fzf selection error")
 	}
 
 	var selected []string

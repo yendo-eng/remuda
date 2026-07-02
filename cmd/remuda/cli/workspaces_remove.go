@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // WorkspacesRemoveCmd removes one or more explicitly targeted workspaces.
@@ -18,12 +18,12 @@ func (c WorkspacesRemoveCmd) Validate() error {
 	for _, target := range c.Targets {
 		trimmed := strings.TrimSpace(target)
 		if trimmed == "" {
-			return errors.New("target cannot be blank")
+			return pkgerrors.New("target cannot be blank")
 		}
 
 		if strings.HasPrefix(trimmed, "~") {
 			if !isSupportedTildePath(trimmed) {
-				return errors.Errorf("invalid target %q: unsupported tilde path", target)
+				return pkgerrors.Errorf("invalid target %q: unsupported tilde path", target)
 			}
 			continue
 		}
@@ -31,7 +31,7 @@ func (c WorkspacesRemoveCmd) Validate() error {
 			continue
 		}
 		if !isWorkspaceIdentifier(trimmed) {
-			return errors.Errorf("invalid target %q: expected absolute path or org/repo/workspace identifier", target)
+			return pkgerrors.Errorf("invalid target %q: expected absolute path or org/repo/workspace identifier", target)
 		}
 	}
 	return nil
@@ -52,7 +52,7 @@ func (c WorkspacesRemoveCmd) Run(ctx Context) error {
 		}
 	}
 	if removeErr != nil {
-		return errors.Wrap(removeErr, "workspaces remove")
+		return pkgerrors.Wrap(removeErr, "workspaces remove")
 	}
 
 	return nil
@@ -63,11 +63,11 @@ func resolveWorkspaceTargets(targets []string, ctx Context) ([]string, error) {
 	for _, target := range targets {
 		trimmed := strings.TrimSpace(target)
 		if trimmed == "" {
-			return nil, errors.New("target cannot be blank")
+			return nil, pkgerrors.New("target cannot be blank")
 		}
 		if strings.HasPrefix(trimmed, "~") {
 			if !isSupportedTildePath(trimmed) {
-				return nil, errors.Errorf("invalid target %q: unsupported tilde path", target)
+				return nil, pkgerrors.Errorf("invalid target %q: unsupported tilde path", target)
 			}
 			resolved = append(resolved, absPathFromContext(trimmed, ctx))
 			continue

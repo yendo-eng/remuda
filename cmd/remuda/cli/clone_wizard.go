@@ -1,11 +1,10 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/cmd/remuda/cli/forms"
 	"github.com/yendo-eng/remuda/internal"
 )
@@ -37,13 +36,13 @@ func cloneWizard(prefill CloneWizardPrefill) (internal.CloneCommand, error) {
 			Value(&cmd.Name).
 			Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
-					return errors.New("name is required")
+					return pkgerrors.New("name is required")
 				}
 				return nil
 			}),
 	)
 	if err := step2.Run(); err != nil {
-		return cmd, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return cmd, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 
 	return cmd, nil

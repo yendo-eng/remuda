@@ -2,7 +2,7 @@ package testutils
 
 import (
 	"context"
-	"fmt"
+
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // E2EEnvIsolationContract defines the baseline environment isolation policy for
@@ -264,7 +266,7 @@ func ApplyE2EEnvIsolationToCmd(cmd *exec.Cmd, baseEnv map[string]string, overrid
 	}
 	tempHome := baseEnv["HOME"]
 	if tempHome == "" {
-		return fmt.Errorf("ApplyE2EEnvIsolationToCmd requires HOME to be set in the base env map")
+		return pkgerrors.Errorf("ApplyE2EEnvIsolationToCmd requires HOME to be set in the base env map")
 	}
 
 	contract := DefaultE2EEnvIsolationContract(tempHome)

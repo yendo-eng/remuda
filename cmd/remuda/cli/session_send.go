@@ -3,7 +3,7 @@ package cli
 import (
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 type SessionSendNamePickOption struct {
@@ -13,10 +13,10 @@ type SessionSendNamePickOption struct {
 
 func (o SessionSendNamePickOption) Validate() error {
 	if len(o.Names) == 0 && !o.Pick {
-		return errors.New("--name or --pick is required")
+		return pkgerrors.New("--name or --pick is required")
 	}
 	if len(o.Names) > 0 && o.Pick {
-		return errors.New("--name and --pick cannot be used together")
+		return pkgerrors.New("--name and --pick cannot be used together")
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func (c *SessionSendCmd) Run(ctx Context) error {
 		return err
 	}
 	if strings.TrimSpace(prompt) == "" {
-		return errors.New("prompt is required")
+		return pkgerrors.New("prompt is required")
 	}
 
 	return sendPromptToSessions(ctx, names, prompt, !c.NoNewline)
@@ -59,7 +59,7 @@ func (c *SessionSendCmd) Run(ctx Context) error {
 func sendPromptToSessions(ctx Context, names []string, prompt string, appendNewline bool) error {
 	for _, name := range names {
 		if err := ctx.Remuda.SessionSend(name, prompt, appendNewline); err != nil {
-			return errors.Wrapf(err, "send to session %q", name)
+			return pkgerrors.Wrapf(err, "send to session %q", name)
 		}
 	}
 

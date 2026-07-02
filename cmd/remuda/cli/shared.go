@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/jira"
@@ -90,7 +90,7 @@ func normalizeAndValidateJiraKeys(keys []string) ([]string, error) {
 	for _, key := range keys {
 		normalizedKey := strings.ToUpper(strings.TrimSpace(key))
 		if !jiraIssueKeyPattern.MatchString(normalizedKey) {
-			return nil, fmt.Errorf("invalid --jira value %q: expected format ABC-123", key)
+			return nil, pkgerrors.Errorf("invalid --jira value %q: expected format ABC-123", key)
 		}
 		normalized = append(normalized, normalizedKey)
 	}
@@ -138,7 +138,7 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 		}
 		jiraContext, err = jira.BuildContext(ctx.Remuda.Jira, normalizedJira)
 		if err != nil {
-			return nil, errors.Wrap(err, "jira context")
+			return nil, pkgerrors.Wrap(err, "jira context")
 		}
 		addedContext = append(addedContext, jiraContext)
 	}
@@ -149,7 +149,7 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 		var err error
 		slackContext, err = slack.BuildSlackThreadContext(ctx.Remuda.Slack, c.SlackThread)
 		if err != nil {
-			return nil, errors.Wrap(err, "slack thread context")
+			return nil, pkgerrors.Wrap(err, "slack thread context")
 		}
 		addedContext = append(addedContext, slackContext)
 	}
@@ -158,7 +158,7 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 	if len(c.GitHubIssue) > 0 {
 		githubContext, err := github.BuildIssueContext(ctx.Remuda.GitHub, input.GitHubRepoSlug, c.GitHubIssue)
 		if err != nil {
-			return nil, errors.Wrap(err, "github issue context")
+			return nil, pkgerrors.Wrap(err, "github issue context")
 		}
 		addedContext = append(addedContext, githubContext)
 	}
@@ -172,13 +172,13 @@ func (c ContextEngineeringOptions) validatePromptUsage(prompt string, args []str
 	}
 
 	if len(c.Jira) > 0 || len(c.SlackThread) > 0 || len(c.GitHubIssue) > 0 {
-		return errors.New("prompt context flags (--jira/--slack-thread/--github-issue/--gh-issue) require a non-empty prompt")
+		return pkgerrors.New("prompt context flags (--jira/--slack-thread/--github-issue/--gh-issue) require a non-empty prompt")
 	}
 
 	// Allow REMUDA_USE_PROMPTS defaults without forcing a prompt when the user omits it.
 	// If --use/-u is explicitly set, fail fast to avoid silently ignoring it.
 	if len(c.Use) > 0 && usesPromptPrefaceFromArgs(args) {
-		return errors.New("--use/-u requires a non-empty prompt")
+		return pkgerrors.New("--use/-u requires a non-empty prompt")
 	}
 
 	return nil
@@ -289,7 +289,7 @@ type AgentSessionOptions struct {
 func (o *AgentSessionOptions) AfterApply(*Context) error {
 	for i, arg := range o.AgentArg {
 		if strings.TrimSpace(arg) == "" {
-			return fmt.Errorf("--agent-arg[%d]: agent arg cannot be empty", i)
+			return pkgerrors.Errorf("--agent-arg[%d]: agent arg cannot be empty", i)
 		}
 	}
 	return nil
@@ -315,7 +315,7 @@ type VibeContainerOptions struct {
 func (o VibeContainerOptions) Validate() error {
 	for _, name := range o.ContainerInheritEnv {
 		if err := util.ValidateEnvVarName(name); err != nil {
-			return errors.Wrap(err, "--container-inherit-env")
+			return pkgerrors.Wrap(err, "--container-inherit-env")
 		}
 	}
 	return nil
@@ -328,7 +328,7 @@ func validateContainerImageSelection(containerEnabled bool, containerImage strin
 	if strings.TrimSpace(containerImage) != "" {
 		return nil
 	}
-	return errors.New(
+	return pkgerrors.New(
 		"container mode requires an explicit image; pass --container-name or configure defaults.container.image (including profiles.<name>.container.image or per_repo.<slug>.defaults.container.image)",
 	)
 }
@@ -385,7 +385,7 @@ func pickSessionNames(ctx Context, multi bool) ([]string, error) {
 	// substitution like `cd $(remuda session path --pick)`), IsTerminal() returns
 	// false, but we can still run fzf if /dev/tty is available.
 	if !ctx.Remuda.IO.IsTerminal() && !hasTTY() {
-		return nil, errors.New("--pick requires an interactive TTY")
+		return nil, pkgerrors.New("--pick requires an interactive TTY")
 	}
 
 	selected, err := pickSessionsWithFZF(logging.FromContext(ctx.ctx), ctx.Remuda.Session, multi)
@@ -395,9 +395,9 @@ func pickSessionNames(ctx Context, multi bool) ([]string, error) {
 
 	if len(selected) == 0 {
 		if multi {
-			return nil, errors.New("no sessions selected")
+			return nil, pkgerrors.New("no sessions selected")
 		}
-		return nil, errors.New("no session selected")
+		return nil, pkgerrors.New("no session selected")
 	}
 
 	if !multi {
@@ -412,7 +412,7 @@ func pickSessionNames(ctx Context, multi bool) ([]string, error) {
 func (o SessionNamePickOption) SessionNames(ctx Context, multi bool) ([]string, error) {
 	if o.Name == "" && !o.Pick {
 		// I can't seem to get kong's xor tag to work here, so manually enforce it.
-		return nil, errors.New("--name or --pick is required")
+		return nil, pkgerrors.New("--name or --pick is required")
 	}
 
 	if !o.Pick {
@@ -455,7 +455,7 @@ func pickSessionsWithFZF(
 	multi bool,
 ) ([]string, error) {
 	if _, err := exec.LookPath("fzf"); err != nil {
-		return nil, fmt.Errorf("fzf not found in PATH; please install fzf or pass a session name")
+		return nil, pkgerrors.Errorf("fzf not found in PATH; please install fzf or pass a session name")
 	}
 	sessions, err := mgr.List()
 	if err != nil {
@@ -469,7 +469,7 @@ func pickSessionsWithFZF(
 		fmt.Fprintln(&b, s.Name)
 	}
 	if b.Len() == 0 {
-		return nil, fmt.Errorf("no sessions available to pick")
+		return nil, pkgerrors.Errorf("no sessions available to pick")
 	}
 
 	fzfCmd := "fzf"
@@ -500,7 +500,7 @@ func pickSessionsWithFZF(
 	out, err := cmd.Output()
 	if err != nil {
 		// If user cancels fzf (exit code 130), return a friendly error.
-		return nil, fmt.Errorf("fzf selection error: %w", err)
+		return nil, pkgerrors.Wrap(err, "fzf selection error")
 	}
 
 	sessionNames := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -516,7 +516,7 @@ func pickOneWorkspaceWithFZF(logger zerolog.Logger, env EnvProvider, candidates 
 		return "", nil
 	}
 	if len(selected) > 1 {
-		return "", errors.New("expected exactly one workspace selection")
+		return "", pkgerrors.New("expected exactly one workspace selection")
 	}
 	return selected[0], nil
 }
@@ -536,7 +536,7 @@ func pickWorkspacesWithFZFMode(logger zerolog.Logger, env EnvProvider, candidate
 		fmt.Fprintln(&buf, name)
 	}
 	if buf.Len() == 0 {
-		return nil, errors.New("no workspaces available to pick")
+		return nil, pkgerrors.New("no workspaces available to pick")
 	}
 
 	args := []string{}
@@ -545,12 +545,12 @@ func pickWorkspacesWithFZFMode(logger zerolog.Logger, env EnvProvider, candidate
 	}
 	cmd := util.CmdWithEnvAndLogger(logger, cmdEnv, "fzf", args...)
 	if cmd.Err != nil {
-		return nil, fmt.Errorf("fzf not found in PATH; please install fzf or omit --pick")
+		return nil, pkgerrors.Errorf("fzf not found in PATH; please install fzf or omit --pick")
 	}
 	cmd.Stdin = &buf
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("fzf selection error: %w", err)
+		return nil, pkgerrors.Wrap(err, "fzf selection error")
 	}
 
 	var selected []string
