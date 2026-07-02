@@ -1,10 +1,15 @@
 package cli
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/yendo-eng/remuda/internal/session"
+)
 
 // SessionListCmd lists sessions. It filters for Remuda-style names by default.
 type SessionListCmd struct {
-	JSON bool `name:"json" help:"Emit JSON instead of plain text."`
+	JSON  bool `name:"json" help:"Emit JSON instead of plain text."`
+	NoOrg bool `name:"no-org" help:"Omit the leading org segment from session names."`
 }
 
 func (c *SessionListCmd) Run(ctx Context) error {
@@ -25,7 +30,11 @@ func (c *SessionListCmd) Run(ctx Context) error {
 	}
 
 	for _, s := range sessions {
-		ctx.Remuda.IO.Outf("%s\n", s.Name)
+		name := s.Name
+		if c.NoOrg {
+			name = session.WithoutOrgPrefix(name)
+		}
+		ctx.Remuda.IO.Outf("%s\n", name)
 	}
 
 	return nil
