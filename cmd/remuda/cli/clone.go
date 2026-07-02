@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"fmt"
-
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal"
 )
 
@@ -23,7 +21,7 @@ func (c *CloneCmd) Run(ctx Context) error {
 	if c.Wizard {
 		// Require a TTY to run the wizard.
 		if !ctx.Remuda.IO.IsTerminal() {
-			return fmt.Errorf("--wizard requires an interactive TTY")
+			return pkgerrors.Errorf("--wizard requires an interactive TTY")
 		}
 
 		// Launch wizard prompting, prefilled with existing values (if any).
@@ -43,7 +41,7 @@ func (c *CloneCmd) Run(ctx Context) error {
 
 		path, err := ctx.Remuda.Clone(sel)
 		if err != nil {
-			return errors.Wrap(err, "clone")
+			return pkgerrors.Wrap(err, "clone")
 		}
 
 		// Print only the cloned directory path to STDOUT for downstream scripts.
@@ -70,7 +68,7 @@ func (c *CloneCmd) Run(ctx Context) error {
 
 	path, err := ctx.Remuda.Clone(cmd)
 	if err != nil {
-		return errors.Wrap(err, "clone")
+		return pkgerrors.Wrap(err, "clone")
 	}
 
 	// Print only the cloned directory path to STDOUT for downstream scripts.

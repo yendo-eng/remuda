@@ -1,8 +1,9 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 // SessionReadbufCmd prints the current pane buffer for a session.
@@ -15,7 +16,7 @@ type SessionReadbufCmd struct {
 
 func (c SessionReadbufCmd) Run(ctx Context) error {
 	if c.Lines < 0 {
-		return fmt.Errorf("--lines must be greater than or equal to 0")
+		return pkgerrors.Errorf("--lines must be greater than or equal to 0")
 	}
 
 	if c.All {
@@ -48,7 +49,7 @@ func (c SessionReadbufCmd) runAll(ctx Context) error {
 	for _, sess := range sessions {
 		buf, err := ctx.Remuda.SessionReadBuffer(sess.Name, c.Lines)
 		if err != nil {
-			return fmt.Errorf("read buffer for session %q: %w", sess.Name, err)
+			return pkgerrors.Wrapf(err, "read buffer for session %q", sess.Name)
 		}
 
 		lines := strings.Split(buf, "\n")

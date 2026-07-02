@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/util"
 )
@@ -99,11 +100,11 @@ func (m *MockGitHub) PRCheckout(cwd, ref string) error {
 
 func (m *MockGitHub) IssueView(repoSlug, ref string) (*github.Issue, error) {
 	if m.Issues == nil {
-		return nil, fmt.Errorf("mock github has no issues configured for %s|%s", repoSlug, ref)
+		return nil, pkgerrors.Errorf("mock github has no issues configured for %s|%s", repoSlug, ref)
 	}
 	key := fmt.Sprintf("%s|%s", repoSlug, ref)
 	if issue, ok := m.Issues[key]; ok {
 		return issue, nil
 	}
-	return nil, fmt.Errorf("mock github missing issue for %s|%s", repoSlug, ref)
+	return nil, pkgerrors.Errorf("mock github missing issue for %s|%s", repoSlug, ref)
 }

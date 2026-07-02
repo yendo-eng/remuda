@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/cmd/remuda/cli/forms"
 	"github.com/yendo-eng/remuda/internal/github"
@@ -22,7 +22,7 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 
 	promptList, err := prompts.List()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load prompts: %w", err)
+		return nil, pkgerrors.Wrap(err, "failed to load prompts")
 	}
 	promptOptions := make([]huh.Option[PromptName], 0, len(promptList))
 	for _, p := range promptList {
@@ -36,7 +36,7 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 	// First select repository and then PR from list.
 	selection, err := wizardSelectRepo(derefString(sel.Repo), derefString(sel.RepoURL))
 	if err != nil {
-		return nil, fmt.Errorf("repo selection: %w", err)
+		return nil, pkgerrors.Wrap(err, "repo selection")
 	}
 	sel.Repo = nil
 	sel.RepoURL = optionalString(selection.URL)
@@ -50,7 +50,7 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 		return nil, perr
 	}
 	if len(prSelections) == 0 {
-		return nil, fmt.Errorf("no pull requests selected")
+		return nil, pkgerrors.Errorf("no pull requests selected")
 	}
 	singleSelection := len(prSelections) == 1
 	if singleSelection {
@@ -67,7 +67,7 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 				Value(&sel.Name).
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {
-						return errors.New("name is required")
+						return pkgerrors.New("name is required")
 					}
 					return nil
 				}),
@@ -95,12 +95,12 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 	)
 	stepRest := huh.NewForm(groups...).WithWidth(forms.DefaultWidth).WithShowHelp(false)
 	if err := stepRest.Run(); err != nil {
-		return nil, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return nil, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 
 	agent, model, cmd, _, err := wizardAgentFlow(sel.Agent, sel.Model, sel.AgentCmd, false)
 	if err != nil {
-		return nil, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return nil, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 	sel.Agent = agent
 	sel.Model = model
@@ -109,7 +109,7 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 	// Step: choose No tmux.
 	detached, err := wizardDetachedFlow(sel.DetachedMode())
 	if err != nil {
-		return nil, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return nil, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 	sel.Detached = detached
 
@@ -157,12 +157,12 @@ func defaultReviewName(initial, headBranch string) string {
 // returns the finalized list of commands the wizard should execute.
 func buildVibeCheckWizardCommands(base VibeCheckCmd, selections []wizardPRSelection) ([]VibeCheckCmd, error) {
 	if len(selections) == 0 {
-		return nil, fmt.Errorf("no pull requests selected")
+		return nil, pkgerrors.Errorf("no pull requests selected")
 	}
 
 	single := len(selections) == 1
 	if single && strings.TrimSpace(base.Name) == "" {
-		return nil, fmt.Errorf("name is required")
+		return nil, pkgerrors.Errorf("name is required")
 	}
 
 	cmds := make([]VibeCheckCmd, 0, len(selections))
@@ -172,7 +172,7 @@ func buildVibeCheckWizardCommands(base VibeCheckCmd, selections []wizardPRSelect
 		cmd.Wizard = false
 		cmd.PRRef = strings.TrimSpace(sel.Ref)
 		if cmd.PRRef == "" {
-			return nil, fmt.Errorf("--pr is required")
+			return nil, pkgerrors.Errorf("--pr is required")
 		}
 		cmd.Branch = ""
 		if single {

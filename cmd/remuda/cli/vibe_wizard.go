@@ -1,11 +1,10 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/cmd/remuda/cli/forms"
 	"github.com/yendo-eng/remuda/internal/prompts"
 )
@@ -30,7 +29,7 @@ type VibeStartWizardPrefill struct {
 
 func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 	if !ctx.Remuda.IO.IsTerminal() {
-		return VibeCmd{}, errors.New("wizard mode requires a TTY")
+		return VibeCmd{}, pkgerrors.New("wizard mode requires a TTY")
 	}
 
 	sel := pref
@@ -38,7 +37,7 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 
 	promptList, err := prompts.List()
 	if err != nil {
-		return VibeCmd{}, fmt.Errorf("failed to load prompts: %w", err)
+		return VibeCmd{}, pkgerrors.Wrap(err, "failed to load prompts")
 	}
 	promptOptions := make([]huh.Option[PromptName], 0, len(promptList))
 	for _, p := range promptList {
@@ -56,7 +55,7 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 	// Step A: choose repository first.
 	repoSelection, err := wizardSelectRepo(derefString(sel.Repo), derefString(sel.RepoURL))
 	if err != nil {
-		return VibeCmd{}, fmt.Errorf("repo selection: %w", err)
+		return VibeCmd{}, pkgerrors.Wrap(err, "repo selection")
 	}
 	applyRepoSelection(&sel.CloneRepoOption, repoSelection)
 
@@ -69,7 +68,7 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 				Placeholder("What's the task?").
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {
-						return errors.New("prompt is required")
+						return pkgerrors.New("prompt is required")
 					}
 					return nil
 				}),
@@ -98,14 +97,14 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 		),
 	).WithWidth(forms.DefaultWidth).WithShowHelp(false)
 	if err := stepContext.Run(); err != nil {
-		return VibeCmd{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 	applyVibeWizardContextSelections(&sel, jiraJoined, slackJoined, issueJoined)
 
 	// If the user has not explicitly set a name, suggest one from the first Jira key they provided.
 	if !explicitNameProvided {
 		if suggestedName, err := suggestVibeWizardNameFromJira(ctx, sel, explicitNameProvided); err != nil {
-			return VibeCmd{}, fmt.Errorf("derive jira-based name suggestion: %w", err)
+			return VibeCmd{}, pkgerrors.Wrap(err, "derive jira-based name suggestion")
 		} else if strings.TrimSpace(suggestedName) != "" {
 			sel.Name = suggestedName
 		}
@@ -119,19 +118,19 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 				Value(&sel.Name).
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {
-						return errors.New("name is required")
+						return pkgerrors.New("name is required")
 					}
 					return nil
 				}),
 		),
 	).WithWidth(forms.DefaultWidth).WithShowHelp(false)
 	if err := stepName.Run(); err != nil {
-		return VibeCmd{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 
 	agent, model, cmd, yolo, err := wizardAgentFlow(sel.Agent, sel.Model, sel.AgentCmd, true)
 	if err != nil {
-		return VibeCmd{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 	sel.Agent = agent
 	sel.Model = model
@@ -141,24 +140,24 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 	// Step: choose whether or not to use tmux
 	detached, err := wizardDetachedFlow(sel.DetachedMode())
 	if err != nil {
-		return VibeCmd{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 	sel.Detached = detached
 
 	// Step: container mode?
 	err = huh.NewConfirm().Title("Run in Docker container").Value(&sel.Container).Run()
 	if err != nil {
-		return VibeCmd{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 	if sel.Container {
 		err = huh.NewInput().Title("Container image").Description("(optional)").Placeholder("vibe-dev").Value(&sel.ContainerName).Run()
 		if err != nil {
-			return VibeCmd{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+			return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 		}
 	}
 
 	if strings.TrimSpace(sel.Name) == "" {
-		return VibeCmd{}, fmt.Errorf("name is required")
+		return VibeCmd{}, pkgerrors.Errorf("name is required")
 	}
 	return sel, nil
 }

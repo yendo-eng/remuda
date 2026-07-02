@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/alecthomas/kong"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/util"
 )
@@ -94,7 +94,7 @@ func resolveRepoSelection(ctx Context, kctx *kong.Context, repo CloneRepoOption,
 }
 
 func errRepoSelectionRequired() error {
-	return fmt.Errorf(
+	return pkgerrors.Errorf(
 		"repository is not configured: specify --repo-url/--repo, set REMUDA_DEFAULT_REPO_URL or REMUDA_DEFAULT_REPO, or set repos.default_repo_url/repos.default_repo in config",
 	)
 }

@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal"
 )
 
@@ -56,16 +56,16 @@ func (c *VibeCmd) Validate() error {
 
 	// --in set: disallow conflicting flags.
 	if c.Wizard {
-		return errors.New("--in cannot be combined with --wizard")
+		return pkgerrors.New("--in cannot be combined with --wizard")
 	}
 	if strings.TrimSpace(c.Name) != "" {
-		return errors.New("--name cannot be combined with --in; it is derived from the folder path")
+		return pkgerrors.New("--name cannot be combined with --in; it is derived from the folder path")
 	}
 	if strings.TrimSpace(c.Branch) != "" {
-		return errors.New("--branch cannot be combined with --in; no clone/checkout is performed")
+		return pkgerrors.New("--branch cannot be combined with --in; no clone/checkout is performed")
 	}
 	if c.FullClone {
-		return errors.New("--full-clone cannot be combined with --in; no clone is performed")
+		return pkgerrors.New("--full-clone cannot be combined with --in; no clone is performed")
 	}
 
 	return nil
@@ -157,7 +157,7 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 			WrapUsePrompts: wrapUsePrompts,
 		})
 		if err != nil {
-			return errors.Wrap(err, "adding prompt context")
+			return pkgerrors.Wrap(err, "adding prompt context")
 		}
 		cmd.BeforePrompt = append(cmd.BeforePrompt, addedContext...)
 		if shouldAddMainPromptMarker(wrapUsePrompts, usePromptsSelected) {
@@ -183,7 +183,7 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 
 	err = ctx.Remuda.Vibe(ctx.ctx, cmd)
 	if err != nil {
-		return errors.Wrap(err, "vibe")
+		return pkgerrors.Wrap(err, "vibe")
 	}
 
 	return nil

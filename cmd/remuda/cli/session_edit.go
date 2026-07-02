@@ -3,7 +3,7 @@ package cli
 import (
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // SessionEditCmd opens the workspace for a session in the configured editor.
@@ -34,5 +34,5 @@ func ResolveEditorCommand(env EnvProvider) (string, error) {
 		}
 	}
 
-	return "", errors.New("no editor configured; set $REMUDA_EDITOR, $VISUAL, or $EDITOR")
+	return "", pkgerrors.New("no editor configured; set $REMUDA_EDITOR, $VISUAL, or $EDITOR")
 }

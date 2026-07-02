@@ -1,12 +1,12 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/alecthomas/kong"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/github"
@@ -298,11 +298,11 @@ func applyProfileOverlayByName(cfg *configfile.V1, name string) error {
 		return nil
 	}
 	if cfg == nil {
-		return fmt.Errorf("profile %q requested but no config file found", trimmed)
+		return pkgerrors.Errorf("profile %q requested but no config file found", trimmed)
 	}
 	profile, ok := cfg.Profiles[trimmed]
 	if !ok {
-		return fmt.Errorf("unknown profile %q; define it under profiles in config.yaml", trimmed)
+		return pkgerrors.Errorf("unknown profile %q; define it under profiles in config.yaml", trimmed)
 	}
 	mergeOverlayV1IntoConfig(cfg, configfile.OverlayV1{Defaults: &profile}, false)
 	return nil
@@ -361,10 +361,10 @@ func applyPerRepoProfileOverlayByName(cfg *configfile.V1, slug, profile string) 
 	}
 	normalizedSlug := normalizeRepoSlug(slug)
 	if cfg == nil {
-		return fmt.Errorf("per_repo[%q].profile %q requested but no config file found", normalizedSlug, trimmed)
+		return pkgerrors.Errorf("per_repo[%q].profile %q requested but no config file found", normalizedSlug, trimmed)
 	}
 	if _, ok := cfg.Profiles[trimmed]; !ok {
-		return fmt.Errorf("per_repo[%q].profile references unknown profile %q; define it under profiles in config.yaml", normalizedSlug, trimmed)
+		return pkgerrors.Errorf("per_repo[%q].profile references unknown profile %q; define it under profiles in config.yaml", normalizedSlug, trimmed)
 	}
 	return applyProfileOverlayByName(cfg, trimmed)
 }

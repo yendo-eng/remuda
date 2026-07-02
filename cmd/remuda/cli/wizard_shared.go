@@ -17,14 +17,14 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 const (
 	sentinelCustomURL = "__custom_url__"
 )
 
-var errWizardFZFUnavailable = stdErrors.New("fzf not available")
+var errWizardFZFUnavailable = pkgerrors.New("fzf not available")
 
 type wizardPRItem struct {
 	Number      int    `json:"number"`
@@ -44,7 +44,7 @@ func wizardSelectRepo(initAlias, initURL string) (repoChoice, error) {
 	if len(choices) == 0 {
 		url, err := promptCustomRepoURL(initURL)
 		if err != nil {
-			return repoChoice{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+			return repoChoice{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 		}
 		return repoChoice{URL: url}, nil
 	}
@@ -62,14 +62,14 @@ func wizardSelectRepo(initAlias, initURL string) (repoChoice, error) {
 		Options(opts...).Value(&alias).
 		Run()
 	if err != nil {
-		return repoChoice{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return repoChoice{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 
 	// If custom URL, ask for it now.
 	if alias == sentinelCustomURL {
 		url, err := promptCustomRepoURL(initURL)
 		if err != nil {
-			return repoChoice{}, fmt.Errorf("wizard cancelled or failed: %w", err)
+			return repoChoice{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 		}
 		return repoChoice{URL: url}, nil
 	}
@@ -77,7 +77,7 @@ func wizardSelectRepo(initAlias, initURL string) (repoChoice, error) {
 	if u, ok := github.ExpandRepoAlias(alias); ok {
 		return repoChoice{Alias: alias, URL: u}, nil
 	}
-	return repoChoice{}, fmt.Errorf("unknown repository alias: %s", alias)
+	return repoChoice{}, pkgerrors.Errorf("unknown repository alias: %s", alias)
 }
 
 // wizardAgentFlow prompts for agent selection and returns agent/model/cmd/yolo.
@@ -149,15 +149,15 @@ func wizardSelectPR(logger zerolog.Logger, ownerRepo string, initRef string) ([]
 			ActionWithErr(func(ctx context.Context) error {
 				out, err := util.RunCmdOutputWithLogger(logger, "gh", "pr", "list", "--repo", ownerRepo, "--limit", prLimit, "--json", "number,title,headRefName,url")
 				if err != nil {
-					return errors.Wrap(err, "fetch PRs")
+					return pkgerrors.Wrap(err, "fetch PRs")
 				}
 
 				err = json.Unmarshal([]byte(out), &prs)
-				return errors.Wrap(err, "unmarshal PRs")
+				return pkgerrors.Wrap(err, "unmarshal PRs")
 			}).
 			Run()
 		if err != nil {
-			return nil, fmt.Errorf("fetch PRs: %w", err)
+			return nil, pkgerrors.Wrap(err, "fetch PRs")
 		}
 	}
 
@@ -202,11 +202,11 @@ func wizardSelectPRWithFZF(logger zerolog.Logger, prs []wizardPRItem, initRef st
 	cmd.Stdin = &input
 	out, cmdErr := cmd.Output()
 	if cmdErr != nil {
-		return nil, false, fmt.Errorf("wizard cancelled or failed: %w", cmdErr)
+		return nil, false, pkgerrors.Wrap(cmdErr, "wizard cancelled or failed")
 	}
 	selection := strings.TrimSpace(string(out))
 	if selection == "" {
-		return nil, false, fmt.Errorf("wizard cancelled or failed: empty selection")
+		return nil, false, pkgerrors.Errorf("wizard cancelled or failed: empty selection")
 	}
 	lines := strings.Split(selection, "\n")
 	for _, line := range lines {
@@ -223,7 +223,7 @@ func wizardSelectPRWithFZF(logger zerolog.Logger, prs []wizardPRItem, initRef st
 		selections = append(selections, wizardPRSelection{Ref: value, HeadRefName: head})
 	}
 	if len(selections) == 0 {
-		return nil, false, fmt.Errorf("wizard cancelled or failed: empty selection")
+		return nil, false, pkgerrors.Errorf("wizard cancelled or failed: empty selection")
 	}
 	return selections, false, nil
 }
@@ -253,10 +253,10 @@ func wizardSelectPRWithMenu(prs []wizardPRItem, initRef string, prLimit string) 
 		WithHeight(20).
 		Run()
 	if err != nil {
-		return nil, false, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return nil, false, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 	if len(vals) == 0 {
-		return nil, false, fmt.Errorf("wizard cancelled or failed: no selection")
+		return nil, false, pkgerrors.Errorf("wizard cancelled or failed: no selection")
 	}
 	for _, value := range vals {
 		if value == manualOption {
@@ -351,7 +351,7 @@ func promptCustomRepoURL(initURL string) (string, error) {
 		Validate(func(input string) error {
 			trimmed := strings.TrimSpace(input)
 			if trimmed == "" {
-				return stdErrors.New("repository URL is required")
+				return pkgerrors.New("repository URL is required")
 			}
 			return github.ValidateRepoURL(trimmed)
 		}).
@@ -389,11 +389,11 @@ func wizardSelectPRManual(logger zerolog.Logger, ownerRepo string, initRef strin
 	prompt := "PR ref(s) (URL or number; comma-separated for multiple)"
 	err := huh.NewInput().Title(prompt).Value(&refInput).Run()
 	if err != nil {
-		return nil, fmt.Errorf("wizard cancelled or failed: %w", err)
+		return nil, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
 	refs := splitFlexibleList(refInput)
 	if len(refs) == 0 {
-		return nil, fmt.Errorf("wizard cancelled or failed: no PR selected")
+		return nil, pkgerrors.Errorf("wizard cancelled or failed: no PR selected")
 	}
 	selections := make([]wizardPRSelection, 0, len(refs))
 	for _, ref := range refs {

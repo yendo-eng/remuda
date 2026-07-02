@@ -2,11 +2,13 @@ package cli
 
 import (
 	"errors"
-	"fmt"
+
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	pkgerrors "github.com/pkg/errors"
 )
 
 const (
@@ -112,15 +114,15 @@ func readableFileExists(path string) (bool, error) {
 		if errors.Is(err, fs.ErrNotExist) {
 			return false, nil
 		}
-		return false, fmt.Errorf("stat config file %q: %w", path, err)
+		return false, pkgerrors.Wrapf(err, "stat config file %q", path)
 	}
 	if info.IsDir() {
-		return false, fmt.Errorf("config file path %q is a directory", path)
+		return false, pkgerrors.Errorf("config file path %q is a directory", path)
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		return false, fmt.Errorf("open config file %q: %w", path, err)
+		return false, pkgerrors.Wrapf(err, "open config file %q", path)
 	}
 	_ = f.Close()
 
@@ -133,7 +135,7 @@ func requireReadableFile(path string) error {
 		return err
 	}
 	if !ok {
-		return fmt.Errorf("config file %q does not exist", path)
+		return pkgerrors.Errorf("config file %q does not exist", path)
 	}
 	return nil
 }
@@ -146,7 +148,7 @@ func expandHomePath(path string, home string, homeErr error) (string, error) {
 		if homeErr == nil {
 			homeErr = errHomeDirUnavailable
 		}
-		return "", fmt.Errorf("expand home %q: %w", path, homeErr)
+		return "", pkgerrors.Wrapf(homeErr, "expand home %q", path)
 	}
 	if path == "~" {
 		return home, nil
@@ -155,5 +157,5 @@ func expandHomePath(path string, home string, homeErr error) (string, error) {
 	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~"+sep) {
 		return filepath.Join(home, path[2:]), nil
 	}
-	return "", fmt.Errorf("expand home %q: unsupported tilde path", path)
+	return "", pkgerrors.Errorf("expand home %q: unsupported tilde path", path)
 }
