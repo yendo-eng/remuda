@@ -18,6 +18,16 @@ func SessionNameFromWorkspaceName(workspaceName string) string {
 	return filepath.Base(cleaned)
 }
 
+// WithoutOrgPrefix removes the leading org segment from a session name.
+// Session names with fewer than 2 slash-separated segments are returned unchanged.
+func WithoutOrgPrefix(name string) string {
+	parts := strings.Split(name, "/")
+	if len(parts) < 2 {
+		return name
+	}
+	return strings.Join(parts[1:], "/")
+}
+
 func FZFPreviewCommand(mgr SessionManager) string {
 	switch mgr.(type) {
 	case *defaultTmuxManager:

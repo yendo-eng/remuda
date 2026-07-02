@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
@@ -35,4 +36,13 @@ func TestSessionList_PrintsNamesOnly(t *testing.T) {
 
 	listRes := h.RunOK("session", "list")
 	require.Equal(t, sessionName+"\n", listRes.Stdout)
+
+	noOrgRes := h.RunOK("session", "list", "--no-org")
+	require.Equal(t, session.WithoutOrgPrefix(sessionName)+"\n", noOrgRes.Stdout)
+
+	jsonRes := h.RunOK("session", "list", "--json", "--no-org")
+	var got []session.SessionInfo
+	require.NoError(t, json.Unmarshal([]byte(jsonRes.Stdout), &got))
+	require.Len(t, got, 1)
+	require.Equal(t, sessionName, got[0].Name)
 }
