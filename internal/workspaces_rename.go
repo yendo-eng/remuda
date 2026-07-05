@@ -25,13 +25,19 @@ func (k Remuda) WorkspacesRename(workspace string, newName string) (RenamedWorks
 		return RenamedWorkspace{}, errors.New("workspace target is blank")
 	}
 
+	reposBaseAbs, err := filepath.Abs(k.Config.ReposBaseDir)
+	if err != nil {
+		return RenamedWorkspace{}, errors.Wrap(err, "abs repos base dir")
+	}
+	reposBaseAbs = filepath.Clean(reposBaseAbs)
+
 	workspaceAbs, err := filepath.Abs(workspace)
 	if err != nil {
 		return RenamedWorkspace{}, errors.Wrapf(err, "resolve workspace %q", workspace)
 	}
 	workspaceAbs = filepath.Clean(workspaceAbs)
 
-	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
+	if err := validateWorkspacePath(reposBaseAbs, workspaceAbs); err != nil {
 		return RenamedWorkspace{}, errors.Wrapf(err, "invalid workspace %q", workspaceAbs)
 	}
 
@@ -58,7 +64,7 @@ func (k Remuda) WorkspacesRename(workspace string, newName string) (RenamedWorks
 		return RenamedWorkspace{}, errors.Errorf("workspace %q is not a directory", workspaceAbs)
 	}
 
-	org, repo, oldName := util.SplitWorkspacePath(k.Config.ReposBaseDir, workspaceAbs)
+	org, repo, oldName := util.SplitWorkspacePath(reposBaseAbs, workspaceAbs)
 	if org == "" || repo == "" || oldName == "" {
 		return RenamedWorkspace{}, errors.Errorf("invalid workspace %q", workspaceAbs)
 	}
@@ -71,11 +77,11 @@ func (k Remuda) WorkspacesRename(workspace string, newName string) (RenamedWorks
 		return RenamedWorkspace{}, errors.New("new name must differ from current workspace name")
 	}
 
-	repoDir := filepath.Join(k.Config.ReposBaseDir, org, repo)
+	repoDir := filepath.Join(reposBaseAbs, org, repo)
 	cacheDir := filepath.Join(repoDir, ".repo_cache")
 	newWorkspaceAbs := filepath.Join(repoDir, newName)
 
-	if err := validateWorkspacePath(k.Config.ReposBaseDir, newWorkspaceAbs); err != nil {
+	if err := validateWorkspacePath(reposBaseAbs, newWorkspaceAbs); err != nil {
 		return RenamedWorkspace{}, errors.Wrapf(err, "invalid rename target %q", newWorkspaceAbs)
 	}
 	if err := workspaceRenameCollisionCheck(workspaceAbs, newWorkspaceAbs); err != nil {

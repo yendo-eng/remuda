@@ -110,3 +110,34 @@ func TestWorkspacesRename(t *testing.T) {
 		require.DirExists(t, newPath)
 	})
 }
+
+func TestWorkspacesRename_RelativeReposBaseDir(t *testing.T) {
+	runDir := t.TempDir()
+	t.Chdir(runDir)
+
+	h := testutils.NewHarness(
+		t,
+		func(h *testutils.Harness) {
+			h.Env["REMUDA_REPOS_BASE_DIR"] = "repos"
+		},
+		testutils.WithRemudaConfigFromEnv(),
+	)
+	h.SetEnv("REMUDA_CONTAINER", "false")
+
+	remoteURL := testutils.InitTestRemote(t)
+	org, repo, _ := github.ParseRepo(remoteURL)
+	oldName := "relative-old"
+	newName := "relative-new"
+	oldPath := filepath.Join(runDir, "repos", org, repo, oldName)
+	newPath := filepath.Join(runDir, "repos", org, repo, newName)
+
+	h.RunOK("clone", "--name", oldName, "--repo-url", remoteURL)
+
+	res := h.RunOK("workspaces", "rename", oldPath, newName)
+	require.Equal(t, fmt.Sprintf("renamed %s -> %s\n", oldPath, newPath), res.Stdout)
+	require.NoDirExists(t, oldPath)
+	require.DirExists(t, newPath)
+
+	currentBranch := strings.TrimSpace(testutils.RunGit(t, newPath, "rev-parse", "--abbrev-ref", "HEAD"))
+	require.Equal(t, newName, currentBranch)
+}
