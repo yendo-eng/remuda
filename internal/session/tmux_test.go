@@ -191,6 +191,51 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	}, 2*time.Second, 50*time.Millisecond)
 }
 
+func TestTmuxStartWithEnvSurfacesStderrOnDuplicateSession(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires tmux")
+	}
+
+	realTmux, err := exec.LookPath("tmux")
+	if err != nil {
+		t.Skip("tmux not available")
+	}
+
+	tmp := t.TempDir()
+	socketName := fmt.Sprintf("remuda-test-%d", time.Now().UnixNano())
+	wrapperPath := filepath.Join(tmp, "tmux")
+	wrapper := "#!/bin/sh\nexec \"$REMUDA_REAL_TMUX\" -L \"$REMUDA_TMUX_SOCKET\" \"$@\"\n"
+	require.NoError(t, os.WriteFile(wrapperPath, []byte(wrapper), 0o755))
+
+	pathEnv := tmp + string(os.PathListSeparator) + os.Getenv("PATH")
+	baseEnv := filteredEnvWithout("PATH", "TMUX", "TMUX_PANE")
+	baseEnv = append(baseEnv,
+		"PATH="+pathEnv,
+		"REMUDA_REAL_TMUX="+realTmux,
+		"REMUDA_TMUX_SOCKET="+socketName,
+	)
+
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "tmux", "kill-server")
+		cmd.Env = baseEnv
+		_ = cmd.Run()
+	}()
+
+	mgr := session.NewTmuxManager()
+	starter, ok := mgr.(session.EnvStarter)
+	require.True(t, ok)
+
+	require.NoError(t, starter.StartWithEnv("dup-session", "sleep 30", baseEnv))
+
+	err = starter.StartWithEnv("dup-session", "sleep 30", baseEnv)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "tmux")
+	require.ErrorContains(t, err, "dup-session")
+	require.ErrorContains(t, err, "duplicate session")
+}
+
 func filteredEnvWithout(keys ...string) []string {
 	skip := make(map[string]struct{}, len(keys))
 	for _, key := range keys {
