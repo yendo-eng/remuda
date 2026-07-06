@@ -1,10 +1,13 @@
 package util
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/logging"
 )
@@ -43,17 +46,7 @@ func CmdWithEnv(env []string, name string, args ...string) *exec.Cmd {
 }
 
 func RunCmdWithLogger(logger zerolog.Logger, name string, args ...string) error {
-	cmd := CmdWithLogger(logger, name, args...)
-	// Default to quiet execution: capture output so it doesn't pollute the
-	// user's terminal. If verbose/debug logging is on, stream output to stderr
-	// for easier diagnosis.
-	if logger.GetLevel() <= zerolog.DebugLevel {
-		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
-		return cmd.Run()
-	}
-
-	_, err := cmd.CombinedOutput()
-	return err
+	return runCmd(logger, CmdWithLogger(logger, name, args...), name, args)
 }
 
 func RunCmd(name string, args ...string) error {
@@ -61,17 +54,27 @@ func RunCmd(name string, args ...string) error {
 }
 
 func RunCmdWithEnvAndLogger(logger zerolog.Logger, env []string, name string, args ...string) error {
-	cmd := CmdWithEnvAndLogger(logger, env, name, args...)
-	// Default to quiet execution: capture output so it doesn't pollute the
-	// user's terminal. If verbose/debug logging is on, stream output to stderr
-	// for easier diagnosis.
+	return runCmd(logger, CmdWithEnvAndLogger(logger, env, name, args...), name, args)
+}
+
+// runCmd executes cmd, always capturing its combined output so a failure's
+// stderr/stdout can be attached to the returned error instead of a bare
+// *exec.ExitError. If verbose/debug logging is on, output is additionally
+// streamed to stderr for live diagnosis.
+func runCmd(logger zerolog.Logger, cmd *exec.Cmd, name string, args []string) error {
+	var buf bytes.Buffer
 	if logger.GetLevel() <= zerolog.DebugLevel {
-		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
-		return cmd.Run()
+		cmd.Stdout = io.MultiWriter(os.Stderr, &buf)
+		cmd.Stderr = io.MultiWriter(os.Stderr, &buf)
+	} else {
+		cmd.Stdout = &buf
+		cmd.Stderr = &buf
 	}
 
-	_, err := cmd.CombinedOutput()
-	return err
+	if err := cmd.Run(); err != nil {
+		return pkgerrors.Wrapf(err, "%s %s: %s", name, strings.Join(args, " "), strings.TrimSpace(buf.String()))
+	}
+	return nil
 }
 
 func RunCmdWithEnv(env []string, name string, args ...string) error {

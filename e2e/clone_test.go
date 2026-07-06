@@ -33,9 +33,12 @@ func TestRemudaCollisionErrors(t *testing.T) {
 		res := h.Run(args...)
 		require.NoError(t, res.Err, res.String())
 
-		// Second clone with same name should fail.
+		// Second clone with same name should fail, and the underlying git
+		// fatal error should be visible instead of a bare "exit status 128".
 		res = h.Run(args...)
 		require.Error(t, res.Err, "expected collision to error")
+		require.ErrorContains(t, res.Err, "fatal:")
+		require.ErrorContains(t, res.Err, "already exists")
 	})
 
 	t.Run("with --force", func(t *testing.T) {

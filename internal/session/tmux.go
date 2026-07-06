@@ -45,7 +45,10 @@ func (m *defaultTmuxManager) StartWithEnv(sessionName, command string, env []str
 	args := []string{"new-session", "-d", "-s", sessionName}
 	args = append(args, tmuxNewSessionEnvArgs(env)...)
 	args = append(args, "bash", "-lc", command)
-	return util.RunCmdWithEnvAndLogger(m.logger, env, "tmux", args...)
+	if err := util.RunCmdWithEnvAndLogger(m.logger, env, "tmux", args...); err != nil {
+		return pkgerrors.Wrapf(err, "tmux new-session %s", sessionName)
+	}
+	return nil
 }
 
 func tmuxNewSessionEnvArgs(env []string) []string {

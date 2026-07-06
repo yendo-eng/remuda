@@ -116,7 +116,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	startCmd := fmt.Sprintf("cd %s && %s", shellSingleQuote(workspaceAbs), launchCmd)
 	startCmd = wrapWithCrashRecoverySleep(startCmd)
 	if err := startSessionWithEnv(k.Session, sessionName, startCmd, envProvider); err != nil {
-		return agentLaunchResult{}, err
+		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Session.Name(), sessionName)
 	}
 
 	if cmd.Attach {
