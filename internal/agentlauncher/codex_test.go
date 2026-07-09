@@ -11,6 +11,9 @@ func TestCodexLauncher_SupportedModels_ContainsGPT54(t *testing.T) {
 	models := Codex("", false, "").SupportedModels()
 	require.Contains(t, models, "gpt-5.5")
 	require.Contains(t, models, "gpt-5.4")
+	require.Contains(t, models, "gpt-5.6-sol")
+	require.Contains(t, models, "gpt-5.6-terra")
+	require.Contains(t, models, "gpt-5.6-luna")
 }
 
 func TestCodexLauncher_Command_DashPrefixedPromptUsesArgumentTerminator(t *testing.T) {
