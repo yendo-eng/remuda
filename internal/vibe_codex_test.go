@@ -70,6 +70,45 @@ func TestCodexDockerVolumeMountOptions_ForwardsPromptsWithoutOpenAIKey(t *testin
 	require.DirExists(t, filepath.Join(tmpHome, ".codex", "sessions"))
 }
 
+func TestCodexDockerVolumeMountOptions_ForwardsAccountAuthDirWithoutOpenAIKey(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	codexDir := filepath.Join(tmpHome, ".codex")
+	require.NoError(t, os.MkdirAll(codexDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(codexDir, "auth.json"), []byte(`{"tokens":{}}`), 0o600))
+	promptsDir := filepath.Join(codexDir, "prompts")
+	require.NoError(t, os.MkdirAll(promptsDir, 0o755))
+
+	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	require.Equal(t, []string{fmt.Sprintf("-v %q:/root/.codex:rw", codexDir)}, opts)
+}
+
+func TestCodexDockerVolumeMountOptions_OmitsAccountAuthDirWithOpenAIKey(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	t.Setenv("TMPDIR", t.TempDir())
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	codexDir := filepath.Join(tmpHome, ".codex")
+	require.NoError(t, os.MkdirAll(codexDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(codexDir, "auth.json"), []byte(`{"tokens":{}}`), 0o600))
+
+	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	require.False(t, containsMountWithSource(opts, codexDir, ":/root/.codex:rw"))
+	require.True(t, containsMountSuffix(opts, ":/root/.codex/auth.json:ro"))
+}
+
+func TestCodexDockerVolumeMountOptions_OmitsAccountAuthDirWhenFileMissing(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	codexDir := filepath.Join(tmpHome, ".codex")
+	require.NoError(t, os.MkdirAll(codexDir, 0o755))
+
+	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	require.False(t, containsMountWithSource(opts, codexDir, ":/root/.codex:rw"))
+}
+
 func TestCodexDockerVolumeMountOptions_SkipsAgentsMountWhenFileMissing(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "")
 	tmpHome := t.TempDir()
