@@ -55,8 +55,11 @@ remuda vibe --container --no-detached "Investigate flaky tests"
   Use this for opt-in forwarding of sensitive values such as `GOPRIVATE` (for example: `--container-inherit-env GOPRIVATE`).
 - If an SSH agent is available (`SSH_AUTH_SOCK` on Linux, Docker Desktop's agent on macOS), it is forwarded read-only along with `~/.ssh` and `~/.config/gh` to support git+ssh and `gh` operations inside the container.
 - For Claude runs (`--agent claude`), host `~/.claude` and `~/.claude.json` are mounted read/write when present so Claude OAuth/session state can be reused.
-- Custom Codex prompts (`~/.codex/prompts`) are mounted read-only at `/root/.codex/prompts` so container sessions can use your slash commands.
-- Codex rules (`~/.codex/rules`) are mounted read-only at `/root/.codex/rules`.
-- Codex skills (`~/.codex/skills`) are mounted read-only at `/root/.codex/skills`.
-- Codex state (`~/.codex/history.jsonl` and `~/.codex/sessions`) is mounted read/write at `/root/.codex` so Codex can persist history and sessions across container runs.
+- Codex account-login sessions (`OPENAI_API_KEY` unset, `~/.codex/auth.json` present): the whole `~/.codex` directory is mounted read/write at `/root/.codex`, so the ChatGPT account login and its token refreshes (which atomically rewrite `auth.json`) persist across container runs. The individual mounts below are skipped in this case since the whole-directory mount already covers them.
+- Codex API-key sessions (`OPENAI_API_KEY` set): a synthesized read-only `auth.json` containing the key is mounted at `/root/.codex/auth.json` instead; no account auth is mounted.
+- Otherwise (no `OPENAI_API_KEY` and no `~/.codex/auth.json`), or in the API-key case above, these are mounted individually when present:
+  - Custom Codex prompts (`~/.codex/prompts`) read-only at `/root/.codex/prompts` so container sessions can use your slash commands.
+  - Codex rules (`~/.codex/rules`) read-only at `/root/.codex/rules`.
+  - Codex skills (`~/.codex/skills`) read-only at `/root/.codex/skills`.
+  - Codex state (`~/.codex/history.jsonl` and `~/.codex/sessions`) read/write at `/root/.codex` so Codex can persist history and sessions across container runs.
 - No privileged flags or Docker socket mounts are used by default.
