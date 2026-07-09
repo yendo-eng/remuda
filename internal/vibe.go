@@ -393,6 +393,11 @@ func wrapWithCrashRecoverySleep(cmd string) string {
 func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider) []string {
 	provider = env.OrDefault(provider)
 	var containerOpts []string
+	apiKeySet := strings.TrimSpace(provider.Getenv("OPENAI_API_KEY")) != ""
+	var accountAuthMount []string
+	if !apiKeySet {
+		accountAuthMount = codexAccountAuthMountOptions(provider)
+	}
 	promptMount := codexPromptsMountOptions(provider)
 	rulesMount := codexRulesMountOptions(provider)
 	skillsMount := codexSkillsMountOptions(logger, provider)
@@ -403,6 +408,14 @@ func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider)
 	skillsApplied := false
 	agentsApplied := false
 	stateApplied := false
+	if len(accountAuthMount) > 0 {
+		containerOpts = append(containerOpts, accountAuthMount...)
+		stateApplied = true
+		agentsApplied = true
+		skillsApplied = true
+		rulesApplied = true
+		promptsApplied = true
+	}
 	if key := provider.Getenv("OPENAI_API_KEY"); strings.TrimSpace(key) != "" {
 		if tmpDir, tmpErr := os.MkdirTemp("", "codex-auth-*"); tmpErr == nil {
 			_ = os.MkdirAll(tmpDir, 0o755)
@@ -540,6 +553,28 @@ func codexAgentsMountOptions(provider env.Provider) []string {
 		return nil
 	}
 	return []string{fmt.Sprintf("-v %q:/root/.codex/AGENTS.md:ro", agentsPath)}
+}
+
+// codexAccountAuthMountOptions returns a bind mount for the whole host ~/.codex directory,
+// used only on the account-login path (OPENAI_API_KEY unset) when ~/.codex/auth.json exists.
+// The whole directory is mounted, rather than just auth.json, because Codex refreshes its
+// access token by writing a temp file and atomically renaming it over auth.json; a single-file
+// bind mount would not survive that rename. Mounting the whole directory also covers
+// history.jsonl, sessions, prompts, rules, skills, and AGENTS.md, so callers should skip those
+// individual sub-mounts when this one applies.
+func codexAccountAuthMountOptions(provider env.Provider) []string {
+	provider = env.OrDefault(provider)
+	home, herr := provider.UserHomeDir()
+	if herr != nil {
+		return nil
+	}
+	codexDir := filepath.Join(home, ".codex")
+	authPath := filepath.Join(codexDir, "auth.json")
+	info, err := os.Stat(authPath)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	return []string{fmt.Sprintf("-v %q:/root/.codex:rw", codexDir)}
 }
 
 func codexStateMountOptions(logger zerolog.Logger, provider env.Provider) []string {

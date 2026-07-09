@@ -161,6 +161,12 @@ Run `remuda vibe --help` for more options. Common flags:
 - `REMUDA_SESSION_MANAGER=tmux|zellij` – environment override for the default session manager (falls back to `tmux`).
 - Containerized Claude runs forward `ANTHROPIC_API_KEY` and mount `~/.claude`
   plus `~/.claude.json` when present so Claude auth/session state is reused.
+- Containerized Codex runs persist ChatGPT account logins (not API-key auth):
+  when `OPENAI_API_KEY` is unset and `~/.codex/auth.json` exists, the whole
+  `~/.codex` directory is mounted read-write so the account login (and its
+  token refreshes) carry over across sessions. When `OPENAI_API_KEY` is set,
+  a synthesized read-only `auth.json` is used instead and no account auth is
+  mounted.
 
 First-run repo prompt:
 - If no repo is specified via flags/args/env/config and you're on an interactive TTY, `remuda vibe`
