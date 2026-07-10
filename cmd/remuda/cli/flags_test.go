@@ -112,6 +112,30 @@ defaults:
 	require.Equal(t, []string{"--net=host"}, vals.ContainerOpt)
 }
 
+// Base and per_repo container opts concatenate in the effective config,
+// which stores the merged list as []string rather than YAML's []any; the
+// flag must receive the elements, not a stringified slice.
+func TestFlagResolution_AppliesConcatenatedContainerOpts(t *testing.T) {
+	t.Parallel()
+	cfg := parseTestConfig(t, `
+version: 1
+defaults:
+  container:
+    opts: ["-v /base:/base"]
+per_repo:
+  acme/utils:
+    defaults:
+      container:
+        opts: ["-v /repo:/repo", "--cpus=4"]
+`)
+
+	_, rs, vals := newResolutionFixture(t)
+	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{})
+	require.NoError(t, err)
+	require.NoError(t, rs.apply(EnvMap{}, eff))
+	require.Equal(t, []string{"-v /base:/base", "-v /repo:/repo", "--cpus=4"}, vals.ContainerOpt)
+}
+
 func TestFlagResolution_EnvSliceSplitsOnComma(t *testing.T) {
 	t.Parallel()
 	_, rs, vals := newResolutionFixture(t)

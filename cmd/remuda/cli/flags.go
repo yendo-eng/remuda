@@ -209,20 +209,27 @@ func setFlagFromString(fl *pflag.Flag, value string) error {
 	return fl.Value.Set(value)
 }
 
-// setFlagFromConfig applies a config value (typed, from YAML) to a flag.
+// setFlagFromConfig applies a config value to a flag. Lists arrive as []any
+// from YAML parsing or []string from overlay merging (koanf.Set).
 func setFlagFromConfig(fl *pflag.Flag, value any) error {
-	if list, ok := value.([]any); ok {
-		items := make([]string, 0, len(list))
+	var items []string
+	switch list := value.(type) {
+	case []any:
+		items = make([]string, 0, len(list))
 		for _, item := range list {
 			items = append(items, fmt.Sprint(item))
 		}
-		if sv, ok := fl.Value.(pflag.SliceValue); ok {
-			return sv.Replace(items)
-		}
-		// Scalar flag fed from a config list (e.g. --experiments).
-		return fl.Value.Set(strings.Join(items, ","))
+	case []string:
+		items = list
+	default:
+		return fl.Value.Set(fmt.Sprint(value))
 	}
-	return fl.Value.Set(fmt.Sprint(value))
+
+	if sv, ok := fl.Value.(pflag.SliceValue); ok {
+		return sv.Replace(items)
+	}
+	// Scalar flag fed from a config list (e.g. --experiments).
+	return fl.Value.Set(strings.Join(items, ","))
 }
 
 func mergeUnique(first, second []string) []string {
