@@ -270,6 +270,51 @@ per_repo:
 		require.Contains(t, sess.CommandRan, "--memory=2g")
 	})
 
+	t.Run("pick preserves explicit agent flag over per_repo profile", func(t *testing.T) {
+		baseDir, mgr, k := setup(t)
+		workspace := filepath.Join(baseDir, "org", "repo", "folder")
+		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+		tty, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = tty.Close() })
+		k.IO = internal.IO{In: tty, Out: tty, Err: tty}
+
+		binDir := t.TempDir()
+		fzfPath := filepath.Join(binDir, "fzf")
+		require.NoError(t, os.WriteFile(fzfPath, []byte("#!/bin/sh\nread -r line1\nprintf '%s\\n' \"$line1\"\n"), 0o755))
+
+		configPath := filepath.Join(t.TempDir(), "config.yaml")
+		require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+profiles:
+  review:
+    agent: claude
+per_repo:
+  org/repo:
+    profile: review
+`), 0o644))
+
+		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
+		pickEnv["REMUDA_CONTAINER"] = "false"
+		pickEnv["REMUDA_CONFIG"] = configPath
+		pickEnv["PATH"] = binDir + string(os.PathListSeparator) + pickEnv["PATH"]
+
+		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(pickEnv), cli.WithHomeDir(pickEnv["HOME"]))
+		err = cli.Run(ctx, []string{"session", "resume", "--pick", "--agent", "codex"})
+		require.NoError(t, err)
+
+		// The per_repo overlay selects the "review" profile (agent: claude),
+		// discovered only after --pick resolves the workspace. The explicit
+		// --agent flag must survive that re-resolution unchanged.
+		sess := mgr.FindSession("org/repo/folder")
+		require.NotNil(t, sess)
+		require.Contains(t, sess.CommandRan, "codex resume --last")
+		require.NotContains(t, sess.CommandRan, "claude --continue")
+		value, ok := sessionEnvValue(sess.StartEnv, "REMUDA_AGENT")
+		require.True(t, ok)
+		require.Equal(t, "codex", value)
+	})
+
 	t.Run("pick respects session.prune.ignore patterns", func(t *testing.T) {
 		baseDir, mgr, k := setup(t)
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
