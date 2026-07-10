@@ -132,7 +132,7 @@ session:
 
 ## Shell Completions
 
-Remuda supports shell autocompletions via kongplete.
+Remuda generates shell completion scripts via cobra.
 
-- Install completions: `remuda completions` (see your shell's docs for what to do with the output)
-- After installation, restart your shell or source the generated script as instructed.
+- Generate a script: `remuda completions <bash|zsh|fish|powershell>`
+- Load it from your shell profile, e.g. `source <(remuda completions bash)` or `remuda completions fish | source`.

@@ -1,13 +1,16 @@
 Read docs/\* for more context about the application.
 
-Please read https://raw.githubusercontent.com/alecthomas/kong/refs/heads/master/README.md
-for the full docs on Kong. It is the core framework for CLI argument parsing that we use.
+CLI argument parsing uses spf13/cobra (https://github.com/spf13/cobra); config
+resolution layers on knadh/koanf. Flag > env > config-file precedence is
+resolved in one place: cmd/remuda/cli/flags.go (bindings declared per flag at
+registration) plus cmd/remuda/cli/config_effective.go (per_repo/profile
+overlay merging).
 
 Please use stretchr/testify for test assertions. Use require or assert where it
 makes sense.
 
-Do not add tests that assert CLI `--help` text (including Kong struct-tag help
-strings). Focus tests on command behavior and other public runtime outcomes.
+Do not add tests that assert CLI `--help` text (including flag help strings).
+Focus tests on command behavior and other public runtime outcomes.
 
 The base branch is `master`, not `main`.
 
