@@ -4,13 +4,31 @@ import (
 	"path/filepath"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal/configfile"
 )
 
 // WorkspacesListCmd prints one workspace path per line.
 type WorkspacesListCmd struct {
-	Active   bool `name:"active" help:"Restrict output to workspaces with an active Remuda session."`
-	Inactive bool `name:"inactive" help:"Restrict output to workspaces with no active Remuda session."`
+	Active   bool
+	Inactive bool
+}
+
+func (a *app) workspacesListCmd() *cobra.Command {
+	c := &WorkspacesListCmd{}
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List Remuda-managed workspaces on disk.",
+		Args:  cobra.NoArgs,
+	}
+	cmd.Flags().BoolVar(&c.Active, "active", false, "Restrict output to workspaces with an active Remuda session.")
+	cmd.Flags().BoolVar(&c.Inactive, "inactive", false, "Restrict output to workspaces with no active Remuda session.")
+	return a.simpleCmd(cmd, nil, func([]string) error {
+		if err := c.Validate(); err != nil {
+			return err
+		}
+		return c.Run(*a.kctx)
+	})
 }
 
 func (c WorkspacesListCmd) Validate() error {

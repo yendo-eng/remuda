@@ -4,11 +4,19 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 type SessionSendNamePickOption struct {
-	Names []string `name:"name" help:"Session name (org/repo/<name>). Repeatable." predictor:"session-name" sep:"none"`
-	Pick  bool     `name:"pick" help:"Use fzf to pick one or more sessions."`
+	Names []string
+	Pick  bool
+}
+
+func (o *SessionSendNamePickOption) register(cmd *cobra.Command) {
+	fs := cmd.Flags()
+	fs.StringArrayVar(&o.Names, "name", nil, "Session name (org/repo/<name>). Repeatable.")
+	fs.BoolVar(&o.Pick, "pick", false, "Use fzf to pick one or more sessions.")
+	registerSessionNameCompletion(cmd, "name")
 }
 
 func (o SessionSendNamePickOption) Validate() error {
@@ -30,9 +38,27 @@ func (o SessionSendNamePickOption) SessionNames(ctx Context) ([]string, error) {
 
 // SessionSendCmd sends a prompt to one or more running sessions.
 type SessionSendCmd struct {
-	SessionSendNamePickOption `embed:""`
-	Prompt                    string `arg:"" name:"prompt" help:"Prompt to send to the session(s). Use '-' to read from STDIN."`
-	NoNewline                 bool   `name:"no-newline" help:"Do not append a trailing newline/Enter after sending the prompt."`
+	SessionSendNamePickOption
+	Prompt    string
+	NoNewline bool
+}
+
+func (a *app) sessionSendCmd() *cobra.Command {
+	c := &SessionSendCmd{}
+	cmd := &cobra.Command{
+		Use:   "send <prompt>",
+		Short: "Send a prompt to a running session. Use '-' to read the prompt from STDIN.",
+		Args:  cobra.ExactArgs(1),
+	}
+	c.SessionSendNamePickOption.register(cmd)
+	cmd.Flags().BoolVar(&c.NoNewline, "no-newline", false, "Do not append a trailing newline/Enter after sending the prompt.")
+	return a.simpleCmd(cmd, nil, func(args []string) error {
+		c.Prompt = args[0]
+		if err := c.Validate(); err != nil {
+			return err
+		}
+		return c.Run(*a.kctx)
+	})
 }
 
 func (c *SessionSendCmd) Validate() error {

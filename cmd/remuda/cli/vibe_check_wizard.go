@@ -24,22 +24,22 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to load prompts")
 	}
-	promptOptions := make([]huh.Option[PromptName], 0, len(promptList))
+	promptOptions := make([]huh.Option[string], 0, len(promptList))
 	for _, p := range promptList {
 		title := p.Name
 		if d := strings.TrimSpace(p.Description); d != "" {
 			title = title + " — " + d
 		}
-		promptOptions = append(promptOptions, huh.NewOption(title, PromptName(p.Name)))
+		promptOptions = append(promptOptions, huh.NewOption(title, p.Name))
 	}
 
 	// First select repository and then PR from list.
-	selection, err := wizardSelectRepo(derefString(sel.Repo), derefString(sel.RepoURL))
+	selection, err := wizardSelectRepo(sel.Repo, sel.RepoURL)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "repo selection")
 	}
-	sel.Repo = nil
-	sel.RepoURL = optionalString(selection.URL)
+	sel.Repo = ""
+	sel.RepoURL = strings.TrimSpace(selection.URL)
 	org, repo, perr := github.ParseRepo(selection.URL)
 	if perr != nil {
 		return nil, perr
@@ -75,13 +75,13 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 	}
 	groups = append(groups,
 		huh.NewGroup(
-			huh.NewMultiSelect[PromptName]().
+			huh.NewMultiSelect[string]().
 				Title("Add saved prompts? (space to select) ").
 				Options(promptOptions...).
 				Value(&sel.Use),
 		),
 		huh.NewGroup(
-			huh.NewMultiSelect[PromptName]().
+			huh.NewMultiSelect[string]().
 				Title("Exclude saved prompts? (space to select) ").
 				Options(promptOptions...).
 				Value(&sel.NoUse),

@@ -3,37 +3,29 @@ package cli
 import (
 	"strings"
 
-	"github.com/alecthomas/kong"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
 )
 
 type VibeCmd struct {
-	VibeNameWizardOption      `embed:""`
-	CloneRepoOption           `embed:""`
-	CloneHooksOption          `embed:""`
-	FullCloneOption           `embed:""`
-	AgentSessionOptions       `embed:""`
-	ExperimentsOption         `embed:""`
-	ContextEngineeringOptions `embed:""`
-	APIKeyOptions             `embed:""`
-	SlugifyOptions            `embed:""`
-	VibeContainerOptions      `embed:""`
+	VibeNameWizardOption
+	CloneRepoOption
+	CloneHooksOption
+	FullCloneOption
+	AgentSessionOptions
+	ExperimentsOption
+	ContextEngineeringOptions
+	APIKeyOptions
+	SlugifyOptions
+	VibeContainerOptions
 
-	Prompt string `arg:"" optional:"" name:"prompt" help:"Prompt to pass to the coding agent. Use '-' to read from STDIN."`
-	In     string `kong:"name=in,help='Launch inside an existing workspace folder instead of cloning.',predictor='workspace-dir'"`
-
-	// Branch overrides the default of using --name for git branch checkout.
-	Branch string `name:"branch" help:"Checkout this branch instead of deriving from --name."`
-
-	Profile string `name:"profile" short:"p" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
-
-	Yolo bool `name:"yolo" env:"REMUDA_YOLO" negatable:"" help:"Ignore sandboxing/approvals for supported agents (Codex/Claude)."`
-
-	Remote bool `name:"remote" help:"Enable remote control when supported by the selected agent."`
-
-	// If we end up needing this later, uncomment it
-	// GitUseSSH     bool     `name:"git-use-ssh" help:"When --container, rewrite HTTPS origin to SSH if SSH agent is available."`
+	Prompt  string
+	In      string
+	Branch  string
+	Profile string
+	Yolo    bool
+	Remote  bool
 }
 
 // VibeNameWizardOption groups CLI switches for setting a workspace name or
@@ -42,11 +34,81 @@ type VibeCmd struct {
 // For `remuda vibe`, --name is optional: when omitted (and --in is not used),
 // Remuda derives a workspace name from the prompt.
 type VibeNameWizardOption struct {
-	Name   string `name:"name" help:"Workspace name; reused as branch (and session) name. If omitted, Remuda derives a name from the first --jira ticket title (when provided) or from the prompt." xor:"name_or_wizard"`
-	Wizard bool   `name:"wizard" help:"Launch interactive wizard for this command (requires a TTY)." xor:"name_or_wizard"`
+	Name   string
+	Wizard bool
 }
 
-func (c *VibeCmd) Validate() error {
+func (o *VibeNameWizardOption) register(cmd *cobra.Command) {
+	fs := cmd.Flags()
+	fs.StringVar(&o.Name, "name", "", "Workspace name; reused as branch (and session) name. If omitted, Remuda derives a name from the first --jira ticket title (when provided) or from the prompt.")
+	fs.BoolVar(&o.Wizard, "wizard", false, "Launch interactive wizard for this command (requires a TTY).")
+	cmd.MarkFlagsMutuallyExclusive("name", "wizard")
+}
+
+func (a *app) vibeCmd() *cobra.Command {
+	c := &VibeCmd{}
+	var fl *flagSet
+	cmd := &cobra.Command{
+		Use:   "vibe [prompt]",
+		Short: "Clone and launch an AI coding session.",
+		Long:  "Clone and launch an AI coding session. Use '-' as the prompt to read it from STDIN.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				c.Prompt = args[0]
+			}
+			err := a.prepare(cmd, prepareOpts{
+				fl:       fl,
+				profiled: true,
+				slugFn: func() string {
+					c.CloneRepoOption.normalize()
+					return c.repoSelection(*a.kctx, RepoResolutionOptions{
+						ExistingWorkspace: c.In,
+						ReposBaseDir:      a.kctx.Remuda.Config.ReposBaseDir,
+					}).RepoSlug
+				},
+			})
+			if err != nil {
+				return err
+			}
+			c.CloneRepoOption.normalize()
+			if err := c.AgentSessionOptions.afterApply(); err != nil {
+				return err
+			}
+			if err := c.ContextEngineeringOptions.afterApply(*a.kctx); err != nil {
+				return err
+			}
+			if err := c.validate(); err != nil {
+				return err
+			}
+			return c.Run(*a.kctx)
+		},
+	}
+
+	fl = newFlagSet(cmd.Flags())
+	c.VibeNameWizardOption.register(cmd)
+	c.CloneRepoOption.register(cmd, fl)
+	c.CloneHooksOption.register(cmd)
+	c.FullCloneOption.register(cmd, fl)
+	c.AgentSessionOptions.register(cmd, fl)
+	c.ExperimentsOption.register(cmd, fl)
+	c.ContextEngineeringOptions.register(cmd, fl)
+	c.APIKeyOptions.register(cmd, fl)
+	c.SlugifyOptions.register(cmd, fl)
+	c.VibeContainerOptions.register(cmd, fl)
+
+	fs := cmd.Flags()
+	fs.StringVar(&c.In, "in", "", "Launch inside an existing workspace folder instead of cloning.")
+	fs.StringVar(&c.Branch, "branch", "", "Checkout this branch instead of deriving from --name.")
+	fs.BoolVar(&c.Remote, "remote", false, "Enable remote control when supported by the selected agent.")
+	registerProfileFlag(cmd, &c.Profile)
+	registerYoloFlag(cmd, fl, &c.Yolo)
+	registerWorkspaceDirCompletion(cmd, "in")
+
+	return cmd
+}
+
+func (c *VibeCmd) validate() error {
 	if err := c.VibeContainerOptions.Validate(); err != nil {
 		return err
 	}
@@ -71,7 +133,7 @@ func (c *VibeCmd) Validate() error {
 	return nil
 }
 
-func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
+func (c *VibeCmd) Run(ctx Context) error {
 	if c.Wizard {
 		var err error
 		*c, err = launchVibeStartWizard(ctx, *c)
@@ -89,7 +151,7 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 	if strings.TrimSpace(c.Prompt) == "" {
 		c.Prompt = ""
 	}
-	if err := c.validatePromptUsage(c.Prompt, kctx.Args); err != nil {
+	if err := c.validatePromptUsage(ctx, c.Prompt); err != nil {
 		return err
 	}
 
@@ -100,7 +162,7 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 	}
 
 	allowFTUE := !c.Wizard && strings.TrimSpace(c.In) == ""
-	repoSelection, err := resolveRepoSelectionWithFTUE(ctx, kctx, c.CloneRepoOption, RepoResolutionOptions{
+	repoSelection, err := resolveRepoSelectionWithFTUE(ctx, c.CloneRepoOption, RepoResolutionOptions{
 		AllowFallback:     true,
 		ExistingWorkspace: c.In,
 		ReposBaseDir:      ctx.Remuda.Config.ReposBaseDir,
@@ -111,18 +173,10 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 	repoURL := repoSelection.RepoURL
 	repoSlug := repoSelection.RepoSlug
 
-	if !c.Wizard {
-		if err := applyProfileOverlayByName(ctx.ConfigFile, c.Profile); err != nil {
-			return err
-		}
-		if err := applyPerRepoDefaultsToVibe(c, kctx, ctx.ConfigFile, envFromContext(ctx)); err != nil {
-			return err
-		}
-	}
 	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
 		return err
 	}
-	agentArgs := effectiveAgentArgs(ctx.ConfigFile, c.Agent, c.AgentArg)
+	agentArgs := effectiveAgentArgsFromKoanf(ctx.EffectiveConfig(), c.Agent, c.AgentArg)
 
 	cmd := internal.VibeCommand{
 		Name:                c.Name,
@@ -141,7 +195,7 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 		ContainerInheritEnv: c.ContainerInheritEnv,
 		RemoteControl:       c.Remote,
 	}
-	if flagExplicit(kctx, "openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
+	if ctx.FlagExplicit("openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
 		cmd.EnvOverrides = map[string]string{"OPENAI_API_KEY": c.OpenAIAPIKey}
 	}
 	cmd.ExistingWorkspace = c.In
@@ -187,13 +241,4 @@ func (c *VibeCmd) Run(ctx Context, kctx *kong.Context) error {
 	}
 
 	return nil
-}
-
-func usesPromptPrefaceFromArgs(args []string) bool {
-	for _, arg := range args {
-		if arg == "-u" || arg == "--use" || strings.HasPrefix(arg, "--use=") || strings.HasPrefix(arg, "-u=") || strings.HasPrefix(arg, "-u") {
-			return true
-		}
-	}
-	return false
 }

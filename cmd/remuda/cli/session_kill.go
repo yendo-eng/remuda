@@ -1,16 +1,61 @@
 package cli
 
 import (
+	"strconv"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
-	"github.com/yendo-eng/remuda/internal/configfile"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
+// OptionalStringFlag parses --flag (optionally: --flag=VALUE).
+//
+// Bare --flag enables it; --flag=VALUE sets a value; if VALUE looks like a
+// bool (eg. "true"/"false"), it is treated as a toggle (and clears Value
+// when false).
+type OptionalStringFlag struct {
+	set     bool
+	enabled bool
+	value   string
+}
+
+func (f *OptionalStringFlag) Set(raw string) error {
+	f.set = true
+	f.enabled = true
+
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil
+	}
+	if b, err := strconv.ParseBool(trimmed); err == nil {
+		f.enabled = b
+		if !b {
+			f.value = ""
+		}
+		return nil
+	}
+
+	f.value = raw
+	return nil
+}
+
+func (f OptionalStringFlag) String() string { return f.value }
+func (f OptionalStringFlag) Type() string   { return "string" }
+
+func (f OptionalStringFlag) Enabled() bool { return f.set && f.enabled }
+func (f OptionalStringFlag) Value() string { return f.value }
+
 type SessionKillNamePickOption struct {
-	Name string `kong:"name='name',help='Session name (org/repo/<name>).',predictor='session-name'"`
-	Pick bool   `kong:"name='pick',help='Use fzf to pick a session interactively when name is omitted.'"`
+	Name string
+	Pick bool
+}
+
+func (o *SessionKillNamePickOption) register(cmd *cobra.Command) {
+	fs := cmd.Flags()
+	fs.StringVar(&o.Name, "name", "", "Session name (org/repo/<name>).")
+	fs.BoolVar(&o.Pick, "pick", false, "Use fzf to pick a session interactively when name is omitted.")
+	registerSessionNameCompletion(cmd, "name")
 }
 
 func (o SessionKillNamePickOption) Validate() error {
@@ -30,12 +75,35 @@ func (o SessionKillNamePickOption) SessionNames(ctx Context, multi bool) ([]stri
 }
 
 type SessionKillCmd struct {
-	SessionKillNamePickOption `embed:""`
-	Cleanup                   bool               `name:"cleanup" help:"Also remove the workspace and git worktree for killed sessions."`
-	CloseBD                   bool               `name:"close-bd" help:"Close the beads issue associated with the session branch."`
-	ClosePR                   OptionalStringFlag `name:"close-pr" help:"Close the GitHub PR associated with the session via gh, if present. Optionally provide a closing comment via --close-pr=COMMENT."`
-	MergePR                   bool               `name:"merge" help:"Rebase-and-merge the GitHub PR associated with the session via gh before killing."`
-	MergeFlag                 []string           `name:"merge-flag" help:"Flag to pass to gh pr merge when --merge is set. Repeatable; when provided, replaces defaults.merge.gh_flags config."`
+	SessionKillNamePickOption
+	Cleanup   bool
+	CloseBD   bool
+	ClosePR   OptionalStringFlag
+	MergePR   bool
+	MergeFlag []string
+}
+
+func (a *app) sessionKillCmd() *cobra.Command {
+	c := &SessionKillCmd{}
+	cmd := &cobra.Command{
+		Use:   "kill",
+		Short: "Kill one or all sessions (optionally clean up workspace).",
+		Args:  cobra.NoArgs,
+	}
+	c.SessionKillNamePickOption.register(cmd)
+	fs := cmd.Flags()
+	fs.BoolVar(&c.Cleanup, "cleanup", false, "Also remove the workspace and git worktree for killed sessions.")
+	fs.BoolVar(&c.CloseBD, "close-bd", false, "Close the beads issue associated with the session branch.")
+	fs.Var(&c.ClosePR, "close-pr", "Close the GitHub PR associated with the session via gh, if present. Optionally provide a closing comment via --close-pr=COMMENT.")
+	fs.Lookup("close-pr").NoOptDefVal = "true"
+	fs.BoolVar(&c.MergePR, "merge", false, "Rebase-and-merge the GitHub PR associated with the session via gh before killing.")
+	fs.StringSliceVar(&c.MergeFlag, "merge-flag", nil, "Flag to pass to gh pr merge when --merge is set. Repeatable; when provided, replaces defaults.merge.gh_flags config.")
+	return a.simpleCmd(cmd, nil, func([]string) error {
+		if err := c.Validate(); err != nil {
+			return err
+		}
+		return c.Run(*a.kctx)
+	})
 }
 
 func (c SessionKillCmd) Validate() error {
@@ -50,42 +118,12 @@ func (c SessionKillCmd) Validate() error {
 	return nil
 }
 
-func (c SessionKillCmd) configuredMergeFlags(cfg *configfile.V1) []string {
-	if len(c.MergeFlag) > 0 {
-		return append([]string(nil), c.MergeFlag...)
-	}
-	if cfg != nil &&
-		cfg.Defaults != nil &&
-		cfg.Defaults.Merge != nil &&
-		cfg.Defaults.Merge.GHFlags != nil &&
-		len(*cfg.Defaults.Merge.GHFlags) > 0 {
-		return append([]string(nil), (*cfg.Defaults.Merge.GHFlags)...)
-	}
-	return []string{"--rebase"}
-}
-
+// configuredMergeFlagsForSession resolves gh pr merge flags for one session:
+// explicit --merge-flag wins, then per_repo/defaults merge.gh_flags from
+// config (keyed by the session's repo slug), then the built-in --rebase.
 func (c SessionKillCmd) configuredMergeFlagsForSession(ctx Context, sessionName string) []string {
 	if len(c.MergeFlag) > 0 {
 		return append([]string(nil), c.MergeFlag...)
-	}
-
-	mergedCfg := sessionKillConfigWithPerRepoOverlay(ctx, sessionName)
-	return c.configuredMergeFlags(mergedCfg)
-}
-
-func sessionKillConfigWithPerRepoOverlay(ctx Context, sessionName string) *configfile.V1 {
-	if ctx.ConfigFile == nil {
-		return nil
-	}
-
-	cfg := &configfile.V1{}
-	if ctx.ConfigFile.Defaults != nil {
-		defaultsCopy := *ctx.ConfigFile.Defaults
-		cfg.Defaults = &defaultsCopy
-	}
-
-	if len(ctx.ConfigFile.PerRepo) == 0 {
-		return cfg
 	}
 
 	slug := repoSlugFromSessionName(sessionName)
@@ -96,16 +134,14 @@ func sessionKillConfigWithPerRepoOverlay(ctx Context, sessionName string) *confi
 			slug = normalizeRepoSlug(repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, workspace))
 		}
 	}
-	if slug == "" {
-		return cfg
-	}
 
-	overlay, ok := ctx.ConfigFile.PerRepo[slug]
-	if !ok {
-		return cfg
+	eff, err := newEffectiveConfig(ctx.ConfigFile, slug, profileRef{})
+	if err == nil {
+		if flags, ok := effectiveStrings(eff, "defaults.merge.gh_flags"); ok && len(flags) > 0 {
+			return flags
+		}
 	}
-	mergeOverlayV1IntoConfig(cfg, overlay, true)
-	return cfg
+	return []string{"--rebase"}
 }
 
 func repoSlugFromSessionName(name string) string {

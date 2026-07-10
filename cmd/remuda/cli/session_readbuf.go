@@ -4,14 +4,32 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 // SessionReadbufCmd prints the current pane buffer for a session.
 type SessionReadbufCmd struct {
-	Name  string `kong:"xor=namepick,help='Session name (org/repo/<name>).',predictor='session-name'"`
-	Pick  bool   `kong:"xor=namepick,help='Use fzf to pick a session interactively when name is omitted.'"`
-	All   bool   `kong:"xor=namepick,help='Dump all lines from every session, prefixed by session-name:line:.'"`
-	Lines int    `name:"lines" short:"n" default:"200" help:"Number of recent lines to print; 0 prints the full buffer."`
+	Name  string
+	Pick  bool
+	All   bool
+	Lines int
+}
+
+func (a *app) sessionReadbufCmd() *cobra.Command {
+	c := &SessionReadbufCmd{}
+	cmd := &cobra.Command{
+		Use:   "readbuf",
+		Short: "Print the current pane buffer for logs (tail).",
+		Args:  cobra.NoArgs,
+	}
+	fs := cmd.Flags()
+	fs.StringVar(&c.Name, "name", "", "Session name (org/repo/<name>).")
+	fs.BoolVar(&c.Pick, "pick", false, "Use fzf to pick a session interactively when name is omitted.")
+	fs.BoolVar(&c.All, "all", false, "Dump all lines from every session, prefixed by session-name:line:.")
+	fs.IntVarP(&c.Lines, "lines", "n", 200, "Number of recent lines to print; 0 prints the full buffer.")
+	cmd.MarkFlagsMutuallyExclusive("name", "pick", "all")
+	registerSessionNameCompletion(cmd, "name")
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
 }
 
 func (c SessionReadbufCmd) Run(ctx Context) error {

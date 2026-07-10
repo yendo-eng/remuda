@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/jira"
 )
@@ -17,8 +16,8 @@ func TestContextEngineeringOptionsNoUseFiltersUse(t *testing.T) {
 	ctx := newTestContextWithEnv(t, env)
 
 	opts := ContextEngineeringOptions{
-		Use:   []PromptName{"make-pr", "small-commits"},
-		NoUse: []PromptName{"make-pr"},
+		Use:   []string{"make-pr", "small-commits"},
+		NoUse: []string{"make-pr"},
 	}
 
 	added, err := opts.AddedPromptContext(ctx, PromptContextInput{})
@@ -34,7 +33,7 @@ func TestContextEngineeringOptionsWrapsUsePromptsWithContextTags(t *testing.T) {
 	ctx := newTestContextWithEnv(t, env)
 
 	opts := ContextEngineeringOptions{
-		Use: []PromptName{"make-pr", "small-commits"},
+		Use: []string{"make-pr", "small-commits"},
 	}
 
 	added, err := opts.AddedPromptContext(ctx, PromptContextInput{WrapUsePrompts: true})
@@ -52,46 +51,36 @@ func TestShouldAddMainPromptMarker(t *testing.T) {
 	require.False(t, shouldAddMainPromptMarker(false, false))
 }
 
-func TestContextEngineeringOptionsNoUseFiltersEnvDefaults(t *testing.T) {
-	t.Parallel()
-	env := EnvMap{
-		"REMUDA_PROMPTS_DIR": t.TempDir(),
-		"REMUDA_USE_PROMPTS": "make-pr,small-commits",
-	}
-	var cli CLI
-	parser, err := kong.New(&cli, kong.Name("remuda"), kong.Bind(&Context{Env: env}), kong.Resolvers(NewEnvResolver(env)))
-	require.NoError(t, err)
-
-	_, err = parser.Parse([]string{"vibe", "--no-use", "make-pr", "--name", "wk", "hi"})
-	require.NoError(t, err)
-
-	ctx := newTestContextWithEnv(t, env)
-	added, err := cli.Vibe.AddedPromptContext(ctx, PromptContextInput{})
-	require.NoError(t, err)
-	require.Len(t, added, 1)
-	require.Contains(t, added[0], "git commit")
-	require.NotContains(t, added[0], "gh pr create")
-}
-
 func TestContextEngineeringOptionsValidatePromptUsage_AllowsNoUseWithEmptyPrompt(t *testing.T) {
 	t.Parallel()
 	opts := ContextEngineeringOptions{
-		Use:   []PromptName{"make-pr"},
-		NoUse: []PromptName{"make-pr"},
+		Use:   []string{"make-pr"},
+		NoUse: []string{"make-pr"},
 	}
 
-	err := opts.validatePromptUsage("", []string{"vibe", "--no-use", "make-pr"})
+	err := opts.validatePromptUsage(contextWithExplicitFlags(Context{}, "no-use"), "")
 	require.NoError(t, err)
 }
 
 func TestContextEngineeringOptionsValidatePromptUsage_ErrorsOnExplicitUseWithEmptyPrompt(t *testing.T) {
 	t.Parallel()
 	opts := ContextEngineeringOptions{
-		Use: []PromptName{"make-pr"},
+		Use: []string{"make-pr"},
 	}
 
-	err := opts.validatePromptUsage("", []string{"vibe", "--use", "make-pr"})
+	err := opts.validatePromptUsage(contextWithExplicitFlags(Context{}, "use"), "")
 	require.ErrorContains(t, err, "--use/-u requires a non-empty prompt")
+}
+
+func TestContextEngineeringOptionsValidatePromptUsage_AllowsEnvDefaultsWithEmptyPrompt(t *testing.T) {
+	t.Parallel()
+	opts := ContextEngineeringOptions{
+		Use: []string{"make-pr"},
+	}
+
+	// Use prompts sourced from env/config (not the --use flag) must not force a prompt.
+	err := opts.validatePromptUsage(Context{}, "")
+	require.NoError(t, err)
 }
 
 func TestContextEngineeringOptionsValidatePromptUsage_ErrorsOnContextFlagsWithEmptyPrompt(t *testing.T) {
@@ -100,7 +89,7 @@ func TestContextEngineeringOptionsValidatePromptUsage_ErrorsOnContextFlagsWithEm
 		Jira: []string{"PROJ-1"},
 	}
 
-	err := opts.validatePromptUsage("", nil)
+	err := opts.validatePromptUsage(Context{}, "")
 	require.ErrorContains(t, err, "prompt context flags")
 }
 
@@ -116,77 +105,49 @@ func TestContextEngineeringOptionsValidatePromptNames_IgnoresUnreadableUnrelated
 	})
 
 	opts := ContextEngineeringOptions{
-		Use: []PromptName{"small-commits"},
+		Use: []string{"small-commits"},
 	}
 	ctx := newTestContextWithEnv(t, env)
 	require.NoError(t, opts.validatePromptNames(ctx))
 }
 
-func TestVibeNoUseCommaSeparatedParses(t *testing.T) {
+func TestContextEngineeringOptionsAfterApplyNormalizesJira(t *testing.T) {
 	t.Parallel()
-	var cli CLI
-	parser, err := kong.New(&cli, kong.Name("remuda"), kong.Bind(&Context{}))
-	require.NoError(t, err)
+	ctx := newTestContextWithEnv(t, EnvMap{"REMUDA_PROMPTS_DIR": t.TempDir()})
 
-	_, err = parser.Parse([]string{"vibe", "--no-use", "make-pr,small-commits", "--name", "wk", "hi"})
-	require.NoError(t, err)
-	require.Equal(t, []PromptName{"make-pr", "small-commits"}, cli.Vibe.NoUse)
+	opts := ContextEngineeringOptions{
+		Jira:         []string{"abc-1", " r2d2-42 ", "ZZ-7"},
+		JiraEndpoint: " https://jira.example.atlassian.net/ ",
+		JiraUser:     " dev@example.com ",
+		JiraToken:    " token-123 ",
+	}
+	require.NoError(t, opts.afterApply(ctx))
+	require.Equal(t, []string{"ABC-1", "R2D2-42", "ZZ-7"}, opts.Jira)
+	require.Equal(t, "https://jira.example.atlassian.net/", opts.JiraEndpoint)
+	require.Equal(t, "dev@example.com", opts.JiraUser)
+	require.Equal(t, "token-123", opts.JiraToken)
 }
 
-func TestVibeJiraLowercaseNormalizesToUppercaseDuringParse(t *testing.T) {
-	var cli CLI
-	parser, err := kong.New(&cli, kong.Name("remuda"), kong.Bind(&Context{}))
-	require.NoError(t, err)
+func TestContextEngineeringOptionsAfterApplyRejectsInvalidJiraKey(t *testing.T) {
+	t.Parallel()
+	ctx := newTestContextWithEnv(t, EnvMap{"REMUDA_PROMPTS_DIR": t.TempDir()})
 
-	_, err = parser.Parse([]string{"vibe", "--name", "wk", "--jira", "proj-123", "hi"})
-	require.NoError(t, err)
-	require.Equal(t, []string{"PROJ-123"}, cli.Vibe.Jira)
-}
-
-func TestVibeJiraInvalidKeyReturnsParseErrorWithoutContextBinding(t *testing.T) {
-	var cli CLI
-	parser, err := kong.New(&cli, kong.Name("remuda"), kong.Bind((*Context)(nil)))
-	require.NoError(t, err)
-
-	_, err = parser.Parse([]string{"vibe", "--name", "wk", "--jira", "not-a-key", "hi"})
+	opts := ContextEngineeringOptions{Jira: []string{"not-a-key"}}
+	err := opts.afterApply(ctx)
 	require.ErrorContains(t, err, "invalid --jira value")
 	require.ErrorContains(t, err, "expected format ABC-123")
 }
 
-func TestVibeJiraMixedOrderIsPreservedAfterNormalization(t *testing.T) {
-	var cli CLI
-	parser, err := kong.New(&cli, kong.Name("remuda"), kong.Bind(&Context{}))
-	require.NoError(t, err)
+func TestContextEngineeringOptionsAfterApplyMergesGhIssueAlias(t *testing.T) {
+	t.Parallel()
+	ctx := newTestContextWithEnv(t, EnvMap{"REMUDA_PROMPTS_DIR": t.TempDir()})
 
-	_, err = parser.Parse([]string{
-		"vibe",
-		"--name", "wk",
-		"--jira", "abc-1",
-		"--jira", " r2d2-42 ",
-		"--jira", "ZZ-7",
-		"hi",
-	})
-	require.NoError(t, err)
-	require.Equal(t, []string{"ABC-1", "R2D2-42", "ZZ-7"}, cli.Vibe.Jira)
-}
-
-func TestVibeJiraAuthFlagsTrimWhitespaceDuringParse(t *testing.T) {
-	var cli CLI
-	parser, err := kong.New(&cli, kong.Name("remuda"), kong.Bind(&Context{}))
-	require.NoError(t, err)
-
-	_, err = parser.Parse([]string{
-		"vibe",
-		"--name", "wk",
-		"--jira-endpoint", " https://jira.example.atlassian.net/ ",
-		"--jira-user", " dev@example.com ",
-		"--jira-token", " token-123 ",
-		"hi",
-	})
-	require.NoError(t, err)
-	require.Equal(t, "https://jira.example.atlassian.net/", cli.Vibe.JiraEndpoint)
-	require.Equal(t, "dev@example.com", cli.Vibe.JiraUser)
-	require.Equal(t, "token-123", cli.Vibe.JiraToken)
+	opts := ContextEngineeringOptions{
+		GitHubIssue:  []string{"https://github.com/acme/utils/issues/1"},
+		ghIssueAlias: []string{"42"},
+	}
+	require.NoError(t, opts.afterApply(ctx))
+	require.Equal(t, []string{"https://github.com/acme/utils/issues/1", "42"}, opts.GitHubIssue)
 }
 
 func TestContextEngineeringOptionsPassesJiraAuthOverrideToRuntime(t *testing.T) {

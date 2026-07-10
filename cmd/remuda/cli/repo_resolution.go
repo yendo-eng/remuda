@@ -3,7 +3,6 @@ package cli
 import (
 	"strings"
 
-	"github.com/alecthomas/kong"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -35,16 +34,11 @@ type RepoResolutionOptions struct {
 	ReposBaseDir      string
 }
 
-func resolveRepoSelection(ctx Context, kctx *kong.Context, repo CloneRepoOption, opts RepoResolutionOptions) (RepoSelection, error) {
-	invocation := invocationAnalysis{}
-	if kctx != nil {
-		invocation = resolveInvocationAnalysis(ctx, nil, kctx.Args)
-	}
-
-	repoURL := github.ExpandRepoURL(derefString(repo.RepoURL))
-	repoAlias := strings.TrimSpace(derefString(repo.Repo))
+func resolveRepoSelection(ctx Context, repo CloneRepoOption, opts RepoResolutionOptions) (RepoSelection, error) {
+	repoURL := github.ExpandRepoURL(repo.RepoURL)
+	repoAlias := strings.TrimSpace(repo.Repo)
 	repoURLArg := github.ExpandRepoURL(opts.RepoURLArg)
-	explicitRepoURLFlag := flagExplicit(kctx, "repo-url")
+	explicitRepoURLFlag := ctx.FlagExplicit("repo-url")
 	usedRepoURLArg := false
 
 	if repoURLArg != "" && !explicitRepoURLFlag {
@@ -53,7 +47,7 @@ func resolveRepoSelection(ctx Context, kctx *kong.Context, repo CloneRepoOption,
 	}
 
 	if repoURL != "" {
-		source := repoSourceForRepoURL(envFromContext(ctx), kctx, usedRepoURLArg, repo.RepoURL, opts.SourceHint)
+		source := repoSourceForRepoURL(envFromContext(ctx), ctx, usedRepoURLArg, repo.RepoURL, opts.SourceHint)
 		return RepoSelection{
 			RepoURL:  repoURL,
 			RepoSlug: repoSlugFromURL(repoURL),
@@ -66,7 +60,7 @@ func resolveRepoSelection(ctx Context, kctx *kong.Context, repo CloneRepoOption,
 		if err != nil {
 			return RepoSelection{}, err
 		}
-		source := repoSourceForAlias(envFromContext(ctx), kctx, repo.Repo)
+		source := repoSourceForAlias(envFromContext(ctx), ctx, repo.Repo)
 		return RepoSelection{
 			RepoURL:  url,
 			RepoSlug: repoSlugFromURL(url),
@@ -75,14 +69,8 @@ func resolveRepoSelection(ctx Context, kctx *kong.Context, repo CloneRepoOption,
 	}
 
 	if strings.TrimSpace(opts.ExistingWorkspace) != "" {
-		repoSlug := ""
-		if invocation.RepoSource == invocationRepoSlugSourceWorkspacePath {
-			repoSlug = normalizeRepoSlug(invocation.RepoSlug)
-		}
-		if repoSlug == "" {
-			baseDir := reposBaseDirForExistingWorkspace(ctx, opts.ReposBaseDir)
-			repoSlug = repoSlugFromExistingWorkspace(ctx, baseDir, opts.ExistingWorkspace)
-		}
+		baseDir := reposBaseDirForExistingWorkspace(ctx, opts.ReposBaseDir)
+		repoSlug := repoSlugFromExistingWorkspace(ctx, baseDir, opts.ExistingWorkspace)
 		return RepoSelection{RepoSlug: repoSlug, Source: RepoSourceWorkspace}, nil
 	}
 
@@ -99,45 +87,33 @@ func errRepoSelectionRequired() error {
 	)
 }
 
-func repoSourceForRepoURL(env EnvProvider, kctx *kong.Context, repoURLArg bool, repoURL *string, hint RepoSelectionSource) RepoSelectionSource {
+func repoSourceForRepoURL(env EnvProvider, ctx Context, repoURLArg bool, repoURL string, hint RepoSelectionSource) RepoSelectionSource {
 	if hint != "" {
 		return hint
 	}
-	if repoURLArg || flagExplicit(kctx, "repo-url") {
+	if repoURLArg || ctx.FlagExplicit("repo-url") {
 		return RepoSourceExplicit
 	}
 	if envSet(env, "REMUDA_DEFAULT_REPO_URL") {
 		return RepoSourceEnv
 	}
-	if repoURL != nil && strings.TrimSpace(derefString(repoURL)) != "" {
+	if strings.TrimSpace(repoURL) != "" {
 		return RepoSourceConfig
 	}
 	return RepoSourceUnspecified
 }
 
-func repoSourceForAlias(env EnvProvider, kctx *kong.Context, repo *string) RepoSelectionSource {
-	if flagExplicit(kctx, "repo") {
+func repoSourceForAlias(env EnvProvider, ctx Context, repo string) RepoSelectionSource {
+	if ctx.FlagExplicit("repo") {
 		return RepoSourceExplicit
 	}
 	if envSet(env, "REMUDA_DEFAULT_REPO") {
 		return RepoSourceEnv
 	}
-	if repo != nil && strings.TrimSpace(derefString(repo)) != "" {
+	if strings.TrimSpace(repo) != "" {
 		return RepoSourceConfig
 	}
 	return RepoSourceUnspecified
-}
-
-func flagExplicit(kctx *kong.Context, name string) bool {
-	if kctx == nil {
-		return false
-	}
-	for _, el := range kctx.Path {
-		if el.Flag != nil && el.Flag.Name == name && !el.Resolved {
-			return true
-		}
-	}
-	return false
 }
 
 func envSet(env EnvProvider, name string) bool {
@@ -145,21 +121,6 @@ func envSet(env EnvProvider, name string) bool {
 		return strings.TrimSpace(val) != ""
 	}
 	return false
-}
-
-func derefString(val *string) string {
-	if val == nil {
-		return ""
-	}
-	return *val
-}
-
-func optionalString(val string) *string {
-	trimmed := strings.TrimSpace(val)
-	if trimmed == "" {
-		return nil
-	}
-	return &trimmed
 }
 
 func firstNonEmpty(values ...string) string {

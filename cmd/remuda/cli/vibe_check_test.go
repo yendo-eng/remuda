@@ -12,19 +12,19 @@ func TestVibeCheckPRURLRepoInferenceBeatsDefaultRepoAlias(t *testing.T) {
 	alias := "widgets"
 	cmd := VibeCheckCmd{
 		CloneRepoOption: CloneRepoOption{
-			Repo: &alias, // default alias via config/env
+			Repo: alias, // default alias via config/env
 		},
 		PRRef: "https://github.com/acme/tools/pull/123",
 	}
 
 	// Mirror the inference order used in VibeCheckCmd.run().
 	sourceHint := RepoSourceUnspecified
-	if prURLRepo := github.RepoURLFromPR(cmd.PRRef); prURLRepo != "" && derefString(cmd.RepoURL) == "" {
-		cmd.RepoURL = optionalString(prURLRepo)
+	if prURLRepo := github.RepoURLFromPR(cmd.PRRef); prURLRepo != "" && cmd.RepoURL == "" {
+		cmd.RepoURL = prURLRepo
 		sourceHint = RepoSourceDerived
 	}
 
-	repoSelection, err := resolveRepoSelection(Context{}, nil, cmd.CloneRepoOption, RepoResolutionOptions{
+	repoSelection, err := resolveRepoSelection(Context{}, cmd.CloneRepoOption, RepoResolutionOptions{
 		AllowFallback: true,
 		SourceHint:    sourceHint,
 	})

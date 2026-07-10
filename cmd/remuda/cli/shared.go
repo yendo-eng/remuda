@@ -10,6 +10,8 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/spf13/cobra"
+	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -20,58 +22,106 @@ import (
 
 // NameWizardOption groups CLI switches that require either --name or --wizard.
 type NameWizardOption struct {
-	Name   string `name:"name" help:"Workspace name; reused as branch (and session) name." xor:"name_or_wizard" required:""`
-	Wizard bool   `name:"wizard" help:"Launch interactive wizard for this command (requires a TTY)." xor:"name_or_wizard"`
+	Name   string
+	Wizard bool
+}
+
+func (o *NameWizardOption) register(cmd *cobra.Command) {
+	fs := cmd.Flags()
+	fs.StringVar(&o.Name, "name", "", "Workspace name; reused as branch (and session) name.")
+	fs.BoolVar(&o.Wizard, "wizard", false, "Launch interactive wizard for this command (requires a TTY).")
+	cmd.MarkFlagsMutuallyExclusive("name", "wizard")
+	cmd.MarkFlagsOneRequired("name", "wizard")
 }
 
 // CloneRepoOption groups the CLI switches for selecting which repo to clone.
 type CloneRepoOption struct {
-	Repo             *string `kong:"env=REMUDA_DEFAULT_REPO,help='Shorthand repository alias to clone; expands to a full URL. Alias values come from config (repos.aliases) or environment-resolved defaults. If omitted and no defaults are set, interactive TTY runs may prompt to choose a default repo (skipped for --wizard/--in or non-interactive).',predictor='repo-alias'"`
-	RepoURL          *string `env:"REMUDA_DEFAULT_REPO_URL" help:"Direct git repository URL to clone. Overrides alias; if neither is set, interactive TTY runs may prompt to choose a default repo (skipped for --wizard/--in or non-interactive)."`
-	Force            bool    `help:"Replace existing workspace if it exists."`
-	SkipCacheRefresh bool    `help:"Skip refreshing the repo cache before cloning. May be out of date with the upstream."`
+	Repo             string
+	RepoURL          string
+	Force            bool
+	SkipCacheRefresh bool
 }
 
-func (o *CloneRepoOption) AfterApply(*Context) error {
-	if o == nil || o.RepoURL == nil {
-		return nil
+func (o *CloneRepoOption) register(cmd *cobra.Command, fl *flagSet) {
+	fs := cmd.Flags()
+	fs.StringVar(&o.Repo, "repo", "", "Shorthand repository alias to clone; expands to a full URL. Alias values come from config (repos.aliases) or environment-resolved defaults. If omitted and no defaults are set, interactive TTY runs may prompt to choose a default repo (skipped for --wizard/--in or non-interactive).")
+	fs.StringVar(&o.RepoURL, "repo-url", "", "Direct git repository URL to clone. Overrides alias; if neither is set, interactive TTY runs may prompt to choose a default repo (skipped for --wizard/--in or non-interactive).")
+	fs.BoolVar(&o.Force, "force", false, "Replace existing workspace if it exists.")
+	fs.BoolVar(&o.SkipCacheRefresh, "skip-cache-refresh", false, "Skip refreshing the repo cache before cloning. May be out of date with the upstream.")
+	fl.bind("repo", bindEnvs("REMUDA_DEFAULT_REPO"), bindKey("repos.default_repo"))
+	fl.bind("repo-url", bindEnvs("REMUDA_DEFAULT_REPO_URL"), bindKey("repos.default_repo_url"))
+	registerRepoAliasCompletion(cmd, "repo")
+}
+
+// normalize expands a shorthand repo URL after flag resolution.
+func (o *CloneRepoOption) normalize() {
+	if strings.TrimSpace(o.RepoURL) != "" {
+		o.RepoURL = github.ExpandRepoURL(o.RepoURL)
 	}
-	o.RepoURL = optionalString(github.ExpandRepoURL(*o.RepoURL))
-	return nil
+}
+
+// repoSelection derives the repo selection (and slug for per_repo overlays)
+// from the resolved flag values, without interactive fallbacks.
+func (o CloneRepoOption) repoSelection(ctx Context, opts RepoResolutionOptions) RepoSelection {
+	opts.AllowFallback = false
+	selection, err := resolveRepoSelection(ctx, o, opts)
+	if err != nil {
+		return RepoSelection{}
+	}
+	return selection
 }
 
 type FullCloneOption struct {
-	FullClone bool `name:"full-clone" negatable:"" help:"Clone the entire repository instead of creating a linked worktree (slower, higher disk usage)."`
+	FullClone bool
+}
+
+func (o *FullCloneOption) register(cmd *cobra.Command, fl *flagSet) {
+	cmd.Flags().BoolVar(&o.FullClone, "full-clone", false, "Clone the entire repository instead of creating a linked worktree (slower, higher disk usage).")
+	fl.negatable("full-clone")
 }
 
 // CloneHooksOption exposes the shared toggle for skipping built-in clone hooks.
 type CloneHooksOption struct {
-	NoCloneHooks bool `name:"no-clone-hooks" help:"Skip running all post-clone hooks (built-in and config-defined)."`
+	NoCloneHooks bool
 }
 
-type PromptName string
-
-func (b PromptName) String() string {
-	return string(b)
-}
-
-func (b *PromptName) UnmarshalText(text []byte) error {
-	*b = PromptName(text)
-
-	return nil
+func (o *CloneHooksOption) register(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&o.NoCloneHooks, "no-clone-hooks", false, "Skip running all post-clone hooks (built-in and config-defined).")
 }
 
 // ContextEngineeringOptions captures the common flags to help add context to agent
 // sessions.
 type ContextEngineeringOptions struct {
-	Jira         []string     `name:"jira" help:"JIRA ticket ID to prepend as context. Repeatable. For vibe, this also drives default name derivation when --name is omitted."`
-	JiraEndpoint string       `name:"jira-endpoint" env:"REMUDA_JIRA_ENDPOINT" help:"Jira base URL used by --jira context (for example https://your-domain.atlassian.net)."`
-	JiraUser     string       `name:"jira-user" env:"REMUDA_JIRA_USER" help:"Jira user/email used by --jira context authentication."`
-	JiraToken    string       `name:"jira-token" env:"REMUDA_JIRA_API_TOKEN,REMUDA_JIRA_TOKEN" help:"Jira API token used by --jira context authentication. Prefer env/config over direct CLI usage when possible."`
-	SlackThread  []string     `name:"slack-thread" help:"Slack thread URL to import as context (repeatable, requires SLACK_TOKEN)."`
-	GitHubIssue  []string     `name:"github-issue" aliases:"gh-issue" help:"GitHub issue URL or number to prepend as context (repeatable; number requires repo inference)."`
-	Use          []PromptName `kong:"name=use,short=u,help='Prepend one or more saved prompts (repeatable). Custom prompts override built-ins when names collide.',env='REMUDA_USE_PROMPTS',predictor='prompt-name'"`
-	NoUse        []PromptName `kong:"name=no-use,help='Exclude one or more saved prompts (repeatable).',predictor='no-use-prompt-name'"`
+	Jira         []string
+	JiraEndpoint string
+	JiraUser     string
+	JiraToken    string
+	SlackThread  []string
+	GitHubIssue  []string
+	ghIssueAlias []string
+	Use          []string
+	NoUse        []string
+}
+
+func (c *ContextEngineeringOptions) register(cmd *cobra.Command, fl *flagSet) {
+	fs := cmd.Flags()
+	fs.StringSliceVar(&c.Jira, "jira", nil, "JIRA ticket ID to prepend as context. Repeatable. For vibe, this also drives default name derivation when --name is omitted.")
+	fs.StringVar(&c.JiraEndpoint, "jira-endpoint", "", "Jira base URL used by --jira context (for example https://your-domain.atlassian.net).")
+	fs.StringVar(&c.JiraUser, "jira-user", "", "Jira user/email used by --jira context authentication.")
+	fs.StringVar(&c.JiraToken, "jira-token", "", "Jira API token used by --jira context authentication. Prefer env/config over direct CLI usage when possible.")
+	fs.StringSliceVar(&c.SlackThread, "slack-thread", nil, "Slack thread URL to import as context (repeatable, requires SLACK_TOKEN).")
+	fs.StringSliceVar(&c.GitHubIssue, "github-issue", nil, "GitHub issue URL or number to prepend as context (repeatable; number requires repo inference).")
+	fs.StringSliceVar(&c.ghIssueAlias, "gh-issue", nil, "Alias for --github-issue.")
+	fs.Lookup("gh-issue").Hidden = true
+	fs.StringSliceVarP(&c.Use, "use", "u", nil, "Prepend one or more saved prompts (repeatable). Custom prompts override built-ins when names collide.")
+	fs.StringSliceVar(&c.NoUse, "no-use", nil, "Exclude one or more saved prompts (repeatable).")
+	fl.bind("jira-endpoint", bindEnvs("REMUDA_JIRA_ENDPOINT"), bindKey("jira.endpoint"))
+	fl.bind("jira-user", bindEnvs("REMUDA_JIRA_USER"), bindKey("jira.user"))
+	fl.bind("jira-token", bindEnvs("REMUDA_JIRA_API_TOKEN", "REMUDA_JIRA_TOKEN"), bindKey("jira.api_token"))
+	fl.bind("use", bindEnvs("REMUDA_USE_PROMPTS"), bindKey("defaults.use_prompts"), bindMergeConfigSlice())
+	fl.bind("no-use", bindKey("defaults.no_use"))
+	registerPromptNameCompletion(cmd, "use")
+	registerNoUsePromptNameCompletion(cmd, "no-use")
 }
 
 type PromptContextInput struct {
@@ -113,7 +163,7 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 	if len(usePrompts) > 0 {
 		preface := make([]string, 0, len(usePrompts))
 		for _, builtin := range usePrompts {
-			prompt, err := ctx.Remuda.ShowPrompt(builtin.String())
+			prompt, err := ctx.Remuda.ShowPrompt(builtin)
 			if err != nil {
 				return nil, err
 			}
@@ -166,7 +216,7 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 	return addedContext, nil
 }
 
-func (c ContextEngineeringOptions) validatePromptUsage(prompt string, args []string) error {
+func (c ContextEngineeringOptions) validatePromptUsage(ctx Context, prompt string) error {
 	if strings.TrimSpace(prompt) != "" {
 		return nil
 	}
@@ -177,14 +227,14 @@ func (c ContextEngineeringOptions) validatePromptUsage(prompt string, args []str
 
 	// Allow REMUDA_USE_PROMPTS defaults without forcing a prompt when the user omits it.
 	// If --use/-u is explicitly set, fail fast to avoid silently ignoring it.
-	if len(c.Use) > 0 && usesPromptPrefaceFromArgs(args) {
+	if len(c.Use) > 0 && ctx.FlagExplicit("use") {
 		return pkgerrors.New("--use/-u requires a non-empty prompt")
 	}
 
 	return nil
 }
 
-func (c ContextEngineeringOptions) effectiveUsePrompts() []PromptName {
+func (c ContextEngineeringOptions) effectiveUsePrompts() []string {
 	if len(c.Use) == 0 {
 		return nil
 	}
@@ -193,11 +243,11 @@ func (c ContextEngineeringOptions) effectiveUsePrompts() []PromptName {
 	}
 	exclude := make(map[string]struct{}, len(c.NoUse))
 	for _, name := range c.NoUse {
-		exclude[name.String()] = struct{}{}
+		exclude[name] = struct{}{}
 	}
-	kept := make([]PromptName, 0, len(c.Use))
+	kept := make([]string, 0, len(c.Use))
 	for _, name := range c.Use {
-		if _, ok := exclude[name.String()]; ok {
+		if _, ok := exclude[name]; ok {
 			continue
 		}
 		kept = append(kept, name)
@@ -206,39 +256,35 @@ func (c ContextEngineeringOptions) effectiveUsePrompts() []PromptName {
 }
 
 func (c ContextEngineeringOptions) effectiveUsePromptNames() []string {
-	usePrompts := c.effectiveUsePrompts()
-	if len(usePrompts) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(usePrompts))
-	for _, prompt := range usePrompts {
-		names = append(names, prompt.String())
-	}
-	return names
+	return c.effectiveUsePrompts()
 }
 
 func (c ContextEngineeringOptions) validatePromptNames(ctx Context) error {
 	if len(c.Use) == 0 && len(c.NoUse) == 0 {
 		return nil
 	}
-	names := make([]PromptName, 0, len(c.Use)+len(c.NoUse))
+	names := make([]string, 0, len(c.Use)+len(c.NoUse))
 	names = append(names, c.Use...)
 	names = append(names, c.NoUse...)
 	checked := make(map[string]struct{}, len(names))
 	for _, name := range names {
-		nameStr := name.String()
-		if _, ok := checked[nameStr]; ok {
+		if _, ok := checked[name]; ok {
 			continue
 		}
-		checked[nameStr] = struct{}{}
-		if _, err := ctx.Remuda.ShowPrompt(nameStr); err != nil {
+		checked[name] = struct{}{}
+		if _, err := ctx.Remuda.ShowPrompt(name); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *ContextEngineeringOptions) AfterApply(ctx *Context) error {
+func (c *ContextEngineeringOptions) afterApply(ctx Context) error {
+	if len(c.ghIssueAlias) > 0 {
+		c.GitHubIssue = append(c.GitHubIssue, c.ghIssueAlias...)
+		c.ghIssueAlias = nil
+	}
+
 	normalizedJira, err := normalizeAndValidateJiraKeys(c.Jira)
 	if err != nil {
 		return err
@@ -248,15 +294,7 @@ func (c *ContextEngineeringOptions) AfterApply(ctx *Context) error {
 	c.JiraUser = strings.TrimSpace(c.JiraUser)
 	c.JiraToken = strings.TrimSpace(c.JiraToken)
 
-	if ctx == nil {
-		return nil
-	}
-
-	return c.validatePromptNames(*ctx)
-}
-
-func (c ContextEngineeringOptions) hasUsePrompts() bool {
-	return len(c.effectiveUsePrompts()) > 0
+	return c.validatePromptNames(ctx)
 }
 
 func shouldAddMainPromptMarker(wrapUsePrompts bool, usePromptsSelected bool) bool {
@@ -265,9 +303,18 @@ func shouldAddMainPromptMarker(wrapUsePrompts bool, usePromptsSelected bool) boo
 
 // SessionLaunchOptions captures the common session-manager flags shared by session-like commands.
 type SessionLaunchOptions struct {
-	Detached bool `negatable:"" default:"true" help:"Run the session in the background with your configured terminal multiplexer."`
-	NoTmux   bool `hidden:"" help:"Run without the configured session manager (detached tmux by default)."`
-	Attach   bool `name:"attach" help:"Attach to the session immediately after launching (requires detached mode)."`
+	Detached bool
+	NoTmux   bool
+	Attach   bool
+}
+
+func (o *SessionLaunchOptions) register(cmd *cobra.Command, fl *flagSet) {
+	fs := cmd.Flags()
+	fs.BoolVar(&o.Detached, "detached", true, "Run the session in the background with your configured terminal multiplexer.")
+	fs.BoolVar(&o.NoTmux, "no-tmux", false, "Run without the configured session manager (detached tmux by default).")
+	fs.Lookup("no-tmux").Hidden = true
+	fs.BoolVar(&o.Attach, "attach", false, "Attach to the session immediately after launching (requires detached mode).")
+	fl.negatable("detached")
 }
 
 func (o SessionLaunchOptions) DetachedMode() bool {
@@ -276,17 +323,32 @@ func (o SessionLaunchOptions) DetachedMode() bool {
 
 // AgentSessionOptions captures the common agent configuration flags shared by vibe commands.
 type AgentSessionOptions struct {
-	SessionLaunchOptions `embed:""`
+	SessionLaunchOptions
 
-	// Agent enum tag must match enums.ValidAgents; see shared_test.go for enforcement.
-	Agent          string   `name:"agent" default:"codex" enum:"codex,opencode,claude,bash" help:"Built-in agent to use (codex|opencode|claude|bash)." env:"REMUDA_AGENT"`
-	Model          string   `name:"model" env:"REMUDA_MODEL" help:"Specific model to use. Use agent-default to omit any model flag and let the agent CLI choose its own default." predictor:"model"`
-	ReasoningLevel string   `name:"reasoning-level" env:"REMUDA_REASONING_LEVEL" help:"Reasoning level for codex/claude (none|minimal|low|medium|high|xhigh for codex; passed through to claude --effort for claude)." predictor:"reasoning-level"`
-	AgentCmd       string   `name:"agent-cmd" help:"Override the agent command entirely."`
-	AgentArg       []string `name:"agent-arg" sep:"none" help:"Additional argument to append to the selected built-in agent command (repeatable). Ignored when --agent-cmd is set."`
+	Agent          string
+	Model          string
+	ReasoningLevel string
+	AgentCmd       string
+	AgentArg       []string
 }
 
-func (o *AgentSessionOptions) AfterApply(*Context) error {
+func (o *AgentSessionOptions) register(cmd *cobra.Command, fl *flagSet) {
+	o.SessionLaunchOptions.register(cmd, fl)
+	fs := cmd.Flags()
+	fs.StringVar(&o.Agent, "agent", "codex", "Built-in agent to use (codex|opencode|claude|bash).")
+	fs.StringVar(&o.Model, "model", "", "Specific model to use. Use agent-default to omit any model flag and let the agent CLI choose its own default.")
+	fs.StringVar(&o.ReasoningLevel, "reasoning-level", "", "Reasoning level for codex/claude (none|minimal|low|medium|high|xhigh for codex; passed through to claude --effort for claude).")
+	fs.StringVar(&o.AgentCmd, "agent-cmd", "", "Override the agent command entirely.")
+	fs.StringArrayVar(&o.AgentArg, "agent-arg", nil, "Additional argument to append to the selected built-in agent command (repeatable). Ignored when --agent-cmd is set.")
+	fl.bind("agent", bindEnvs("REMUDA_AGENT"), bindKey("defaults.agent"), bindEnum(enums.ValidAgents...))
+	fl.bind("model", bindEnvs("REMUDA_MODEL"), bindKey("defaults.model"))
+	fl.bind("reasoning-level", bindEnvs("REMUDA_REASONING_LEVEL"), bindKey("defaults.reasoning_level"))
+	fl.bind("agent-cmd", bindKey("defaults.agent_cmd"))
+	registerModelCompletion(cmd)
+	registerReasoningLevelCompletion(cmd)
+}
+
+func (o *AgentSessionOptions) afterApply() error {
 	for i, arg := range o.AgentArg {
 		if strings.TrimSpace(arg) == "" {
 			return pkgerrors.Errorf("--agent-arg[%d]: agent arg cannot be empty", i)
@@ -297,19 +359,47 @@ func (o *AgentSessionOptions) AfterApply(*Context) error {
 
 // APIKeyOptions manages CLI flags and env fallback for agent API keys.
 type APIKeyOptions struct {
-	OpenAIAPIKey string `name:"openai-api-key" help:"OpenAI API key to pass to agents (overrides env lookup)." env:"OPENAI_API_KEY"`
+	OpenAIAPIKey string
+}
+
+func (o *APIKeyOptions) register(cmd *cobra.Command, fl *flagSet) {
+	cmd.Flags().StringVar(&o.OpenAIAPIKey, "openai-api-key", "", "OpenAI API key to pass to agents (overrides env lookup).")
+	fl.bind("openai-api-key", bindEnvs("OPENAI_API_KEY"))
 }
 
 // SlugifyOptions captures configuration for LLM-backed slugify.
 type SlugifyOptions struct {
-	SlugifyReasoningLevel string `name:"slugify-reasoning-level" env:"REMUDA_SLUGIFY_REASONING_LEVEL" default:"low" enum:"none,minimal,low,medium,high,xhigh" help:"Reasoning level for slugify (none|minimal|low|medium|high|xhigh)." predictor:"slugify-reasoning-level"`
+	SlugifyReasoningLevel string
+}
+
+func (o *SlugifyOptions) register(cmd *cobra.Command, fl *flagSet) {
+	cmd.Flags().StringVar(&o.SlugifyReasoningLevel, "slugify-reasoning-level", "low", "Reasoning level for slugify (none|minimal|low|medium|high|xhigh).")
+	fl.bind("slugify-reasoning-level",
+		bindEnvs("REMUDA_SLUGIFY_REASONING_LEVEL"),
+		bindKey("defaults.slugify_reasoning_level"),
+		bindEnum(enums.ValidSlugifyReasoningLevels...),
+	)
+	registerStaticCompletion(cmd, "slugify-reasoning-level", enums.ValidSlugifyReasoningLevels)
 }
 
 type VibeContainerOptions struct {
-	Container           bool     `name:"container" env:"REMUDA_CONTAINER" negatable:"" help:"Run session inside a Docker container."`
-	ContainerName       string   `name:"container-name" help:"Container image to use when --container is set."`
-	ContainerOpt        []string `name:"container-opt" env:"REMUDA_CONTAINER_OPTS" help:"Append raw docker run argument (repeatable)."`
-	ContainerInheritEnv []string `name:"container-inherit-env" env:"REMUDA_CONTAINER_INHERIT_ENVS" help:"Forward host env var into container (repeatable)."`
+	Container           bool
+	ContainerName       string
+	ContainerOpt        []string
+	ContainerInheritEnv []string
+}
+
+func (o *VibeContainerOptions) register(cmd *cobra.Command, fl *flagSet) {
+	fs := cmd.Flags()
+	fs.BoolVar(&o.Container, "container", false, "Run session inside a Docker container.")
+	fs.StringVar(&o.ContainerName, "container-name", "", "Container image to use when --container is set.")
+	fs.StringSliceVar(&o.ContainerOpt, "container-opt", nil, "Append raw docker run argument (repeatable).")
+	fs.StringSliceVar(&o.ContainerInheritEnv, "container-inherit-env", nil, "Forward host env var into container (repeatable).")
+	fl.negatable("container")
+	fl.bind("container", bindEnvs("REMUDA_CONTAINER"), bindKey("defaults.container.enabled"))
+	fl.bind("container-name", bindKey("defaults.container.image"))
+	fl.bind("container-opt", bindEnvs("REMUDA_CONTAINER_OPTS"), bindKey("defaults.container.opts"))
+	fl.bind("container-inherit-env", bindEnvs("REMUDA_CONTAINER_INHERIT_ENVS"), bindKey("defaults.container.inherit_env"))
 }
 
 func (o VibeContainerOptions) Validate() error {
@@ -340,7 +430,27 @@ func validateContainerImageSelection(containerEnabled bool, containerImage strin
 const experimentUsePromptsContextWrapper = "use-prompts-context-wrapper"
 
 type ExperimentsOption struct {
-	Experiments string `name:"experiments" env:"REMUDA_EXPERIMENTS" help:"Enable experimental features (comma- or whitespace-separated list)."`
+	Experiments string
+}
+
+func (o *ExperimentsOption) register(cmd *cobra.Command, fl *flagSet) {
+	cmd.Flags().StringVar(&o.Experiments, "experiments", "", "Enable experimental features (comma- or whitespace-separated list).")
+	fl.bind("experiments", bindEnvs("REMUDA_EXPERIMENTS"), bindKey("defaults.experiments"))
+}
+
+// registerProfileFlag adds the --profile flag shared by profile-aware
+// commands. REMUDA_PROFILE and per_repo profile selection are handled by
+// selectProfile, not by flag binding.
+func registerProfileFlag(cmd *cobra.Command, target *string) {
+	cmd.Flags().StringVarP(target, "profile", "p", "", "Config profile name to apply from config.yaml (profiles section).")
+	registerProfileNameCompletion(cmd, "profile")
+}
+
+// registerYoloFlag adds the shared --yolo/--no-yolo flag.
+func registerYoloFlag(cmd *cobra.Command, fl *flagSet, target *bool) {
+	cmd.Flags().BoolVar(target, "yolo", false, "Ignore sandboxing/approvals for supported agents (Codex/Claude).")
+	fl.negatable("yolo")
+	fl.bind("yolo", bindEnvs("REMUDA_YOLO"), bindKey("defaults.yolo"))
 }
 
 func (o ExperimentsOption) ExperimentEnabled(name string) bool {
@@ -376,8 +486,17 @@ func splitFlexibleList(input string) []string {
 }
 
 type SessionNamePickOption struct {
-	Name string `kong:"required,xor=namepick,help='Session name (org/repo/<name>).',predictor='session-name'"`
-	Pick bool   `kong:"required,xor=namepick,help='Use fzf to pick a session interactively when name is omitted.'"`
+	Name string
+	Pick bool
+}
+
+func (o *SessionNamePickOption) register(cmd *cobra.Command) {
+	fs := cmd.Flags()
+	fs.StringVar(&o.Name, "name", "", "Session name (org/repo/<name>).")
+	fs.BoolVar(&o.Pick, "pick", false, "Use fzf to pick a session interactively when name is omitted.")
+	cmd.MarkFlagsMutuallyExclusive("name", "pick")
+	cmd.MarkFlagsOneRequired("name", "pick")
+	registerSessionNameCompletion(cmd, "name")
 }
 
 func pickSessionNames(ctx Context, multi bool) ([]string, error) {
@@ -411,7 +530,8 @@ func pickSessionNames(ctx Context, multi bool) ([]string, error) {
 // The multi argument controls whether fzf permits selecting more than one session.
 func (o SessionNamePickOption) SessionNames(ctx Context, multi bool) ([]string, error) {
 	if o.Name == "" && !o.Pick {
-		// I can't seem to get kong's xor tag to work here, so manually enforce it.
+		// Callers like `session readbuf` construct this option directly, so
+		// enforce the one-of requirement here as well as at flag level.
 		return nil, pkgerrors.New("--name or --pick is required")
 	}
 

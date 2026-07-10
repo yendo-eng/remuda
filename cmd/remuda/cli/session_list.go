@@ -3,13 +3,26 @@ package cli
 import (
 	"encoding/json"
 
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
 // SessionListCmd lists sessions. It filters for Remuda-style names by default.
 type SessionListCmd struct {
-	JSON  bool `name:"json" help:"Emit JSON instead of plain text."`
-	NoOrg bool `name:"no-org" help:"Omit the leading org segment from session names."`
+	JSON  bool
+	NoOrg bool
+}
+
+func (a *app) sessionListCmd() *cobra.Command {
+	c := &SessionListCmd{}
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List active sessions created by Remuda.",
+		Args:  cobra.NoArgs,
+	}
+	cmd.Flags().BoolVar(&c.JSON, "json", false, "Emit JSON instead of plain text.")
+	cmd.Flags().BoolVar(&c.NoOrg, "no-org", false, "Omit the leading org segment from session names.")
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
 }
 
 func (c *SessionListCmd) Run(ctx Context) error {

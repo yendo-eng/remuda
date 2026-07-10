@@ -8,18 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/require"
-	"github.com/yendo-eng/remuda/cmd/remuda/cli"
 	"github.com/yendo-eng/remuda/internal/util"
 )
-
-func RemudaParser(t *testing.T) (*kong.Kong, *cli.CLI) {
-	c := cli.CLI{}
-	parser, err := kong.New(&c, kong.Name("remuda"), kong.Bind(&cli.Context{}))
-	require.NoError(t, err)
-	return parser, &c
-}
 
 func RunGit(t *testing.T, dir string, args ...string) string {
 	return RunGitWithOverrides(t, dir, nil, args...)

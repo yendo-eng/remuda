@@ -1,16 +1,36 @@
 package cli
 
-// SessionCmd is a grouping command for session management.
-type SessionCmd struct {
-	List     SessionListCmd     `cmd:"" help:"List active sessions created by Remuda."`
-	Attach   SessionAttachCmd   `cmd:"" help:"Attach to an existing session."`
-	Readbuf  SessionReadbufCmd  `cmd:"" help:"Print the current pane buffer for logs (tail)."`
-	Send     SessionSendCmd     `cmd:"" help:"Send a prompt to a running session."`
-	Path     SessionPathCmd     `cmd:"" help:"Print the absolute workspace path for a session."`
-	Kill     SessionKillCmd     `cmd:"" help:"Kill one or all sessions (optionally clean up workspace)."`
-	Inactive SessionInactiveCmd `cmd:"" help:"Print inactive workspace paths (no active session), one per line."`
-	Resume   SessionResumeCmd   `cmd:"" help:"Resume the most recent supported agent session in an inactive workspace."`
-	Reap     SessionReapCmd     `cmd:"" help:"Kill active sessions older than a threshold (safe with --dry-run)."`
-	Shell    SessionShellCmd    `cmd:"" help:"Open a shell for a session (container when available; use --host to force a host shell in the workspace)."`
-	Edit     SessionEditCmd     `cmd:"" help:"Open the workspace for a session in your configured editor."`
+import "github.com/spf13/cobra"
+
+func (a *app) sessionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "session",
+		Short: "Manage running sessions (tmux or zellij).",
+	}
+	cmd.AddCommand(
+		a.sessionListCmd(),
+		a.sessionAttachCmd(),
+		a.sessionReadbufCmd(),
+		a.sessionSendCmd(),
+		a.sessionPathCmd(),
+		a.sessionKillCmd(),
+		a.sessionInactiveCmd(),
+		a.sessionResumeCmd(),
+		a.sessionReapCmd(),
+		a.sessionShellCmd(),
+		a.sessionEditCmd(),
+	)
+	return cmd
+}
+
+// simpleCmd wires a command with no repo/profile resolution: assign
+// positionals (if any), run the standard prepare pipeline, then the body.
+func (a *app) simpleCmd(cmd *cobra.Command, fl *flagSet, body func(args []string) error) *cobra.Command {
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if err := a.prepare(cmd, prepareOpts{fl: fl}); err != nil {
+			return err
+		}
+		return body(args)
+	}
+	return cmd
 }

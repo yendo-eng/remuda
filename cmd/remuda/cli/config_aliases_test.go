@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +10,20 @@ import (
 	"github.com/yendo-eng/remuda/cmd/remuda/cli"
 	"github.com/yendo-eng/remuda/internal/github"
 )
+
+// loadConfigThroughCLI runs a no-op command so the bootstrap loads the config
+// file and merges repo aliases, mirroring real invocations.
+func loadConfigThroughCLI(t *testing.T, env cli.EnvMap, home string) error {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	ctx := newTestContext(t, env,
+		cli.WithHomeDir(home),
+		cli.WithWorkingDir(home),
+		cli.Stdout(&stdout),
+		cli.Stderr(&stderr),
+	)
+	return cli.Run(ctx, []string{"config", "validate"})
+}
 
 // These tests mutate the global repo alias registry; keep them serial.
 func TestConfig_MergesRepoAliases(t *testing.T) {
@@ -19,8 +34,6 @@ func TestConfig_MergesRepoAliases(t *testing.T) {
 		"REMUDA_CONFIG":   "",
 		"XDG_CONFIG_HOME": "",
 	}
-	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
-
 	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -31,9 +44,7 @@ repos:
 `), 0o644))
 
 	// Load config to trigger alias merge
-	opts, err := cli.LoadConfigForKongWithContext(ctx)
-	require.NoError(t, err)
-	require.NotEmpty(t, opts)
+	require.NoError(t, loadConfigThroughCLI(t, env, home))
 
 	url, ok := github.ExpandRepoAlias("myrepo")
 	require.True(t, ok)
@@ -51,8 +62,6 @@ func TestConfig_AliasConfiguredThroughFile(t *testing.T) {
 		"REMUDA_CONFIG":   "",
 		"XDG_CONFIG_HOME": "",
 	}
-	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
-
 	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -62,8 +71,7 @@ repos:
     remuda: https://github.com/custom/remuda-fork.git
 `), 0o644))
 
-	_, err := cli.LoadConfigForKongWithContext(ctx)
-	require.NoError(t, err)
+	require.NoError(t, loadConfigThroughCLI(t, env, home))
 
 	url, ok := github.ExpandRepoAlias("remuda")
 	require.True(t, ok)
@@ -78,8 +86,6 @@ func TestConfig_AliasCaseNormalization(t *testing.T) {
 		"REMUDA_CONFIG":   "",
 		"XDG_CONFIG_HOME": "",
 	}
-	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
-
 	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -89,8 +95,7 @@ repos:
     MyRepo: https://github.com/acme/myrepo.git
 `), 0o644))
 
-	_, err := cli.LoadConfigForKongWithContext(ctx)
-	require.NoError(t, err)
+	require.NoError(t, loadConfigThroughCLI(t, env, home))
 
 	// Should match case-insensitively
 	url, ok := github.ExpandRepoAlias("myrepo")
@@ -110,8 +115,6 @@ func TestConfig_AliasValueTrimmed(t *testing.T) {
 		"REMUDA_CONFIG":   "",
 		"XDG_CONFIG_HOME": "",
 	}
-	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
-
 	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -121,8 +124,7 @@ repos:
     spacey: "  https://github.com/acme/spacey.git  "
 `), 0o644))
 
-	_, err := cli.LoadConfigForKongWithContext(ctx)
-	require.NoError(t, err)
+	require.NoError(t, loadConfigThroughCLI(t, env, home))
 
 	url, ok := github.ExpandRepoAlias("spacey")
 	require.True(t, ok)
@@ -137,8 +139,6 @@ func TestConfig_AliasRejectsDashPrefix(t *testing.T) {
 		"REMUDA_CONFIG":   "",
 		"XDG_CONFIG_HOME": "",
 	}
-	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
-
 	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -149,7 +149,7 @@ repos:
 `), 0o644))
 
 	// Config with dash-prefixed URL should fail validation
-	_, err := cli.LoadConfigForKongWithContext(ctx)
+	err := loadConfigThroughCLI(t, env, home)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot start with '-'")
 }
@@ -162,8 +162,6 @@ func TestConfig_AliasRejectsEmptyURL(t *testing.T) {
 		"REMUDA_CONFIG":   "",
 		"XDG_CONFIG_HOME": "",
 	}
-	ctx := newTestContext(t, env, cli.WithHomeDir(home), cli.WithWorkingDir(home))
-
 	configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -174,7 +172,7 @@ repos:
 `), 0o644))
 
 	// Config with empty URL should fail validation
-	_, err := cli.LoadConfigForKongWithContext(ctx)
+	err := loadConfigThroughCLI(t, env, home)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot be empty")
 }
