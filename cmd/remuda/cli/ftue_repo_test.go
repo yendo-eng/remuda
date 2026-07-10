@@ -348,6 +348,77 @@ func TestResolveRepoSelectionWithFTUE_AppliesPerRepoContainerOverlay(t *testing.
 	require.Equal(t, opts, container.ContainerOpt)
 }
 
+// Guards the re-entrant resolution contract: a flag set explicitly on the
+// command line must survive both the pre-FTUE apply pass (prepare, with no
+// slug known yet) and the post-selection apply pass (ApplyRepoOverlays with
+// the real slug) unchanged, and the --use merge must recompute against the
+// user's original flag value rather than compounding the first pass's merge.
+func TestResolveRepoSelectionWithFTUE_ExplicitFlagsSurviveReResolution(t *testing.T) {
+	installFTUEAliases(t)
+
+	tty := openDevNullTTY(t)
+	orig := ftueSelectRepoFn
+	t.Cleanup(func() {
+		ftueSelectRepoFn = orig
+	})
+	ftueSelectRepoFn = func() (repoChoice, bool, error) {
+		return repoChoice{Alias: "remuda"}, false, nil
+	}
+
+	baseUsePrompts := []string{"base-prompt"}
+	overlayImage := "ghcr.io/acme/overlay-image:latest"
+	overlayUsePrompts := []string{"repo-prompt"}
+	cfg := &configfile.V1{
+		Version: 1,
+		Defaults: &configfile.DefaultsV1{
+			UsePrompts: &baseUsePrompts,
+		},
+		PerRepo: map[string]configfile.OverlayV1{
+			"acme/remuda": {
+				Defaults: &configfile.DefaultsV1{
+					Container:  &configfile.ContainerV1{Image: &overlayImage},
+					UsePrompts: &overlayUsePrompts,
+				},
+			},
+		},
+	}
+
+	env := EnvMap{}
+	ctx := NewContext(
+		context.Background(),
+		internal.Remuda{
+			IO: internal.IO{
+				In:  tty,
+				Out: tty,
+				Err: &bytes.Buffer{},
+			},
+		},
+		WithEnv(env),
+	)
+	ctx.ConfigFile = cfg
+	container, contextEng := attachTestInvocationWithFlags(t, &ctx, cfg,
+		[]string{"--container-name", "explicit-image", "--use", "explicit-prompt"})
+
+	// Simulate prepare()'s first overlay pass, before the repo slug is known.
+	require.NoError(t, ctx.ApplyRepoOverlays(""))
+	require.Equal(t, "explicit-image", container.ContainerName)
+	require.Equal(t, []string{"base-prompt", "explicit-prompt"}, contextEng.Use)
+
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
+		AllowFallback: true,
+	}, true)
+	require.NoError(t, err)
+	require.Equal(t, RepoSourceExplicit, selection.Source)
+
+	// --container-name has no merge semantics: it must stay exactly what the
+	// user passed, even though the per_repo overlay sets a different image.
+	require.Equal(t, "explicit-image", container.ContainerName)
+	// --use merges with config, but must recompute against the ORIGINAL flag
+	// value each pass: "explicit-prompt" alone, not "base-prompt" carried over
+	// from the first pass's merge.
+	require.Equal(t, []string{"repo-prompt", "explicit-prompt"}, contextEng.Use)
+}
+
 func TestResolveRepoSelectionWithFTUE_UnknownPerRepoProfileReturnsError(t *testing.T) {
 	installFTUEAliases(t)
 

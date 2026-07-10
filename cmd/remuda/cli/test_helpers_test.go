@@ -68,3 +68,29 @@ func attachTestInvocationWithContainerFlags(t *testing.T, ctx *Context, cfg *con
 	}
 	return container
 }
+
+// attachTestInvocationWithFlags registers VibeContainerOptions and
+// ContextEngineeringOptions, parses args (so flags set there are snapshotted
+// as explicit by beginResolution), and attaches the resulting invocation to
+// ctx. Used to assert that explicitly-set flags survive repeated overlay
+// re-resolution passes.
+func attachTestInvocationWithFlags(t *testing.T, ctx *Context, cfg *configfile.V1, args []string) (*VibeContainerOptions, *ContextEngineeringOptions) {
+	t.Helper()
+	a := &app{kctx: ctx, cfg: cfg}
+	cmd := &cobra.Command{Use: "test"}
+	fl := newFlagSet(cmd.Flags())
+	container := &VibeContainerOptions{}
+	container.register(cmd, fl)
+	contextEng := &ContextEngineeringOptions{}
+	contextEng.register(cmd, fl)
+	require.NoError(t, cmd.Flags().Parse(args))
+	rs, err := beginResolution(fl)
+	require.NoError(t, err)
+	ctx.inv = &invocation{
+		app: a,
+		cmd: cmd,
+		rs:  rs,
+		env: envFromContext(*ctx),
+	}
+	return container, contextEng
+}
