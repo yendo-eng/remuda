@@ -41,3 +41,30 @@ func attachTestInvocation(t *testing.T, ctx *Context, cfg *configfile.V1, profil
 		profiled: profiled,
 	}
 }
+
+// attachTestInvocationWithContainerFlags is like attachTestInvocation, but
+// also registers VibeContainerOptions so tests can assert that flag-bound
+// struct fields (not just the effective config view) are re-resolved by
+// overlay re-resolution.
+func attachTestInvocationWithContainerFlags(t *testing.T, ctx *Context, cfg *configfile.V1, profiled bool) *VibeContainerOptions {
+	t.Helper()
+	a := &app{kctx: ctx, cfg: cfg}
+	cmd := &cobra.Command{Use: "test"}
+	fl := newFlagSet(cmd.Flags())
+	if profiled {
+		var profile string
+		registerProfileFlag(cmd, &profile)
+	}
+	container := &VibeContainerOptions{}
+	container.register(cmd, fl)
+	rs, err := beginResolution(fl)
+	require.NoError(t, err)
+	ctx.inv = &invocation{
+		app:      a,
+		cmd:      cmd,
+		rs:       rs,
+		env:      envFromContext(*ctx),
+		profiled: profiled,
+	}
+	return container
+}
