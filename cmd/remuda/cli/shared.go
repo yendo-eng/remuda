@@ -344,6 +344,7 @@ func (o *AgentSessionOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fl.bind("model", bindEnvs("REMUDA_MODEL"), bindKey("defaults.model"))
 	fl.bind("reasoning-level", bindEnvs("REMUDA_REASONING_LEVEL"), bindKey("defaults.reasoning_level"))
 	fl.bind("agent-cmd", bindKey("defaults.agent_cmd"))
+	registerStaticCompletion(cmd, "agent", enums.ValidAgents)
 	registerModelCompletion(cmd)
 	registerReasoningLevelCompletion(cmd)
 }
