@@ -226,6 +226,50 @@ per_repo:
 		require.Equal(t, "claude", value)
 	})
 
+	t.Run("pick applies per_repo container defaults", func(t *testing.T) {
+		baseDir, mgr, k := setup(t)
+		k.Docker = &docker.Mock{Running: true}
+		workspace := filepath.Join(baseDir, "org", "repo", "folder")
+		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+		tty, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = tty.Close() })
+		k.IO = internal.IO{In: tty, Out: tty, Err: tty}
+
+		binDir := t.TempDir()
+		fzfPath := filepath.Join(binDir, "fzf")
+		require.NoError(t, os.WriteFile(fzfPath, []byte("#!/bin/sh\nread -r line1\nprintf '%s\\n' \"$line1\"\n"), 0o755))
+
+		configPath := filepath.Join(t.TempDir(), "config.yaml")
+		require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+per_repo:
+  org/repo:
+    defaults:
+      container:
+        enabled: true
+        image: ghcr.io/acme/vibe-dev:latest
+        opts:
+          - --memory=2g
+`), 0o644))
+
+		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
+		delete(pickEnv, "REMUDA_CONTAINER")
+		pickEnv["REMUDA_CONFIG"] = configPath
+		pickEnv["GH_TOKEN"] = "test-token"
+		pickEnv["PATH"] = binDir + string(os.PathListSeparator) + pickEnv["PATH"]
+
+		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(pickEnv), cli.WithHomeDir(pickEnv["HOME"]))
+		err = cli.Run(ctx, []string{"session", "resume", "--pick"})
+		require.NoError(t, err)
+
+		sess := mgr.FindSession("org/repo/folder")
+		require.NotNil(t, sess)
+		require.Contains(t, sess.CommandRan, "docker run --rm -it")
+		require.Contains(t, sess.CommandRan, "ghcr.io/acme/vibe-dev:latest")
+		require.Contains(t, sess.CommandRan, "--memory=2g")
+	})
+
 	t.Run("pick respects session.prune.ignore patterns", func(t *testing.T) {
 		baseDir, mgr, k := setup(t)
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
