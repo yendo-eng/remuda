@@ -91,13 +91,18 @@ type flagResolution struct {
 	// explicitSlices holds the user-provided values of mergeConfigSlice
 	// flags, so repeated resolution passes merge against the original flag
 	// values rather than compounding earlier merges.
-	explicitSlices map[string][]string
+	explicitSlices map[string]explicitSlice
+}
+
+type explicitSlice struct {
+	value    pflag.SliceValue
+	original []string
 }
 
 // beginResolution snapshots explicitly-set flags and reconciles hidden
 // --no-<flag> negations into their target flags.
 func beginResolution(sets ...*flagSet) (*flagResolution, error) {
-	r := &flagResolution{sets: sets, explicit: map[string]bool{}, explicitSlices: map[string][]string{}}
+	r := &flagResolution{sets: sets, explicit: map[string]bool{}, explicitSlices: map[string]explicitSlice{}}
 	for _, set := range sets {
 		set.fs.Visit(func(fl *pflag.Flag) {
 			r.explicit[fl.Name] = true
@@ -123,7 +128,10 @@ func beginResolution(sets ...*flagSet) (*flagResolution, error) {
 			if !ok {
 				return nil, pkgerrors.Errorf("flag --%s: mergeConfigSlice requires a slice flag", name)
 			}
-			r.explicitSlices[name] = append([]string(nil), sv.GetSlice()...)
+			r.explicitSlices[name] = explicitSlice{
+				value:    sv,
+				original: append([]string(nil), sv.GetSlice()...),
+			}
 		}
 	}
 	return r, nil
@@ -162,8 +170,8 @@ func (r *flagResolution) applyOne(fl *pflag.Flag, b *flagBinding, env EnvProvide
 		if !b.mergeConfigSlice || envIsSet || cfg == nil || b.key == "" || !cfg.Exists(b.key) {
 			return nil
 		}
-		merged := mergeUnique(cfg.Strings(b.key), r.explicitSlices[fl.Name])
-		return fl.Value.(pflag.SliceValue).Replace(merged)
+		snapshot := r.explicitSlices[fl.Name]
+		return snapshot.value.Replace(mergeUnique(cfg.Strings(b.key), snapshot.original))
 	}
 
 	if envIsSet {
