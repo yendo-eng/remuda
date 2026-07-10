@@ -69,6 +69,22 @@ linters:
     - wsl_v5
 
   settings:
+    staticcheck:
+      # Default check set, minus QF1008 ("could remove embedded field from
+      # selector"). CLI command structs embed many option groups with
+      # same-named methods (register/Validate); qualified selectors are only
+      # "removable" when a struct happens to embed a single group, so
+      # following QF1008 yields inconsistent call styles for the same
+      # pattern and breaks when a second group is embedded later.
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        - -QF1008
     gosec:
       excludes:
         # Triaged as high-noise in this codebase:
