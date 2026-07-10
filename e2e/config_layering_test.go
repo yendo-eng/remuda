@@ -113,9 +113,10 @@ func TestConfigLayeringProfileReplacesAppendedContainerOpts(t *testing.T) {
 }
 
 // TestConfigLayeringUseFlagEnvVsProfileMerge covers the --use mergeConfigSlice
-// path (flags.go flagResolution.applyOne): when --use is explicit and
-// REMUDA_USE_PROMPTS is also set, the env value wins outright and the
-// profile's use_prompts never merges in. When the env var is absent, the
+// path (flags.go flagResolution.applyOne): an explicit --use always keeps its
+// own value; REMUDA_USE_PROMPTS being set only suppresses the config-slice
+// merge, so the profile's use_prompts never merges in (the env value itself
+// is never applied to an explicit flag). When the env var is absent, the
 // profile's use_prompts is merged in ahead of the explicit --use value.
 func TestConfigLayeringUseFlagEnvVsProfileMerge(t *testing.T) {
 	t.Parallel()
@@ -200,20 +201,13 @@ profiles:
 func TestConfigLayeringSessionResumeAgentCoercion(t *testing.T) {
 	t.Parallel()
 
-	const config = `
-version: 1
-per_repo:
-  yendo-eng/remuda:
-    defaults:
-      agent: opencode
-`
-
-	newHarness := func(t *testing.T) (*testutils.Harness, *testutils.MockSessionManager, string) {
+	newHarness := func(t *testing.T, configuredAgent string) (*testutils.Harness, *testutils.MockSessionManager, string) {
 		t.Helper()
 		runDir := t.TempDir()
 		workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
 		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
+		config := "version: 1\nper_repo:\n  yendo-eng/remuda:\n    defaults:\n      agent: " + configuredAgent + "\n"
 		configPath := filepath.Join(t.TempDir(), "config.yaml")
 		require.NoError(t, os.WriteFile(configPath, []byte(config), 0o644))
 
@@ -230,7 +224,7 @@ per_repo:
 
 	t.Run("no --agent silently coerces configured opencode to codex", func(t *testing.T) {
 		t.Parallel()
-		h, sessionMgr, workspace := newHarness(t)
+		h, sessionMgr, workspace := newHarness(t, "opencode")
 
 		h.RunOK("session", "resume", workspace)
 
@@ -239,9 +233,25 @@ per_repo:
 		require.Contains(t, recorded.CommandRan, "codex resume --last")
 	})
 
+	// Contrast case: resolveSessionResumeAgent returns "codex" both when the
+	// per_repo overlay is in effect and when no config loads at all, so the
+	// subtest above passes even if the overlay never reaches resume. Proving
+	// per_repo defaults.agent: claude actually resumes as claude confirms the
+	// layer flows (session_resume_test.go only exercises per_repo via --pick).
+	t.Run("no --agent resumes configured claude as claude", func(t *testing.T) {
+		t.Parallel()
+		h, sessionMgr, workspace := newHarness(t, "claude")
+
+		h.RunOK("session", "resume", workspace)
+
+		recorded := sessionMgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
+		require.NotNil(t, recorded)
+		require.Contains(t, recorded.CommandRan, "claude --continue")
+	})
+
 	t.Run("explicit --agent opencode errors despite configured agent", func(t *testing.T) {
 		t.Parallel()
-		h, _, workspace := newHarness(t)
+		h, _, workspace := newHarness(t, "opencode")
 
 		res := h.Run("session", "resume", "--agent", "opencode", workspace)
 		require.ErrorContains(t, res.Err, `session resume unsupported for agent "opencode"`)
@@ -268,9 +278,9 @@ func TestConfigLayeringOpenAIAPIKeyExplicitness(t *testing.T) {
 			testutils.WithSessionManager(sessionMgr),
 			testutils.WithDocker(&docker.Mock{Running: true}),
 		)
-		h.SetEnv("REMUDA_MODEL", "")
+		// Load-bearing: SanitizeProcessEnv does not allowlist OPENAI_API_KEY, so
+		// without this the host's real value would leak into the harness.
 		h.SetEnv("OPENAI_API_KEY", "")
-		h.SetEnv("REMUDA_OPENAI_API_KEY", "")
 		return h, sessionMgr, workspace
 	}
 
@@ -303,18 +313,19 @@ func TestConfigLayeringOpenAIAPIKeyExplicitness(t *testing.T) {
 		require.Equal(t, "env-secret", value)
 	})
 
-	t.Run("empty when neither flag nor env is set", func(t *testing.T) {
+	t.Run("absent when neither flag nor env is set", func(t *testing.T) {
 		t.Parallel()
 		h, sessionMgr, workspace := newHarness(t)
+		// Remove the key entirely (rather than leaving it ""-valued) so a
+		// buggy FlagExplicit misfire that injects EnvOverrides{OPENAI_API_KEY: ""}
+		// is distinguishable from truly unset.
+		delete(h.Env, "OPENAI_API_KEY")
 
 		h.RunOK("vibe", "--in", workspace, "--no-container", "--agent-cmd", "true", "prompt")
 
 		recorded := sessionMgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
 		require.NotNil(t, recorded)
-		// EnvOverrides is nil (unset) in this case, so whatever the host's
-		// OPENAI_API_KEY happened to be (cleared above) passes through
-		// untouched rather than vibe.go injecting a value.
-		value, _ := sessionEnvValue(recorded.StartEnv, "OPENAI_API_KEY")
-		require.Empty(t, value)
+		_, ok := sessionEnvValue(recorded.StartEnv, "OPENAI_API_KEY")
+		require.False(t, ok)
 	})
 }
