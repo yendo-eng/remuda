@@ -289,6 +289,65 @@ func TestResolveRepoSelectionWithFTUE_AppliesPerRepoOverlay(t *testing.T) {
 	require.Equal(t, "https://github.com/acme/utils.git", url)
 }
 
+func TestResolveRepoSelectionWithFTUE_AppliesPerRepoContainerOverlay(t *testing.T) {
+	installFTUEAliases(t)
+
+	tty := openDevNullTTY(t)
+	orig := ftueSelectRepoFn
+	t.Cleanup(func() {
+		ftueSelectRepoFn = orig
+	})
+	ftueSelectRepoFn = func() (repoChoice, bool, error) {
+		return repoChoice{Alias: "remuda"}, false, nil
+	}
+
+	enabled := true
+	image := "ghcr.io/acme/vibe-dev:latest"
+	opts := []string{"--memory=2g"}
+	cfg := &configfile.V1{
+		Version: 1,
+		PerRepo: map[string]configfile.OverlayV1{
+			"acme/remuda": {
+				Defaults: &configfile.DefaultsV1{
+					Container: &configfile.ContainerV1{
+						Enabled: &enabled,
+						Image:   &image,
+						Opts:    &opts,
+					},
+				},
+			},
+		},
+	}
+
+	env := EnvMap{}
+	ctx := NewContext(
+		context.Background(),
+		internal.Remuda{
+			IO: internal.IO{
+				In:  tty,
+				Out: tty,
+				Err: &bytes.Buffer{},
+			},
+		},
+		WithEnv(env),
+	)
+	ctx.ConfigFile = cfg
+	container := attachTestInvocationWithContainerFlags(t, &ctx, cfg, false)
+
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
+		AllowFallback: true,
+	}, true)
+	require.NoError(t, err)
+	require.Equal(t, RepoSourceExplicit, selection.Source)
+
+	// Assert the bound Go struct fields, not just the effective config view:
+	// this is the re-entrant resolution surface that mutates flag.Value state
+	// directly (flags.go), which a config-only assertion would not catch.
+	require.True(t, container.Container)
+	require.Equal(t, image, container.ContainerName)
+	require.Equal(t, opts, container.ContainerOpt)
+}
+
 func TestResolveRepoSelectionWithFTUE_UnknownPerRepoProfileReturnsError(t *testing.T) {
 	installFTUEAliases(t)
 
