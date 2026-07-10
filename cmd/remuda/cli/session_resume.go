@@ -3,28 +3,82 @@ package cli
 import (
 	"strings"
 
-	"github.com/alecthomas/kong"
+	"github.com/knadh/koanf/v2"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
-	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 // SessionResumeCmd resumes the most recent supported agent session in an inactive workspace.
 type SessionResumeCmd struct {
-	AgentSessionOptions       `embed:""`
-	ContextEngineeringOptions `embed:""`
-	APIKeyOptions             `embed:""`
-	VibeContainerOptions      `embed:""`
+	AgentSessionOptions
+	ContextEngineeringOptions
+	APIKeyOptions
+	VibeContainerOptions
 
-	WorkspaceDir string `arg:"" optional:"" name:"workspace-dir" help:"Workspace directory to resume." predictor:"workspace-dir"`
-	Prompt       string `arg:"" optional:"" name:"prompt" help:"Prompt to send after resuming. Use '-' to read from STDIN."`
-	Pick         bool   `name:"pick" help:"Use fzf to interactively select an inactive workspace to resume."`
-	Profile      string `name:"profile" short:"p" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
-	Yolo         bool   `name:"yolo" env:"REMUDA_YOLO" negatable:"" help:"Ignore sandboxing/approvals for supported agents (Codex/Claude)."`
+	WorkspaceDir string
+	Prompt       string
+	Pick         bool
+	Profile      string
+	Yolo         bool
 }
 
-func (c *SessionResumeCmd) Validate() error {
+func (a *app) sessionResumeCmd() *cobra.Command {
+	c := &SessionResumeCmd{}
+	var fl *flagSet
+	cmd := &cobra.Command{
+		Use:   "resume [workspace-dir] [prompt]",
+		Short: "Resume the most recent supported agent session in an inactive workspace.",
+		Long:  "Resume the most recent supported agent session in an inactive workspace. Use '-' as the prompt to read it from STDIN.",
+		Args:  cobra.MaximumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				c.WorkspaceDir = args[0]
+			}
+			if len(args) > 1 {
+				c.Prompt = args[1]
+			}
+			err := a.prepare(cmd, prepareOpts{
+				fl:       fl,
+				profiled: true,
+				slugFn: func() string {
+					if c.Pick || strings.TrimSpace(c.WorkspaceDir) == "" {
+						return ""
+					}
+					return repoSlugFromWorkspacePath(*a.kctx, a.kctx.ConfigFile, c.WorkspaceDir)
+				},
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.AgentSessionOptions.afterApply(); err != nil {
+				return err
+			}
+			if err := c.ContextEngineeringOptions.afterApply(*a.kctx); err != nil {
+				return err
+			}
+			if err := c.validate(); err != nil {
+				return err
+			}
+			return c.Run(*a.kctx)
+		},
+	}
+
+	fl = newFlagSet(cmd.Flags())
+	c.AgentSessionOptions.register(cmd, fl)
+	c.ContextEngineeringOptions.register(cmd, fl)
+	c.APIKeyOptions.register(cmd, fl)
+	c.VibeContainerOptions.register(cmd, fl)
+	cmd.Flags().BoolVar(&c.Pick, "pick", false, "Use fzf to interactively select an inactive workspace to resume.")
+	registerProfileFlag(cmd, &c.Profile)
+	registerYoloFlag(cmd, fl, &c.Yolo)
+	registerWorkspaceDirPositionalCompletion(cmd)
+
+	return cmd
+}
+
+func (c *SessionResumeCmd) validate() error {
 	if err := c.VibeContainerOptions.Validate(); err != nil {
 		return err
 	}
@@ -32,7 +86,7 @@ func (c *SessionResumeCmd) Validate() error {
 	hasWorkspace := strings.TrimSpace(c.WorkspaceDir) != ""
 	hasPrompt := strings.TrimSpace(c.Prompt) != ""
 	if c.Pick && hasWorkspace && !hasPrompt {
-		// In --pick mode Kong binds the first positional into WorkspaceDir.
+		// In --pick mode the first positional binds to WorkspaceDir.
 		// Treat that value as the optional resume prompt.
 		c.Prompt = c.WorkspaceDir
 		c.WorkspaceDir = ""
@@ -53,7 +107,7 @@ func (c *SessionResumeCmd) Validate() error {
 	return nil
 }
 
-func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
+func (c *SessionResumeCmd) Run(ctx Context) error {
 	if c.Pick && !ctx.Remuda.IO.IsTerminal() {
 		return pkgerrors.New("--pick requires an interactive TTY")
 	}
@@ -92,12 +146,11 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 		return pkgerrors.Wrapf(err, "invalid workspace %q", selectedAbs)
 	}
 	if c.Pick {
-		if err := applyPerRepoOverlaysForPickedSessionResume(ctx, kctx, selectedAbs); err != nil {
+		// The picked workspace determines the per_repo overlays.
+		slug := repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, selectedAbs)
+		if err := ctx.ApplyRepoOverlays(slug); err != nil {
 			return err
 		}
-	}
-	if err := applyDefaultsToSessionResume(c, kctx, ctx.ConfigFile, envFromContext(ctx)); err != nil {
-		return err
 	}
 	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
 		return err
@@ -110,17 +163,13 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 	if strings.TrimSpace(c.Prompt) == "" {
 		c.Prompt = ""
 	}
-	var invocationArgs []string
-	if kctx != nil {
-		invocationArgs = kctx.Args
-	}
-	if err := c.validatePromptUsage(c.Prompt, invocationArgs); err != nil {
+	if err := c.validatePromptUsage(ctx, c.Prompt); err != nil {
 		return err
 	}
 
 	agentName := strings.TrimSpace(c.Agent)
-	if !flagExplicit(kctx, "agent") {
-		agentName = resolveSessionResumeAgent(ctx.ConfigFile, envFromContext(ctx))
+	if !ctx.FlagExplicit("agent") {
+		agentName = resolveSessionResumeAgent(ctx.EffectiveConfig(), envFromContext(ctx))
 	}
 
 	prompt := c.Prompt
@@ -158,44 +207,32 @@ func (c *SessionResumeCmd) Run(ctx Context, kctx *kong.Context) error {
 		ContainerOpts:       c.ContainerOpt,
 		ContainerInheritEnv: c.ContainerInheritEnv,
 	}
-	if flagExplicit(kctx, "openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
+	if ctx.FlagExplicit("openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
 		cmd.EnvOverrides = map[string]string{"OPENAI_API_KEY": c.OpenAIAPIKey}
 	}
 
 	return ctx.Remuda.SessionResume(ctx.ctx, cmd)
 }
 
-func applyPerRepoOverlaysForPickedSessionResume(ctx Context, kctx *kong.Context, workspace string) error {
-	cfg := ctx.ConfigFile
-	if cfg == nil || len(cfg.PerRepo) == 0 {
-		return nil
+// resolveSessionResumeAgent picks the resume agent when --agent is not set
+// explicitly: only claude resumes as claude; anything else falls back to
+// codex (the historically supported resume path).
+func resolveSessionResumeAgent(eff *koanf.Koanf, env EnvProvider) string {
+	env = envOrDefault(env)
+	if val, ok := env.LookupEnv("REMUDA_AGENT"); ok {
+		trimmed := strings.TrimSpace(val)
+		if trimmed != "" && strings.EqualFold(trimmed, "claude") {
+			return "claude"
+		}
+		if trimmed != "" {
+			return "codex"
+		}
 	}
-
-	slug := normalizeRepoSlug(repoSlugFromWorkspacePath(ctx, cfg, workspace))
-	if slug == "" {
-		return nil
+	if eff == nil || !eff.Exists("defaults.agent") {
+		return "codex"
 	}
-	overlay, ok := cfg.PerRepo[slug]
-	if !ok {
-		return nil
+	if strings.EqualFold(strings.TrimSpace(eff.String("defaults.agent")), "claude") {
+		return "claude"
 	}
-
-	mergeOverlayV1IntoConfig(cfg, overlay, true)
-	if overlay.Repos != nil && len(overlay.Repos.Aliases) > 0 {
-		github.MergeRepoAliases(overlay.Repos.Aliases)
-	}
-
-	var args []string
-	if kctx != nil {
-		args = kctx.Args
-	}
-	invocation := resolveInvocationAnalysisWithEnv(ctx, cfg, args, envFromContext(ctx))
-	name, selectedSlug, source, ok := selectedProfileFromInvocation(invocation, cfg, slug)
-	if !ok {
-		return nil
-	}
-	if source != invocationProfileSourcePerRepo {
-		return applyProfileOverlayByName(cfg, name)
-	}
-	return applyPerRepoProfileOverlayByName(cfg, selectedSlug, name)
+	return "codex"
 }

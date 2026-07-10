@@ -4,11 +4,23 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 // SessionEditCmd opens the workspace for a session in the configured editor.
 type SessionEditCmd struct {
-	SessionNamePickOption `embed:""`
+	SessionNamePickOption
+}
+
+func (a *app) sessionEditCmd() *cobra.Command {
+	c := &SessionEditCmd{}
+	cmd := &cobra.Command{
+		Use:   "edit",
+		Short: "Open the workspace for a session in your configured editor.",
+		Args:  cobra.NoArgs,
+	}
+	c.SessionNamePickOption.register(cmd)
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
 }
 
 func (c SessionEditCmd) Run(ctx Context) error {

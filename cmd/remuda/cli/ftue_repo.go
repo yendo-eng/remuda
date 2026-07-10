@@ -3,7 +3,6 @@ package cli
 import (
 	"strings"
 
-	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/huh"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/github"
@@ -16,10 +15,10 @@ type repoChoice struct {
 
 var ftueSelectRepoFn = ftueSelectRepo
 
-func resolveRepoSelectionWithFTUE(ctx Context, kctx *kong.Context, repo CloneRepoOption, opts RepoResolutionOptions, allowFTUE bool) (RepoSelection, error) {
+func resolveRepoSelectionWithFTUE(ctx Context, repo CloneRepoOption, opts RepoResolutionOptions, allowFTUE bool) (RepoSelection, error) {
 	optsNoFallback := opts
 	optsNoFallback.AllowFallback = false
-	selection, err := resolveRepoSelection(ctx, kctx, repo, optsNoFallback)
+	selection, err := resolveRepoSelection(ctx, repo, optsNoFallback)
 	if err != nil {
 		return RepoSelection{}, err
 	}
@@ -43,14 +42,14 @@ func resolveRepoSelectionWithFTUE(ctx Context, kctx *kong.Context, repo CloneRep
 		if err != nil {
 			return RepoSelection{}, err
 		}
-		if err := applyPerRepoOverlayForSelection(ctx.ConfigFile, selection); err != nil {
+		if err := ctx.ApplyRepoOverlays(selection.RepoSlug); err != nil {
 			return RepoSelection{}, err
 		}
 		return selection, nil
 	}
 
 	if selection.Source == RepoSourceUnspecified && opts.AllowFallback {
-		return resolveRepoSelection(ctx, kctx, repo, opts)
+		return resolveRepoSelection(ctx, repo, opts)
 	}
 
 	return selection, nil
@@ -76,12 +75,12 @@ func ftueSelectRepo() (repoChoice, bool, error) {
 
 func applyRepoSelection(repoOpt *CloneRepoOption, selection repoChoice) {
 	if selection.Alias != "" {
-		repoOpt.Repo = optionalString(selection.Alias)
-		repoOpt.RepoURL = nil
+		repoOpt.Repo = selection.Alias
+		repoOpt.RepoURL = ""
 		return
 	}
-	repoOpt.Repo = nil
-	repoOpt.RepoURL = optionalString(strings.TrimSpace(selection.URL))
+	repoOpt.Repo = ""
+	repoOpt.RepoURL = strings.TrimSpace(selection.URL)
 }
 
 func repoSelectionFromChoice(choice repoChoice) (RepoSelection, error) {

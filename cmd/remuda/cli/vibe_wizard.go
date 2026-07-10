@@ -39,13 +39,13 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 	if err != nil {
 		return VibeCmd{}, pkgerrors.Wrap(err, "failed to load prompts")
 	}
-	promptOptions := make([]huh.Option[PromptName], 0, len(promptList))
+	promptOptions := make([]huh.Option[string], 0, len(promptList))
 	for _, p := range promptList {
 		title := p.Name
 		if d := strings.TrimSpace(p.Description); d != "" {
 			title = title + " — " + d
 		}
-		promptOptions = append(promptOptions, huh.NewOption(title, PromptName(p.Name)))
+		promptOptions = append(promptOptions, huh.NewOption(title, p.Name))
 	}
 
 	jiraJoined := strings.Join(pref.Jira, ",")
@@ -53,7 +53,7 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 	issueJoined := strings.Join(pref.GitHubIssue, ",")
 
 	// Step A: choose repository first.
-	repoSelection, err := wizardSelectRepo(derefString(sel.Repo), derefString(sel.RepoURL))
+	repoSelection, err := wizardSelectRepo(sel.Repo, sel.RepoURL)
 	if err != nil {
 		return VibeCmd{}, pkgerrors.Wrap(err, "repo selection")
 	}
@@ -75,13 +75,13 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 		),
 		// Built-in prompt bank selection (optional)
 		huh.NewGroup(
-			huh.NewMultiSelect[PromptName]().
+			huh.NewMultiSelect[string]().
 				Title("Add saved prompts? (space to select) ").
 				Options(promptOptions...).
 				Value(&sel.Use),
 		),
 		huh.NewGroup(
-			huh.NewMultiSelect[PromptName]().
+			huh.NewMultiSelect[string]().
 				Title("Exclude saved prompts? (space to select) ").
 				Options(promptOptions...).
 				Value(&sel.NoUse),

@@ -3,18 +3,14 @@ package cli
 import (
 	"context"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/alecthomas/kong"
-	"github.com/posener/complete"
-	"github.com/yendo-eng/remuda/internal"
+	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
-	"github.com/yendo-eng/remuda/internal/configfile"
-	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/prompts"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -31,92 +27,134 @@ type claudeCompletionHints struct {
 	EffortSuggestions []string
 }
 
-func RemudaPredictors(kctx Context, parser *kong.Kong) map[string]complete.Predictor {
-	homeDir, _ := homeDirFromContext(kctx)
-	return map[string]complete.Predictor{
-		"session-name":            PredictSessionNames(kctx.Remuda),
-		"prompt-name":             PredictPromptNames(kctx),
-		"no-use-prompt-name":      PredictNoUsePromptNames(kctx),
-		"profile-name":            PredictProfileNames(kctx),
-		"repo-alias":              PredictRepoAliases(kctx.Remuda),
-		"model":                   PredictModel(kctx, parser),
-		"reasoning-level":         PredictReasoningLevel(kctx, parser),
-		"slugify-reasoning-level": PredictSlugifyReasoningLevel(),
-		"workspace-dir":           PredictWorkspaceDir(homeDir),
+// completionsCmd generates shell completion scripts. Source the output from
+// your shell profile, e.g. `source <(remuda completions bash)`.
+func (a *app) completionsCmd(root *cobra.Command) *cobra.Command {
+	return &cobra.Command{
+		Use:       "completions <bash|zsh|fish|powershell>",
+		Short:     "Generate shell completions for remuda.",
+		Long:      "Generate a shell completion script for remuda.\n\nLoad it in your shell profile, for example:\n  source <(remuda completions bash)\n  source <(remuda completions zsh)\n  remuda completions fish | source",
+		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out := a.kctx.Remuda.IO.Out
+			switch args[0] {
+			case "bash":
+				return root.GenBashCompletionV2(out, true)
+			case "zsh":
+				return root.GenZshCompletion(out)
+			case "fish":
+				return root.GenFishCompletion(out, true)
+			case "powershell":
+				return root.GenPowerShellCompletionWithDesc(out)
+			default:
+				return pkgerrors.Errorf("unsupported shell %q", args[0])
+			}
+		},
 	}
 }
 
-func PredictWorkspaceDir(homeDir string) complete.Predictor {
-	// complete.PredictDirs expects the currently typed path in Args.Last. It does not
-	// expand "~", so we do a small wrapper to support common shell path forms.
-	base := complete.PredictDirs("*")
-	return complete.PredictFunc(func(a complete.Args) []string {
-		last := a.Last
+func noFileComp(values []string) ([]string, cobra.ShellCompDirective) {
+	return values, cobra.ShellCompDirectiveNoFileComp
+}
 
-		// Only expand "~" and "~/" (not "~user").
-		if last == "~" || strings.HasPrefix(last, "~/") {
-			if homeDir != "" {
-				expanded := homeDir
-				if strings.HasPrefix(last, "~/") {
-					expanded = filepath.Join(homeDir, strings.TrimPrefix(last, "~/"))
-				}
-
-				a.Last = expanded
-				preds := base.Predict(a)
-
-				homePrefix := homeDir
-				if !strings.HasSuffix(homePrefix, string(filepath.Separator)) {
-					homePrefix += string(filepath.Separator)
-				}
-
-				for i, p := range preds {
-					if p == homeDir {
-						preds[i] = "~"
-						continue
-					}
-					if strings.HasPrefix(p, homePrefix) {
-						preds[i] = "~" + strings.TrimPrefix(p, homeDir)
-					}
-				}
-				return preds
-			}
-		}
-
-		return base.Predict(a)
+func registerFlagCompletion(cmd *cobra.Command, flag string, fn func(cmd *cobra.Command, toComplete string) []string) {
+	_ = cmd.RegisterFlagCompletionFunc(flag, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return noFileComp(fn(cmd, toComplete))
 	})
 }
 
-func PredictSessionNames(k internal.Remuda) complete.PredictFunc {
-	return func(a complete.Args) []string {
-		sessions, err := k.SessionList()
-		if err != nil {
-			panic(err)
-		}
+func registerStaticCompletion(cmd *cobra.Command, flag string, values []string) {
+	registerFlagCompletion(cmd, flag, func(*cobra.Command, string) []string {
+		return append([]string(nil), values...)
+	})
+}
 
+func registerSessionNameCompletion(cmd *cobra.Command, flag string) {
+	registerFlagCompletion(cmd, flag, func(c *cobra.Command, _ string) []string {
+		kctx := contextFromCompletion(c)
+		if kctx == nil {
+			return nil
+		}
+		sessions, err := kctx.Remuda.SessionList()
+		if err != nil {
+			return nil
+		}
 		names := make([]string, 0, len(sessions))
 		for _, s := range sessions {
 			names = append(names, s.Name)
 		}
 		return names
-	}
-}
-
-func PredictPromptNames(kctx Context) complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) []string {
-		return allPromptNames(kctx)
 	})
 }
 
-func PredictNoUsePromptNames(kctx Context) complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) []string {
-		useFromFlags := promptNamesFromFlagValues(a.All, "--use", "-u")
-		use := resolvedUsePromptDefaultsForNoUse(kctx, a.All, useFromFlags)
-		noUseFromFlags := promptNamesFromFlagValues(a.All, "--no-use")
+func registerRepoAliasCompletion(cmd *cobra.Command, flag string) {
+	registerFlagCompletion(cmd, flag, func(*cobra.Command, string) []string {
+		aliases := []string{}
+		for alias := range github.RepoAliases() {
+			aliases = append(aliases, alias)
+		}
+		sort.Strings(aliases)
+		return aliases
+	})
+}
 
-		effective := (ContextEngineeringOptions{
-			Use:   use,
-			NoUse: noUseFromFlags,
-		}).effectiveUsePromptNames()
+func registerProfileNameCompletion(cmd *cobra.Command, flag string) {
+	registerFlagCompletion(cmd, flag, func(c *cobra.Command, _ string) []string {
+		kctx := contextFromCompletion(c)
+		if kctx == nil || kctx.ConfigFile == nil || len(kctx.ConfigFile.Profiles) == 0 {
+			return nil
+		}
+		names := make([]string, 0, len(kctx.ConfigFile.Profiles))
+		for name := range kctx.ConfigFile.Profiles {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return names
+	})
+}
+
+func registerPromptNameCompletion(cmd *cobra.Command, flag string) {
+	registerFlagCompletion(cmd, flag, func(c *cobra.Command, _ string) []string {
+		kctx := contextFromCompletion(c)
+		if kctx == nil {
+			return nil
+		}
+		return allPromptNames(*kctx)
+	})
+}
+
+// registerNoUsePromptNameCompletion completes --no-use with the prompts that
+// are currently in effect (explicit --use plus env/config defaults), i.e.
+// only prompts that excluding would actually remove.
+func registerNoUsePromptNameCompletion(cmd *cobra.Command, flag string) {
+	registerFlagCompletion(cmd, flag, func(c *cobra.Command, _ string) []string {
+		kctx := contextFromCompletion(c)
+		if kctx == nil {
+			return nil
+		}
+
+		useFromFlags, _ := c.Flags().GetStringSlice("use")
+		noUseFromFlags, _ := c.Flags().GetStringSlice("no-use")
+
+		env := envFromContext(*kctx)
+		var use []string
+		if envSet(env, "REMUDA_USE_PROMPTS") {
+			// Match runtime precedence: explicit --use replaces env defaults.
+			if len(useFromFlags) > 0 {
+				use = useFromFlags
+			} else {
+				use = splitFlexibleList(env.Getenv("REMUDA_USE_PROMPTS"))
+			}
+		} else {
+			var configUse []string
+			if kctx.ConfigFile != nil && kctx.ConfigFile.Defaults != nil && kctx.ConfigFile.Defaults.UsePrompts != nil {
+				configUse = *kctx.ConfigFile.Defaults.UsePrompts
+			}
+			use = mergeUnique(configUse, useFromFlags)
+		}
+
+		effective := (ContextEngineeringOptions{Use: use, NoUse: noUseFromFlags}).effectiveUsePromptNames()
 		if len(effective) == 0 {
 			return nil
 		}
@@ -126,10 +164,7 @@ func PredictNoUsePromptNames(kctx Context) complete.Predictor {
 			effectiveSet[name] = struct{}{}
 		}
 
-		all := allPromptNames(kctx)
-		if len(all) == 0 {
-			return nil
-		}
+		all := allPromptNames(*kctx)
 		out := make([]string, 0, len(all))
 		for _, name := range all {
 			if _, ok := effectiveSet[name]; ok {
@@ -140,22 +175,84 @@ func PredictNoUsePromptNames(kctx Context) complete.Predictor {
 	})
 }
 
-func resolvedUsePromptDefaultsForNoUse(kctx Context, args []string, useFromFlags []PromptName) []PromptName {
-	env := envFromContext(kctx)
-	if envSet(env, "REMUDA_USE_PROMPTS") {
-		// Match runtime precedence: explicit --use replaces env defaults.
-		if len(useFromFlags) > 0 {
-			return mergePromptNames(nil, useFromFlags)
+func registerModelCompletion(cmd *cobra.Command) {
+	registerFlagCompletion(cmd, "model", func(c *cobra.Command, _ string) []string {
+		kctx := contextFromCompletion(c)
+		if kctx == nil {
+			return nil
 		}
-		names, err := promptNamesFromDefaults(splitFlexibleList(env.Getenv("REMUDA_USE_PROMPTS")))
+		agent, _, err := agentlauncher.Parse(completionAgentName(c, *kctx), "", false)
 		if err != nil {
 			return nil
 		}
-		return names
-	}
+		return agent.SupportedModels()
+	})
+}
 
-	useDefaults := resolvedConfigUsePromptDefaults(kctx, args)
-	return mergePromptNames(useDefaults, useFromFlags)
+func registerReasoningLevelCompletion(cmd *cobra.Command) {
+	registerFlagCompletion(cmd, "reasoning-level", func(c *cobra.Command, _ string) []string {
+		kctx := contextFromCompletion(c)
+		if kctx == nil {
+			return nil
+		}
+		agentName := completionAgentName(c, *kctx)
+
+		model, _ := c.Flags().GetString("model")
+		if strings.TrimSpace(model) == "" {
+			model = strings.TrimSpace(envFromContext(*kctx).Getenv("REMUDA_MODEL"))
+		}
+		if model == "" {
+			model = strings.TrimSpace(defaultModelFromConfig(*kctx))
+		}
+		model = agentlauncher.EffectiveModel(agentName, model)
+
+		if strings.EqualFold(agentName, string(agentlauncher.AgentClaude)) {
+			return claudeHintsForContext(*kctx).EffortSuggestions
+		}
+
+		return agentlauncher.SuggestedReasoningLevels(agentName, model)
+	})
+}
+
+func registerWorkspaceDirCompletion(cmd *cobra.Command, flag string) {
+	_ = cmd.RegisterFlagCompletionFunc(flag, func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveFilterDirs
+	})
+}
+
+func registerWorkspaceDirPositionalCompletion(cmd *cobra.Command) {
+	cmd.ValidArgsFunction = func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveFilterDirs
+	}
+}
+
+// contextFromCompletion resolves the CLI Context for completion callbacks.
+func contextFromCompletion(cmd *cobra.Command) *Context {
+	ctx := cmd.Context()
+	if ctx == nil {
+		return nil
+	}
+	if kctx, ok := ctx.Value(completionContextKey{}).(*Context); ok {
+		return kctx
+	}
+	return nil
+}
+
+type completionContextKey struct{}
+
+func completionAgentName(c *cobra.Command, kctx Context) string {
+	agentName, _ := c.Flags().GetString("agent")
+	agentName = strings.TrimSpace(agentName)
+	if agentName == "" || agentName == "codex" && !c.Flags().Changed("agent") {
+		if fromEnv := strings.TrimSpace(envFromContext(kctx).Getenv("REMUDA_AGENT")); fromEnv != "" {
+			return fromEnv
+		}
+		if fromConfig := strings.TrimSpace(defaultAgentFromConfig(kctx)); fromConfig != "" {
+			return fromConfig
+		}
+		return "codex"
+	}
+	return agentName
 }
 
 func allPromptNames(kctx Context) []string {
@@ -171,277 +268,19 @@ func allPromptNames(kctx Context) []string {
 	return names
 }
 
-func resolvedConfigUsePromptDefaults(kctx Context, args []string) []PromptName {
-	cfg, _, err := loadConfigV1(kctx)
-	if err != nil || cfg == nil {
-		return nil
-	}
-
-	if err := applyCompletionOverlaysForUsePrompts(kctx, cfg, args); err != nil {
-		return nil
-	}
-
-	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.UsePrompts == nil {
-		return nil
-	}
-	names, err := promptNamesFromDefaults(*cfg.Defaults.UsePrompts)
-	if err != nil {
-		return nil
-	}
-	return names
-}
-
-func applyCompletionOverlaysForUsePrompts(kctx Context, cfg *configfile.V1, args []string) error {
-	if cfg == nil {
-		return nil
-	}
-
-	// Keep alias catalog aligned with config before inferring --repo values.
-	if cfg.Repos != nil && len(cfg.Repos.Aliases) > 0 {
-		github.MergeRepoAliases(cfg.Repos.Aliases)
-	}
-
-	repoSlug := inferRepoSlugForCompletion(kctx, cfg, args)
-	if repoSlug != "" && len(cfg.PerRepo) > 0 {
-		if overlay, ok := cfg.PerRepo[repoSlug]; ok {
-			mergeOverlayV1IntoConfig(cfg, overlay, true)
-			if overlay.Repos != nil && len(overlay.Repos.Aliases) > 0 {
-				github.MergeRepoAliases(overlay.Repos.Aliases)
-			}
-		}
-	}
-
-	env := envFromContext(kctx)
-	if explicit, ok := findProfileFlagValue(args); ok && strings.TrimSpace(explicit) != "" {
-		return applyProfileOverlayByName(cfg, explicit)
-	}
-	if envProfile := strings.TrimSpace(env.Getenv("REMUDA_PROFILE")); envProfile != "" {
-		return applyProfileOverlayByName(cfg, envProfile)
-	}
-	if repoSlug != "" {
-		if overlay, ok := cfg.PerRepo[repoSlug]; ok && overlay.Profile != nil {
-			return applyPerRepoProfileOverlayByName(cfg, repoSlug, *overlay.Profile)
-		}
-	}
-	return nil
-}
-
-func inferRepoSlugForCompletion(kctx Context, cfg *configfile.V1, args []string) string {
-	if repoURL, ok := findFlagValue(args, "repo-url"); ok {
-		if slug := repoSlugFromURL(github.ExpandRepoURL(repoURL)); slug != "" {
-			return normalizeRepoSlug(slug)
-		}
-	}
-	if repoAlias, ok := findFlagValue(args, "repo"); ok {
-		if repoURL, ok := github.ExpandRepoAlias(repoAlias); ok {
-			if slug := repoSlugFromURL(repoURL); slug != "" {
-				return normalizeRepoSlug(slug)
-			}
-		}
-	}
-	if workspace, ok := findFlagValue(args, "in"); ok {
-		if slug := repoSlugFromWorkspacePath(kctx, cfg, workspace); slug != "" {
-			return normalizeRepoSlug(slug)
-		}
-	}
-	if cfg != nil && cfg.Repos != nil {
-		if cfg.Repos.DefaultRepoURL != nil && strings.TrimSpace(*cfg.Repos.DefaultRepoURL) != "" {
-			if slug := repoSlugFromURL(github.ExpandRepoURL(*cfg.Repos.DefaultRepoURL)); slug != "" {
-				return normalizeRepoSlug(slug)
-			}
-		}
-		if cfg.Repos.DefaultRepo != nil && strings.TrimSpace(*cfg.Repos.DefaultRepo) != "" {
-			if repoURL, ok := github.ExpandRepoAlias(*cfg.Repos.DefaultRepo); ok {
-				if slug := repoSlugFromURL(repoURL); slug != "" {
-					return normalizeRepoSlug(slug)
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func promptNamesFromFlagValues(args []string, flags ...string) []PromptName {
-	rawValues := flagValues(args, flags...)
-	if len(rawValues) == 0 {
-		return nil
-	}
-	out := make([]PromptName, 0, len(rawValues))
-	for _, raw := range rawValues {
-		parsed, err := promptNamesFromDefaults(splitFlexibleList(raw))
-		if err != nil {
-			continue
-		}
-		out = append(out, parsed...)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func flagValues(args []string, flags ...string) []string {
-	if len(args) == 0 || len(flags) == 0 {
-		return nil
-	}
-	out := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		for _, flag := range flags {
-			if arg == flag {
-				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-					out = append(out, args[i+1])
-				}
-				break
-			}
-			if strings.HasPrefix(arg, flag+"=") {
-				out = append(out, strings.TrimPrefix(arg, flag+"="))
-				break
-			}
-			if flag == "-u" && strings.HasPrefix(arg, "-u") && len(arg) > 2 {
-				out = append(out, arg[2:])
-				break
-			}
-		}
-	}
-	return out
-}
-
-func PredictProfileNames(kctx Context) complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) []string {
-		cfg := kctx.ConfigFile
-		if cfg == nil {
-			var err error
-			cfg, _, err = loadConfigV1(kctx)
-			if err != nil {
-				return nil
-			}
-		}
-		if cfg == nil || len(cfg.Profiles) == 0 {
-			return nil
-		}
-
-		names := make([]string, 0, len(cfg.Profiles))
-		for name := range cfg.Profiles {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		return names
-	})
-}
-
-func PredictRepoAliases(k internal.Remuda) complete.PredictFunc {
-	return func(a complete.Args) []string {
-		aliases := []string{}
-		aliasMap := github.RepoAliases()
-		for alias := range aliasMap {
-			aliases = append(aliases, alias)
-		}
-		sort.Strings(aliases)
-		return aliases
-	}
-}
-
-func PredictModel(kctx Context, parser *kong.Kong) complete.PredictFunc {
-	return func(a complete.Args) []string {
-		agentName := strings.TrimSpace(lastFlagValue(a.All, "--agent"))
-		if agentName == "" {
-			agentName = strings.TrimSpace(envFromContext(kctx).Getenv("REMUDA_AGENT"))
-		}
-		if agentName == "" {
-			agentName = strings.TrimSpace(defaultAgentFromConfig(kctx))
-		}
-		if agentName == "" {
-			agentName = "codex"
-		}
-
-		agent, _, err := agentlauncher.Parse(agentName, "", false)
-		if err != nil {
-			return nil
-		}
-
-		return agent.SupportedModels()
-	}
-}
-
-func PredictReasoningLevel(kctx Context, parser *kong.Kong) complete.PredictFunc {
-	return func(a complete.Args) []string {
-		agentName := strings.TrimSpace(lastFlagValue(a.All, "--agent"))
-		if agentName == "" {
-			agentName = strings.TrimSpace(envFromContext(kctx).Getenv("REMUDA_AGENT"))
-		}
-		if agentName == "" {
-			agentName = strings.TrimSpace(defaultAgentFromConfig(kctx))
-		}
-		if agentName == "" {
-			agentName = "codex"
-		}
-
-		model := strings.TrimSpace(lastFlagValue(a.All, "--model"))
-		if model == "" {
-			model = strings.TrimSpace(envFromContext(kctx).Getenv("REMUDA_MODEL"))
-		}
-		if model == "" {
-			model = strings.TrimSpace(defaultModelFromConfig(kctx))
-		}
-		model = agentlauncher.EffectiveModel(agentName, model)
-
-		if strings.EqualFold(agentName, string(agentlauncher.AgentClaude)) {
-			return claudeHintsForContext(kctx).EffortSuggestions
-		}
-
-		return agentlauncher.SuggestedReasoningLevels(agentName, model)
-	}
-}
-
-func PredictSlugifyReasoningLevel() complete.PredictFunc {
-	return func(a complete.Args) []string {
-		return append([]string(nil), enums.ValidSlugifyReasoningLevels...)
-	}
-}
-
-func lastFlagValue(args []string, flag string) string {
-	for i := len(args) - 1; i >= 0; i-- {
-		arg := args[i]
-		if strings.HasPrefix(arg, flag+"=") {
-			return strings.TrimPrefix(arg, flag+"=")
-		}
-		if arg == flag && i+1 < len(args) {
-			return args[i+1]
-		}
-	}
-	return ""
-}
-
 func defaultAgentFromConfig(kctx Context) string {
-	cfg, _, err := loadConfigV1(kctx)
-	if err != nil || cfg == nil {
+	cfg := kctx.ConfigFile
+	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.Agent == nil {
 		return ""
 	}
-
-	// Keep repo alias catalog in sync with config for the remainder of startup.
-	// This is safe to call repeatedly and makes completions consistent with parsing.
-	if cfg.Repos != nil && len(cfg.Repos.Aliases) > 0 {
-		github.MergeRepoAliases(cfg.Repos.Aliases)
-	}
-
-	if cfg.Defaults == nil || cfg.Defaults.Agent == nil {
-		return ""
-	}
-
 	return *cfg.Defaults.Agent
 }
 
 func defaultModelFromConfig(kctx Context) string {
-	cfg, _, err := loadConfigV1(kctx)
-	if err != nil || cfg == nil {
+	cfg := kctx.ConfigFile
+	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.Model == nil {
 		return ""
 	}
-
-	if cfg.Defaults == nil || cfg.Defaults.Model == nil {
-		return ""
-	}
-
 	return *cfg.Defaults.Model
 }
 

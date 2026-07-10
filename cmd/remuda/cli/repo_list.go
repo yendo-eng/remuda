@@ -5,11 +5,23 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal/github"
 )
 
 type RepoListCmd struct {
-	JSON bool `name:"json" help:"Emit JSON instead of plain text."`
+	JSON bool
+}
+
+func (a *app) repoListCmd() *cobra.Command {
+	c := &RepoListCmd{}
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List configured repository aliases.",
+		Args:  cobra.NoArgs,
+	}
+	cmd.Flags().BoolVar(&c.JSON, "json", false, "Emit JSON instead of plain text.")
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
 }
 
 func (c *RepoListCmd) Run(ctx Context) error {

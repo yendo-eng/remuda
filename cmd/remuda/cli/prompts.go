@@ -5,14 +5,42 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal/prompts"
 )
 
 const promptListDescriptionMaxChars = 88
 
-type PromptsCmd struct {
-	List ListPromptsCmd `cmd:"" help:"List available prompts."`
-	Show ShowPromptCmd  `cmd:"" help:"Show the content of a prompt."`
+func (a *app) promptsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "prompts",
+		Short: "Manage and view saved prompts.",
+	}
+
+	list := &ListPromptsCmd{}
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List available prompts.",
+		Args:  cobra.NoArgs,
+	}
+	a.simpleCmd(listCmd, nil, func([]string) error { return list.Run(*a.kctx) })
+
+	show := &ShowPromptCmd{}
+	showCmd := &cobra.Command{
+		Use:   "show <name>",
+		Short: "Show the content of a prompt (custom overrides built-in on name collision).",
+		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return allPromptNames(*a.kctx), cobra.ShellCompDirectiveNoFileComp
+		},
+	}
+	a.simpleCmd(showCmd, nil, func(args []string) error {
+		show.Name = args[0]
+		return show.Run(*a.kctx)
+	})
+
+	cmd.AddCommand(listCmd, showCmd)
+	return cmd
 }
 
 type ListPromptsCmd struct{}
@@ -131,11 +159,11 @@ func truncateWithEllipsis(value string, maxChars int) string {
 }
 
 type ShowPromptCmd struct {
-	Name PromptName `kong:"arg,help:'Name of the prompt to show (custom overrides built-in on name collision).',predictor='prompt-name'"`
+	Name string
 }
 
 func (c *ShowPromptCmd) Run(ctx Context) error {
-	content, err := ctx.Remuda.ShowPrompt(c.Name.String())
+	content, err := ctx.Remuda.ShowPrompt(c.Name)
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal"
@@ -16,33 +17,37 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-type DurationFlag struct {
-	time.Duration
-}
-
-func (d *DurationFlag) UnmarshalText(text []byte) error {
-	raw := strings.TrimSpace(string(text))
-	if raw == "" {
-		return pkgerrors.New("duration is required")
-	}
-	parsed, err := time.ParseDuration(raw)
-	if err != nil {
-		return err
-	}
-	d.Duration = parsed
-	return nil
-}
-
 // SessionReapCmd kills active sessions older than a threshold (safe with --dry-run).
 type SessionReapCmd struct {
-	OlderThan DurationFlag `name:"older-than" required:"" help:"Reap sessions older than this duration (Go-style, e.g. 72h, 336h)."`
-	DryRun    bool         `default:"true" name:"dry-run" help:"Print what would be killed without deleting anything (default: true; set --dry-run=false to act)."`
-	Cleanup   bool         `name:"cleanup" help:"Also remove the workspace and git worktree for killed sessions."`
-	Pick      bool         `name:"pick" help:"Use fzf to pick sessions from the candidates."`
+	OlderThan time.Duration
+	DryRun    bool
+	Cleanup   bool
+	Pick      bool
+}
+
+func (a *app) sessionReapCmd() *cobra.Command {
+	c := &SessionReapCmd{}
+	cmd := &cobra.Command{
+		Use:   "reap",
+		Short: "Kill active sessions older than a threshold (safe with --dry-run).",
+		Args:  cobra.NoArgs,
+	}
+	fs := cmd.Flags()
+	fs.DurationVar(&c.OlderThan, "older-than", 0, "Reap sessions older than this duration (Go-style, e.g. 72h, 336h).")
+	fs.BoolVar(&c.DryRun, "dry-run", true, "Print what would be killed without deleting anything (default: true; set --dry-run=false to act).")
+	fs.BoolVar(&c.Cleanup, "cleanup", false, "Also remove the workspace and git worktree for killed sessions.")
+	fs.BoolVar(&c.Pick, "pick", false, "Use fzf to pick sessions from the candidates.")
+	_ = cmd.MarkFlagRequired("older-than")
+	return a.simpleCmd(cmd, nil, func([]string) error {
+		if err := c.Validate(); err != nil {
+			return err
+		}
+		return c.Run(*a.kctx)
+	})
 }
 
 func (c *SessionReapCmd) Validate() error {
-	if c.OlderThan.Duration <= 0 {
+	if c.OlderThan <= 0 {
 		return pkgerrors.New("--older-than must be positive")
 	}
 	return nil
@@ -53,7 +58,7 @@ func (c *SessionReapCmd) Run(ctx Context) error {
 		return pkgerrors.New("--pick requires an interactive TTY")
 	}
 
-	candidates, skipped, err := ctx.Remuda.SessionReapCandidates(c.OlderThan.Duration, time.Now())
+	candidates, skipped, err := ctx.Remuda.SessionReapCandidates(c.OlderThan, time.Now())
 	if err != nil {
 		return pkgerrors.Wrap(err, "list reap candidates")
 	}

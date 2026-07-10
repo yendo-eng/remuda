@@ -1,13 +1,27 @@
 package cli
 
+import "github.com/spf13/cobra"
+
 // SessionShellCmd drops the user into a shell for a session.
 //
 // For containerized sessions, it opens a shell inside the running container.
 // For non-container sessions (or when the container isn't available), it falls back
 // to opening a host shell in the session's workspace directory.
 type SessionShellCmd struct {
-	SessionNamePickOption `embed:""`
-	Host                  bool `name:"host" help:"Open a host shell in the session workspace (skip Docker)."`
+	SessionNamePickOption
+	Host bool
+}
+
+func (a *app) sessionShellCmd() *cobra.Command {
+	c := &SessionShellCmd{}
+	cmd := &cobra.Command{
+		Use:   "shell",
+		Short: "Open a shell for a session (container when available; use --host to force a host shell in the workspace).",
+		Args:  cobra.NoArgs,
+	}
+	c.SessionNamePickOption.register(cmd)
+	cmd.Flags().BoolVar(&c.Host, "host", false, "Open a host shell in the session workspace (skip Docker).")
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
 }
 
 func (c SessionShellCmd) Run(ctx Context) error {

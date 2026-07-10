@@ -1,37 +1,22 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
 
-	"github.com/alecthomas/kong"
+	"github.com/knadh/koanf/v2"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/willabides/kongplete"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/configfile"
+	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
-
-// CLI aggregates the available command structs defined in the commands package.
-type CLI struct {
-	Clone       CloneCmd                     `cmd:"" help:"Clone a repository into a local workspace."`
-	Vibe        VibeCmd                      `cmd:"" help:"Clone and launch an AI coding session."`
-	VibeCheck   VibeCheckCmd                 `cmd:"" help:"Review a pull request with AI assistance."`
-	Workspaces  WorkspacesCmd                `cmd:"" help:"Inspect Remuda-managed workspaces on disk."`
-	Repo        RepoCmd                      `cmd:"" help:"Inspect configured repository aliases."`
-	Config      ConfigCmd                    `cmd:"" help:"Manage configuration."`
-	Prompts     PromptsCmd                   `cmd:"" help:"Manage and view saved prompts."`
-	Session     SessionCmd                   `cmd:"" help:"Manage running sessions (tmux or zellij)."`
-	LLM         LLMRootCmd                   `cmd:"" help:"LLM utilities (experimental)."`
-	Completions kongplete.InstallCompletions `cmd:"" help:"Install shell completions for remuda."`
-
-	Version        kong.VersionFlag                `name:"version" help:"Print version and exit."`
-	Verbose        bool                            `short:"v" help:"Enable verbose logging."`
-	SessionManager session.SupportedSessionManager `help:"Session manager to use." env:"REMUDA_SESSION_MANAGER" default:"tmux"`
-}
 
 type SessionManagerFactory func(session.SupportedSessionManager, zerolog.Logger) session.SessionManager
 
@@ -50,18 +35,113 @@ func normalizeCLIName(raw string) string {
 	return base
 }
 
-func invokedCLIName(kctx *kong.Context) string {
-	if kctx == nil || kctx.Kong == nil || kctx.Model == nil {
-		return defaultCLIName
-	}
-	return normalizeCLIName(kctx.Model.Name)
+// app wires the cobra command tree to a single CLI invocation.
+type app struct {
+	kctx           *Context
+	cliName        string
+	version        string
+	cfg            *configfile.V1
+	sessionFactory SessionManagerFactory
+
+	rootFlags      *flagSet
+	verbose        bool
+	sessionManager string
 }
 
-func applyReposBaseDirFromConfig(kctx *Context, cfg *configfile.V1) {
-	if cfg == nil || cfg.Repos == nil || cfg.Repos.BaseDir == nil {
-		return
+// prepareOpts controls per-command flag resolution.
+type prepareOpts struct {
+	fl *flagSet
+	// slugFn infers the repo slug from resolved flag/positional values so
+	// per_repo overlays can apply. Runs after base env/config resolution.
+	slugFn func() string
+	// profiled marks commands that honor --profile / REMUDA_PROFILE.
+	profiled bool
+}
+
+// prepare resolves flags for the current command: snapshot explicit flags,
+// apply env+base config, infer the repo slug, apply per_repo/profile
+// overlays, then finish invocation-wide setup (logger, session manager,
+// repos base dir).
+func (a *app) prepare(cmd *cobra.Command, opts prepareOpts) error {
+	sets := []*flagSet{a.rootFlags}
+	if opts.fl != nil {
+		sets = append(sets, opts.fl)
 	}
-	// Honor precedence: flags (n/a) > env > config > defaults.
+	rs, err := beginResolution(sets...)
+	if err != nil {
+		return err
+	}
+
+	env := envFromContext(*a.kctx)
+	a.kctx.inv = &invocation{
+		app:      a,
+		cmd:      cmd,
+		rs:       rs,
+		env:      env,
+		profiled: opts.profiled,
+	}
+
+	base, err := newEffectiveConfig(a.cfg, "", profileRef{})
+	if err != nil {
+		return err
+	}
+	if err := rs.apply(env, base); err != nil {
+		return err
+	}
+	a.kctx.inv.eff = base
+
+	slug := ""
+	if opts.slugFn != nil {
+		slug = opts.slugFn()
+	}
+	if err := a.applyRepoOverlays(slug); err != nil {
+		return err
+	}
+	if err := rs.validateEnums(); err != nil {
+		return err
+	}
+
+	a.finishSetup()
+	return nil
+}
+
+// applyRepoOverlays re-resolves flags with per_repo/profile overlays for the
+// given slug. Also invoked after interactive repo selection (FTUE, --pick).
+func (a *app) applyRepoOverlays(slug string) error {
+	inv := a.kctx.inv
+	profile := profileRef{}
+	if inv.profiled {
+		flagValue := ""
+		if fl := inv.cmd.Flags().Lookup("profile"); fl != nil {
+			flagValue = fl.Value.String()
+		}
+		profile = selectProfile(flagValue, inv.rs.flagExplicit("profile"), inv.env, a.cfg, slug)
+	}
+
+	eff, err := newEffectiveConfig(a.cfg, slug, profile)
+	if err != nil {
+		return err
+	}
+	if err := inv.rs.apply(inv.env, eff); err != nil {
+		return err
+	}
+	inv.eff = eff
+	inv.slug = normalizeRepoSlug(slug)
+
+	if a.cfg != nil && inv.slug != "" {
+		if overlay, ok := a.cfg.PerRepo[inv.slug]; ok && overlay.Repos != nil && len(overlay.Repos.Aliases) > 0 {
+			github.MergeRepoAliases(overlay.Repos.Aliases)
+		}
+	}
+
+	a.applyReposBaseDir(eff)
+	return nil
+}
+
+// applyReposBaseDir honors precedence env > config > built-in default for
+// the repos base directory.
+func (a *app) applyReposBaseDir(eff *koanf.Koanf) {
+	kctx := a.kctx
 	env := envFromContext(*kctx)
 	if base := env.Getenv("REMUDA_REPOS_BASE_DIR"); base != "" {
 		kctx.Remuda.Config.ReposBaseDir = base
@@ -74,7 +154,7 @@ func applyReposBaseDirFromConfig(kctx *Context, cfg *configfile.V1) {
 		return
 	}
 
-	baseDir := strings.TrimSpace(*cfg.Repos.BaseDir)
+	baseDir := strings.TrimSpace(eff.String("repos.base_dir"))
 	if baseDir == "" {
 		return
 	}
@@ -88,6 +168,77 @@ func applyReposBaseDirFromConfig(kctx *Context, cfg *configfile.V1) {
 	}
 
 	kctx.Remuda.Config.ReposBaseDir = baseDir
+}
+
+// finishSetup applies the resolved --verbose and --session-manager values.
+func (a *app) finishSetup() {
+	kctx := a.kctx
+
+	logLevel := zerolog.InfoLevel
+	if a.verbose {
+		logLevel = zerolog.DebugLevel
+	}
+	logger := logging.NewConsoleLogger(kctx.Remuda.IO.Err, logLevel)
+	kctx.Remuda.SetLogger(logger)
+	kctx.ctx = logging.WithLogger(kctx.ctx, logger)
+
+	// Wire the selected session manager after resolution so --session-manager
+	// and config-file defaults take effect for this invocation. Preserve
+	// injected session managers (eg. e2e mocks) unless we're using the
+	// built-in managers.
+	if kctx.Remuda.Session == nil ||
+		kctx.Remuda.Session.Name() == string(session.SessionManagerTmux) ||
+		kctx.Remuda.Session.Name() == string(session.SessionManagerZellij) {
+		kctx.Remuda.Session = a.sessionFactory(session.SupportedSessionManager(a.sessionManager), logger)
+	}
+}
+
+func (a *app) buildRoot() *cobra.Command {
+	root := &cobra.Command{
+		Use:           a.cliName,
+		Short:         "Clone repositories and launch AI coding sessions.",
+		Version:       a.version,
+		Args:          cobra.NoArgs,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cmd.PrintErrln(cmd.UsageString())
+			return pkgerrors.New("expected a command")
+		},
+		CompletionOptions: cobra.CompletionOptions{
+			// The user-facing entrypoint is the `completions` command below.
+			DisableDefaultCmd: true,
+		},
+	}
+	root.SetVersionTemplate("{{.Version}}\n")
+	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		cmd.PrintErrln(cmd.UsageString())
+		return err
+	})
+
+	pf := root.PersistentFlags()
+	pf.BoolVarP(&a.verbose, "verbose", "v", false, "Enable verbose logging.")
+	pf.StringVar(&a.sessionManager, "session-manager", string(session.SessionManagerTmux), "Session manager to use.")
+	a.rootFlags = newFlagSet(pf)
+	a.rootFlags.bind("session-manager",
+		bindEnvs("REMUDA_SESSION_MANAGER"),
+		bindKey("session.manager"),
+		bindEnum(enums.ValidSessionManagers...),
+	)
+
+	root.AddCommand(
+		a.cloneCmd(),
+		a.vibeCmd(),
+		a.vibeCheckCmd(),
+		a.workspacesCmd(),
+		a.repoCmd(),
+		a.configCmd(),
+		a.promptsCmd(),
+		a.sessionCmd(),
+		a.llmCmd(),
+		a.completionsCmd(root),
+	)
+	return root
 }
 
 func applyCloneHooksFromConfig(kctx *Context, cfg *configfile.V1) {
@@ -129,7 +280,6 @@ func Run(kctx Context, args []string) error {
 func RunWithName(kctx Context, cliName string, args []string) error {
 	cliName = normalizeCLIName(cliName)
 
-	var cli CLI
 	env := envFromContext(kctx)
 	sessionFactory := kctx.SessionManagerFactory
 	if sessionFactory == nil {
@@ -139,8 +289,8 @@ func RunWithName(kctx Context, cliName string, args []string) error {
 	kctx.Remuda.SetLogger(logger)
 	kctx.ctx = logging.WithLogger(kctx.ctx, logger)
 
-	// Since we need to initialize the session manager early for predictors,
-	// we have to do some setup before kong.Parse.
+	// Completion functions may need a session manager before command flags
+	// resolve, so wire one from the environment up front.
 	if kctx.Remuda.Session == nil {
 		managerName := session.SessionManagerTmux
 		if sessionMgr := env.Getenv("REMUDA_SESSION_MANAGER"); sessionMgr != "" {
@@ -182,62 +332,27 @@ func RunWithName(kctx Context, cliName string, args []string) error {
 		github.MergeRepoAliases(cfg.Repos.Aliases)
 	}
 
-	if err := applyPerRepoOverlay(kctx, cfg, args); err != nil {
-		return err
-	}
-	if err := applyProfileOverlay(kctx, cfg, args); err != nil {
-		return err
-	}
-
-	// If env vars are not set, source repos.base_dir from config file to honor
-	// PRD precedence: flags (n/a) > env > config > defaults.
-	applyReposBaseDirFromConfig(&kctx, cfg)
-
-	// Build parser first so kongplete can hook completion handling.
 	version := strings.TrimSpace(kctx.Version)
 	if version == "" {
 		version = defaultCLIVersion
 	}
 
-	parserOpts := []kong.Option{kong.UsageOnError(), kong.Name(cliName), kong.Vars{"version": version}}
-	parserOpts = append(parserOpts, kongOptionsFromConfig(cfg, env)...)
-	parserOpts = append(parserOpts, kong.Bind(&kctx))
-	parser := kong.Must(&cli, parserOpts...)
-
-	// Enable shell completion handling. This exits early when completing.
-	RunCompletions(parser, kctx)
-
-	// Parse CLI args normally after completion handling.
-	ctx, err := parser.Parse(args)
-	parser.FatalIfErrorf(err)
-
-	kctx.KongCtx = ctx
-
-	// Initialize per-invocation logger
-	logLevel := zerolog.InfoLevel
-	if cli.Verbose {
-		logLevel = zerolog.DebugLevel
+	a := &app{
+		kctx:           &kctx,
+		cliName:        cliName,
+		version:        version,
+		cfg:            cfg,
+		sessionFactory: sessionFactory,
 	}
-	logger = logging.NewConsoleLogger(kctx.Remuda.IO.Err, logLevel)
-	kctx.Remuda.SetLogger(logger)
-	kctx.ctx = logging.WithLogger(kctx.ctx, logger)
+	root := a.buildRoot()
+	root.SetArgs(args)
+	root.SetIn(kctx.Remuda.IO.In)
+	root.SetOut(kctx.Remuda.IO.Out)
+	root.SetErr(kctx.Remuda.IO.Err)
 
-	// Wire the selected session manager after parsing so --session-manager and
-	// config-file defaults actually take effect for this invocation.
-	// Preserve injected session managers (eg. e2e mocks) unless we're using the
-	// built-in managers.
-	if kctx.Remuda.Session == nil ||
-		kctx.Remuda.Session.Name() == string(session.SessionManagerTmux) ||
-		kctx.Remuda.Session.Name() == string(session.SessionManagerZellij) {
-		kctx.Remuda.Session = sessionFactory(cli.SessionManager, logger)
-	}
+	// Completion callbacks run outside prepare(); give them access to the
+	// CLI context through the command context.
+	execCtx := context.WithValue(kctx.ctx, completionContextKey{}, &kctx)
 
-	return ctx.Run(kctx)
-}
-
-func RunCompletions(parser *kong.Kong, kctx Context) {
-	disabled := logging.NewDisabledLogger()
-	kctx.Remuda.SetLogger(disabled)
-	kctx.ctx = logging.WithLogger(kctx.ctx, disabled)
-	kongplete.Complete(parser, kongplete.WithPredictors(RemudaPredictors(kctx, parser)))
+	return root.ExecuteContext(execCtx)
 }

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
 	igit "github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/github"
@@ -12,24 +13,81 @@ import (
 )
 
 type VibeCheckCmd struct {
-	Name    string `name:"name" optional:"" help:"Workspace name; defaults to <branch>-code-review (or PR head branch + -code-review when --pr is set)."`
-	Wizard  bool   `name:"wizard" help:"Launch interactive wizard for this command (requires a TTY)."`
-	Profile string `name:"profile" short:"p" env:"REMUDA_PROFILE" help:"Config profile name to apply from config.yaml (profiles section)." predictor:"profile-name"`
+	Name    string
+	Wizard  bool
+	Profile string
 
 	// Clone selection
 	CloneRepoOption
 	CloneHooksOption
-	FullClone bool `name:"full-clone" negatable:"" default:"true" help:"Clone the entire repository instead of creating a linked worktree (slower, higher disk usage)."`
+	FullClone bool
 
 	// Agent / session flags (subset of vibe)
-	AgentSessionOptions       `embed:""`
-	APIKeyOptions             `embed:""`
-	ExperimentsOption         `embed:""`
-	ContextEngineeringOptions `embed:""`
+	AgentSessionOptions
+	APIKeyOptions
+	ExperimentsOption
+	ContextEngineeringOptions
 
-	PRRef string `name:"pr" optional:"" help:"GitHub PR URL (https://github.com/org/repo/pull/N) or PR number when --repo-url/--repo is set. When set, reviews the PR instead of a branch."`
+	PRRef string
 
-	Branch string `arg:"" optional:"" help:"Branch name to review. Ignored when --pr is set."`
+	Branch string
+}
+
+func (a *app) vibeCheckCmd() *cobra.Command {
+	c := &VibeCheckCmd{}
+	var fl *flagSet
+	cmd := &cobra.Command{
+		Use:   "vibe-check [branch]",
+		Short: "Review a pull request with AI assistance.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				c.Branch = args[0]
+			}
+			err := a.prepare(cmd, prepareOpts{
+				fl:       fl,
+				profiled: true,
+				slugFn: func() string {
+					c.CloneRepoOption.normalize()
+					if strings.TrimSpace(c.PRRef) != "" && strings.TrimSpace(c.RepoURL) == "" {
+						if prURLRepo := github.RepoURLFromPR(c.PRRef); prURLRepo != "" {
+							return repoSlugFromURL(prURLRepo)
+						}
+					}
+					return c.repoSelection(*a.kctx, RepoResolutionOptions{}).RepoSlug
+				},
+			})
+			if err != nil {
+				return err
+			}
+			c.CloneRepoOption.normalize()
+			if err := c.AgentSessionOptions.afterApply(); err != nil {
+				return err
+			}
+			if err := c.ContextEngineeringOptions.afterApply(*a.kctx); err != nil {
+				return err
+			}
+			return c.Run(*a.kctx)
+		},
+	}
+
+	fl = newFlagSet(cmd.Flags())
+	c.CloneRepoOption.register(cmd, fl)
+	c.CloneHooksOption.register(cmd)
+	c.AgentSessionOptions.register(cmd, fl)
+	c.APIKeyOptions.register(cmd, fl)
+	c.ExperimentsOption.register(cmd, fl)
+	c.ContextEngineeringOptions.register(cmd, fl)
+
+	fs := cmd.Flags()
+	fs.StringVar(&c.Name, "name", "", "Workspace name; defaults to <branch>-code-review (or PR head branch + -code-review when --pr is set).")
+	fs.BoolVar(&c.Wizard, "wizard", false, "Launch interactive wizard for this command (requires a TTY).")
+	fs.BoolVar(&c.FullClone, "full-clone", true, "Clone the entire repository instead of creating a linked worktree (slower, higher disk usage).")
+	fl.negatable("full-clone")
+	fs.StringVar(&c.PRRef, "pr", "", "GitHub PR URL (https://github.com/org/repo/pull/N) or PR number when --repo-url/--repo is set. When set, reviews the PR instead of a branch.")
+	registerProfileFlag(cmd, &c.Profile)
+
+	return cmd
 }
 
 func (c VibeCheckCmd) Run(ctx Context) error {
@@ -68,21 +126,21 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	// If a GitHub PR URL is provided, default repo selection should follow the URL
 	// (even when a repo alias default is set via env/config).
 	sourceHint := RepoSourceUnspecified
-	if strings.TrimSpace(c.PRRef) != "" && strings.TrimSpace(derefString(c.RepoURL)) == "" {
+	if strings.TrimSpace(c.PRRef) != "" && strings.TrimSpace(c.RepoURL) == "" {
 		if prURLRepo := github.RepoURLFromPR(c.PRRef); prURLRepo != "" {
-			c.RepoURL = optionalString(prURLRepo)
+			c.RepoURL = prURLRepo
 			sourceHint = RepoSourceDerived
 		}
 	}
 
-	repoSelection, err := resolveRepoSelectionWithFTUE(ctx, ctx.KongCtx, c.CloneRepoOption, RepoResolutionOptions{
+	repoSelection, err := resolveRepoSelectionWithFTUE(ctx, c.CloneRepoOption, RepoResolutionOptions{
 		AllowFallback: true,
 		SourceHint:    sourceHint,
 	}, false)
 	if err != nil {
 		return err
 	}
-	c.RepoURL = optionalString(repoSelection.RepoURL)
+	c.RepoURL = repoSelection.RepoURL
 
 	var repoSlug string
 	if len(c.GitHubIssue) > 0 {
@@ -113,7 +171,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 		if err := ctx.Remuda.GitHub.CheckAuthStatus(); err != nil {
 			return err
 		}
-		prRepoSlug, _ := github.RepoSlugFromURL(derefString(c.RepoURL))
+		prRepoSlug, _ := github.RepoSlugFromURL(c.RepoURL)
 		view, err := ctx.Remuda.GitHub.PRViewWithRepo(prRepoSlug, c.PRRef)
 		if err != nil {
 			return pkgerrors.Wrap(err, "fetching PR details")
@@ -139,10 +197,6 @@ func (c VibeCheckCmd) run(ctx Context) error {
 		return pkgerrors.Errorf("--name is required unless --wizard is provided")
 	}
 
-	if err := applyUsePromptDefaults(&c.ContextEngineeringOptions, ctx.KongCtx, ctx.ConfigFile, envFromContext(ctx)); err != nil {
-		return err
-	}
-
 	usePromptIDs := c.effectiveUsePromptNames()
 	wrapUsePrompts := c.ExperimentEnabled(experimentUsePromptsContextWrapper)
 	usePromptsSelected := len(usePromptIDs) > 0
@@ -154,7 +208,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	if err != nil {
 		return pkgerrors.Wrap(err, "adding prompt context")
 	}
-	agentArgs := effectiveAgentArgs(ctx.ConfigFile, c.Agent, c.AgentArg)
+	agentArgs := effectiveAgentArgsFromKoanf(ctx.EffectiveConfig(), c.Agent, c.AgentArg)
 
 	cmd := internal.VibeCommand{
 		Name:           c.Name,
@@ -169,7 +223,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 		Prompt:         buildVibeCheckPrompt(headBranch, baseBranch, prMeta),
 		Clone: internal.CloneCommand{
 			Name:           c.Name,
-			RepoURL:        derefString(c.RepoURL),
+			RepoURL:        c.RepoURL,
 			Branch:         headBranch,
 			Force:          c.Force,
 			SkipCloneHooks: c.NoCloneHooks,

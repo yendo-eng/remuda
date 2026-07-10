@@ -5,7 +5,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/alecthomas/kong"
+	"github.com/knadh/koanf/v2"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/env"
@@ -15,17 +16,57 @@ import (
 type Context struct {
 	ctx                   context.Context
 	Remuda                internal.Remuda
-	KongCtx               *kong.Context
 	ConfigFile            *configfile.V1
 	Version               string
 	Env                   EnvProvider
 	SessionManagerFactory SessionManagerFactory
 	WorkingDir            string
 	HomeDir               string
+	inv                   *invocation
 	homeDirErr            error
 	workingDirErr         error
 	homeDirSet            bool
 	workingDirSet         bool
+}
+
+// invocation carries per-command parse state: which flags were set
+// explicitly, the effective (overlay-merged) config view, and the hooks
+// needed to re-resolve overlays after interactive repo selection.
+type invocation struct {
+	app      *app
+	cmd      *cobra.Command
+	rs       *flagResolution
+	eff      *koanf.Koanf
+	env      EnvProvider
+	slug     string
+	profiled bool
+}
+
+// FlagExplicit reports whether the user set the flag on the command line
+// (as opposed to env/config resolution).
+func (c Context) FlagExplicit(name string) bool {
+	if c.inv == nil {
+		return false
+	}
+	return c.inv.rs.flagExplicit(name)
+}
+
+// EffectiveConfig is the overlay-merged config view for this invocation.
+// Never nil after parsing; empty when no config file was found.
+func (c Context) EffectiveConfig() *koanf.Koanf {
+	if c.inv == nil || c.inv.eff == nil {
+		return koanf.New(".")
+	}
+	return c.inv.eff
+}
+
+// ApplyRepoOverlays re-resolves flags with the per_repo/profile overlays for
+// a repo slug discovered mid-run (interactive selection, --pick).
+func (c Context) ApplyRepoOverlays(slug string) error {
+	if c.inv == nil {
+		return nil
+	}
+	return c.inv.app.applyRepoOverlays(slug)
 }
 
 func NewContext(

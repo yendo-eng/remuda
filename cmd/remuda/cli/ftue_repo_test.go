@@ -31,7 +31,7 @@ func TestResolveRepoSelectionWithFTUE_ErrorsWhenUnsetWithoutTTY(t *testing.T) {
 		WithEnv(env),
 	)
 
-	selection, err := resolveRepoSelectionWithFTUE(ctx, nil, CloneRepoOption{}, RepoResolutionOptions{
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
 		AllowFallback: true,
 	}, true)
 	require.Error(t, err)
@@ -67,7 +67,7 @@ func TestResolveRepoSelectionWithFTUE_UsesPromptOnTTY(t *testing.T) {
 		WithEnv(env),
 	)
 
-	selection, err := resolveRepoSelectionWithFTUE(ctx, nil, CloneRepoOption{}, RepoResolutionOptions{
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
 		AllowFallback: true,
 	}, true)
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestResolveRepoSelectionWithFTUE_PersistsRememberedChoice(t *testing.T) {
 		WithWorkingDir(dir),
 	)
 
-	selection, err := resolveRepoSelectionWithFTUE(ctx, nil, CloneRepoOption{}, RepoResolutionOptions{
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
 		AllowFallback: true,
 	}, true)
 	require.NoError(t, err)
@@ -165,7 +165,7 @@ func TestResolveRepoSelectionWithFTUE_PersistsRememberedAliasWhenURLProvided(t *
 		WithWorkingDir(dir),
 	)
 
-	selection, err := resolveRepoSelectionWithFTUE(ctx, nil, CloneRepoOption{}, RepoResolutionOptions{
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
 		AllowFallback: true,
 	}, true)
 	require.NoError(t, err)
@@ -215,7 +215,7 @@ func TestResolveRepoSelectionWithFTUE_SkipsPromptForExistingWorkspace(t *testing
 		WithEnv(env),
 	)
 
-	selection, err := resolveRepoSelectionWithFTUE(ctx, nil, CloneRepoOption{}, RepoResolutionOptions{
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
 		AllowFallback:     true,
 		ExistingWorkspace: workspace,
 		ReposBaseDir:      base,
@@ -276,15 +276,14 @@ func TestResolveRepoSelectionWithFTUE_AppliesPerRepoOverlay(t *testing.T) {
 		WithEnv(env),
 	)
 	ctx.ConfigFile = cfg
+	attachTestInvocation(t, &ctx, cfg, true)
 
-	selection, err := resolveRepoSelectionWithFTUE(ctx, nil, CloneRepoOption{}, RepoResolutionOptions{
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
 		AllowFallback: true,
 	}, true)
 	require.NoError(t, err)
 	require.Equal(t, RepoSourceExplicit, selection.Source)
-	require.NotNil(t, cfg.Defaults)
-	require.NotNil(t, cfg.Defaults.Agent)
-	require.Equal(t, "claude", *cfg.Defaults.Agent)
+	require.Equal(t, "claude", ctx.EffectiveConfig().String("defaults.agent"))
 	url, ok := github.ExpandRepoAlias("custom")
 	require.True(t, ok)
 	require.Equal(t, "https://github.com/acme/utils.git", url)
@@ -325,8 +324,9 @@ func TestResolveRepoSelectionWithFTUE_UnknownPerRepoProfileReturnsError(t *testi
 		WithEnv(env),
 	)
 	ctx.ConfigFile = cfg
+	attachTestInvocation(t, &ctx, cfg, true)
 
-	_, err := resolveRepoSelectionWithFTUE(ctx, nil, CloneRepoOption{}, RepoResolutionOptions{
+	_, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
 		AllowFallback: true,
 	}, true)
 	require.Error(t, err)

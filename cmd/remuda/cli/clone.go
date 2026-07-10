@@ -2,19 +2,54 @@ package cli
 
 import (
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
 )
 
 type CloneCmd struct {
-	NameWizardOption `embed:""`
-	CloneHooksOption `embed:""`
-	CloneRepoOption  `embed:""`
-	FullCloneOption  `embed:""`
+	NameWizardOption
+	CloneHooksOption
+	CloneRepoOption
+	FullCloneOption
 
-	RepoURLArg string `arg:"" optional:"" name:"repo_url" help:"Direct git repository URL to clone."`
+	RepoURLArg string
+	Branch     string
+}
 
-	// Branch overrides the default of using --name for git branch checkout.
-	Branch string `name:"branch" help:"Checkout this branch instead of deriving from --name."`
+func (a *app) cloneCmd() *cobra.Command {
+	c := &CloneCmd{}
+	var fl *flagSet
+	cmd := &cobra.Command{
+		Use:   "clone [repo_url]",
+		Short: "Clone a repository into a local workspace.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				c.RepoURLArg = args[0]
+			}
+			err := a.prepare(cmd, prepareOpts{
+				fl: fl,
+				slugFn: func() string {
+					c.CloneRepoOption.normalize()
+					return c.repoSelection(*a.kctx, RepoResolutionOptions{RepoURLArg: c.RepoURLArg}).RepoSlug
+				},
+			})
+			if err != nil {
+				return err
+			}
+			c.CloneRepoOption.normalize()
+			return c.Run(*a.kctx)
+		},
+	}
+
+	fl = newFlagSet(cmd.Flags())
+	c.NameWizardOption.register(cmd)
+	c.CloneHooksOption.register(cmd)
+	c.CloneRepoOption.register(cmd, fl)
+	c.FullCloneOption.register(cmd, fl)
+	cmd.Flags().StringVar(&c.Branch, "branch", "", "Checkout this branch instead of deriving from --name.")
+
+	return cmd
 }
 
 func (c *CloneCmd) Run(ctx Context) error {
@@ -26,8 +61,8 @@ func (c *CloneCmd) Run(ctx Context) error {
 
 		// Launch wizard prompting, prefilled with existing values (if any).
 		sel, err := cloneWizard(CloneWizardPrefill{
-			RepoAlias: derefString(c.Repo),
-			RepoURL:   firstNonEmpty(derefString(c.RepoURL), c.RepoURLArg),
+			RepoAlias: c.Repo,
+			RepoURL:   firstNonEmpty(c.RepoURL, c.RepoURLArg),
 			Name:      c.Name,
 		})
 		if err != nil {
@@ -57,7 +92,7 @@ func (c *CloneCmd) Run(ctx Context) error {
 		Branch:           c.Branch,
 		SkipCacheRefresh: c.SkipCacheRefresh,
 	}
-	repoSelection, err := resolveRepoSelectionWithFTUE(ctx, ctx.KongCtx, c.CloneRepoOption, RepoResolutionOptions{
+	repoSelection, err := resolveRepoSelectionWithFTUE(ctx, c.CloneRepoOption, RepoResolutionOptions{
 		AllowFallback: true,
 		RepoURLArg:    c.RepoURLArg,
 	}, true)

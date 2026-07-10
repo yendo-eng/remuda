@@ -5,13 +5,33 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 // WorkspacesRemoveCmd removes one or more explicitly targeted workspaces.
 type WorkspacesRemoveCmd struct {
-	DryRun  bool     `name:"dry-run" help:"Print what would be removed without deleting anything."`
-	Force   bool     `help:"Force-remove linked git worktrees even when git reports desynced or untracked state."`
-	Targets []string `arg:"" name:"target" help:"Absolute workspace path or org/repo/workspace identifier." predictor:"workspace-dir"`
+	DryRun  bool
+	Force   bool
+	Targets []string
+}
+
+func (a *app) workspacesRemoveCmd() *cobra.Command {
+	c := &WorkspacesRemoveCmd{}
+	cmd := &cobra.Command{
+		Use:   "remove <target>...",
+		Short: "Remove explicitly targeted workspaces.",
+		Args:  cobra.MinimumNArgs(1),
+	}
+	cmd.Flags().BoolVar(&c.DryRun, "dry-run", false, "Print what would be removed without deleting anything.")
+	cmd.Flags().BoolVar(&c.Force, "force", false, "Force-remove linked git worktrees even when git reports desynced or untracked state.")
+	registerWorkspaceDirPositionalCompletion(cmd)
+	return a.simpleCmd(cmd, nil, func(args []string) error {
+		c.Targets = args
+		if err := c.Validate(); err != nil {
+			return err
+		}
+		return c.Run(*a.kctx)
+	})
 }
 
 func (c WorkspacesRemoveCmd) Validate() error {
