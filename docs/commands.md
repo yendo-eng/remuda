@@ -125,7 +125,7 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--profile <name>` – apply a named profile from `config.yaml` as defaults (or set `REMUDA_PROFILE`). When neither is set, `per_repo.<slug>.profile` may select one based on the resolved repo.
 - `--model <m>` – pass a model override to the chosen agent when supported.
 - `--reasoning-level <level>` – set agent reasoning effort. For Codex this maps to
-  `--config model_reasoning_effort=<level>` (validated against `none|minimal|low|medium|high|xhigh`);
+  `--config model_reasoning_effort=<level>` (validated against `none|minimal|low|medium|high|xhigh|max|ultra`);
   for Claude this maps to `--effort <level>`.
 - `--yolo` – enable agent-specific approval/sandbox bypass behavior. Codex maps
   this to `--dangerously-bypass-approvals-and-sandbox` plus

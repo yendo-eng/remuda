@@ -12,6 +12,18 @@ func TestValidateReasoningLevel_CodexValid(t *testing.T) {
 	}
 }
 
+func TestValidateReasoningLevel_CodexSupportsGPT56Efforts(t *testing.T) {
+	t.Parallel()
+
+	for _, level := range []string{"max", "ultra"} {
+		t.Run(level, func(t *testing.T) {
+			t.Parallel()
+
+			require.NoError(t, ValidateReasoningLevel("codex", "gpt-5.6-sol", level))
+		})
+	}
+}
+
 func TestValidateReasoningLevel_CodexInvalid(t *testing.T) {
 	err := ValidateReasoningLevel("codex", "gpt-5", "super")
 	require.Error(t, err)

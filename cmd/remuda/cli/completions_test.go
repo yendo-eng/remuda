@@ -104,6 +104,8 @@ func TestCompleteReasoningLevel_UsesConfigDefaults(t *testing.T) {
 
 	got := runComplete(t, cli.EnvMap{}, home, "vibe", "--reasoning-level", "")
 	require.Equal(t, agentlauncher.SuggestedReasoningLevels("codex", agentlauncher.EffectiveModel("codex", "")), got)
+	require.Contains(t, got, "max")
+	require.Contains(t, got, "ultra")
 }
 
 func TestCompleteReasoningLevel_ClaudeOffersCurrentEffortLevels(t *testing.T) {

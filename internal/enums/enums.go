@@ -11,4 +11,5 @@ var ValidAgents = []string{"codex", "opencode", "claude", "bash"}
 var ValidSessionManagers = []string{"tmux", "zellij"}
 
 // ValidSlugifyReasoningLevels is the canonical list of reasoning effort levels for slugify.
+// Slugify uses a lightweight title-generation call, so it intentionally excludes max and ultra.
 var ValidSlugifyReasoningLevels = []string{"none", "minimal", "low", "medium", "high", "xhigh"}
