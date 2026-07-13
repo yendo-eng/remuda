@@ -5,13 +5,16 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/cmd/remuda/cli"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
+	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/github"
 )
 
@@ -48,6 +51,38 @@ func runComplete(t *testing.T, env cli.EnvMap, home string, args ...string) []st
 		candidates = append(candidates, line)
 	}
 	return candidates
+}
+
+func runCompleteDirective(t *testing.T, env cli.EnvMap, home string, args ...string) cobra.ShellCompDirective {
+	t.Helper()
+	github.ResetRepoAliases()
+	t.Cleanup(github.ResetRepoAliases)
+
+	var stdout, stderr bytes.Buffer
+	ctx := cli.NewContext(
+		context.Background(),
+		internal.Remuda{},
+		cli.WithEnv(env),
+		cli.WithHomeDir(home),
+		cli.WithWorkingDir(home),
+		cli.Stdout(&stdout),
+		cli.Stderr(&stderr),
+	)
+	err := cli.Run(ctx, append([]string{"__complete"}, args...))
+	require.NoError(t, err, stderr.String())
+
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, ":") {
+			continue
+		}
+		directive, err := strconv.Atoi(strings.TrimPrefix(line, ":"))
+		require.NoError(t, err)
+		return cobra.ShellCompDirective(directive)
+	}
+
+	require.FailNow(t, "completion did not return a directive")
+	return cobra.ShellCompDirectiveError
 }
 
 func writeCompletionConfig(t *testing.T, home, content string) {
@@ -123,6 +158,23 @@ func TestCompleteReasoningLevel_ClaudeOffersCurrentEffortLevels(t *testing.T) {
 
 	got := runComplete(t, cli.EnvMap{}, home, "vibe", "--agent", "claude", "--reasoning-level", "")
 	require.Equal(t, agentlauncher.ClaudeEffortLevels, got)
+}
+
+func TestCompleteReasoningLevel_PreservesEffortOrder(t *testing.T) {
+	home := t.TempDir()
+
+	directive := runCompleteDirective(t, cli.EnvMap{}, home, "vibe", "--reasoning-level", "")
+	require.Equal(t, cobra.ShellCompDirectiveNoFileComp|cobra.ShellCompDirectiveKeepOrder, directive)
+}
+
+func TestCompleteSlugifyReasoningLevel_PreservesEffortOrder(t *testing.T) {
+	home := t.TempDir()
+
+	got := runComplete(t, cli.EnvMap{}, home, "vibe", "--slugify-reasoning-level", "")
+	require.Equal(t, enums.ValidSlugifyReasoningLevels, got)
+
+	directive := runCompleteDirective(t, cli.EnvMap{}, home, "vibe", "--slugify-reasoning-level", "")
+	require.Equal(t, cobra.ShellCompDirectiveNoFileComp|cobra.ShellCompDirectiveKeepOrder, directive)
 }
 
 func TestCompleteNoUse_UsesConfigDefaultsAndUseFlags(t *testing.T) {
