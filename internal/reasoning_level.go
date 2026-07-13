@@ -19,7 +19,11 @@ func resolveReasoningLevel(logger zerolog.Logger, agentName, model, agentCmd, le
 	switch agentlauncher.SupportedAgent(agentName) {
 	case agentlauncher.AgentCodex:
 		if err := agentlauncher.ValidateReasoningLevel(agentName, model, level); err != nil {
-			return "", err
+			logger.Warn().
+				Str("agent", agentName).
+				Str("model", model).
+				Str("reasoning_level", level).
+				Msg("reasoning level may not be supported by codex model")
 		}
 		return level, nil
 	case agentlauncher.AgentClaude:
