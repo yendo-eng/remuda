@@ -54,18 +54,35 @@ func (a *app) completionsCmd(root *cobra.Command) *cobra.Command {
 	}
 }
 
-func noFileComp(values []string) ([]string, cobra.ShellCompDirective) {
-	return values, cobra.ShellCompDirectiveNoFileComp
+func registerFlagCompletion(cmd *cobra.Command, flag string, fn func(cmd *cobra.Command, toComplete string) []string) {
+	registerFlagCompletionWithDirective(cmd, flag, fn, cobra.ShellCompDirectiveNoFileComp)
 }
 
-func registerFlagCompletion(cmd *cobra.Command, flag string, fn func(cmd *cobra.Command, toComplete string) []string) {
+func registerFlagCompletionKeepOrder(cmd *cobra.Command, flag string, fn func(cmd *cobra.Command, toComplete string) []string) {
+	registerFlagCompletionWithDirective(cmd, flag, fn,
+		cobra.ShellCompDirectiveNoFileComp|cobra.ShellCompDirectiveKeepOrder,
+	)
+}
+
+func registerFlagCompletionWithDirective(
+	cmd *cobra.Command,
+	flag string,
+	fn func(cmd *cobra.Command, toComplete string) []string,
+	directive cobra.ShellCompDirective,
+) {
 	_ = cmd.RegisterFlagCompletionFunc(flag, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return noFileComp(fn(cmd, toComplete))
+		return fn(cmd, toComplete), directive
 	})
 }
 
 func registerStaticCompletion(cmd *cobra.Command, flag string, values []string) {
 	registerFlagCompletion(cmd, flag, func(*cobra.Command, string) []string {
+		return append([]string(nil), values...)
+	})
+}
+
+func registerStaticCompletionKeepOrder(cmd *cobra.Command, flag string, values []string) {
+	registerFlagCompletionKeepOrder(cmd, flag, func(*cobra.Command, string) []string {
 		return append([]string(nil), values...)
 	})
 }
@@ -190,7 +207,7 @@ func registerModelCompletion(cmd *cobra.Command) {
 }
 
 func registerReasoningLevelCompletion(cmd *cobra.Command) {
-	registerFlagCompletion(cmd, "reasoning-level", func(c *cobra.Command, _ string) []string {
+	registerFlagCompletionKeepOrder(cmd, "reasoning-level", func(c *cobra.Command, _ string) []string {
 		kctx := contextFromCompletion(c)
 		if kctx == nil {
 			return nil

@@ -380,7 +380,7 @@ func (o *SlugifyOptions) register(cmd *cobra.Command, fl *flagSet) {
 		bindKey("defaults.slugify_reasoning_level"),
 		bindEnum(enums.ValidSlugifyReasoningLevels...),
 	)
-	registerStaticCompletion(cmd, "slugify-reasoning-level", enums.ValidSlugifyReasoningLevels)
+	registerStaticCompletionKeepOrder(cmd, "slugify-reasoning-level", enums.ValidSlugifyReasoningLevels)
 }
 
 type VibeContainerOptions struct {
