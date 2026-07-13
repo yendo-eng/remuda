@@ -14,6 +14,8 @@ var CodexReasoningLevels = []string{
 	"medium",
 	"high",
 	"xhigh",
+	"max",
+	"ultra",
 }
 
 // ClaudeEffortLevels is the canonical list of effort levels supported by Claude.
