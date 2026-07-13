@@ -6,17 +6,20 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
-// CodexReasoningLevels is the canonical list of reasoning levels supported by Codex.
-var CodexReasoningLevels = []string{
+var codexBaseReasoningLevels = []string{
 	"none",
 	"minimal",
 	"low",
 	"medium",
 	"high",
 	"xhigh",
+}
+
+// CodexReasoningLevels is the canonical union of reasoning levels supported by Codex models.
+var CodexReasoningLevels = append(append([]string(nil), codexBaseReasoningLevels...),
 	"max",
 	"ultra",
-}
+)
 
 // ClaudeEffortLevels is the canonical list of effort levels supported by Claude.
 var ClaudeEffortLevels = []string{
@@ -31,10 +34,18 @@ var ClaudeEffortLevels = []string{
 func SupportedReasoningLevels(agent, model string) []string {
 	switch SupportedAgent(agent) {
 	case AgentCodex:
-		return append([]string(nil), CodexReasoningLevels...)
+		levels := append([]string(nil), codexBaseReasoningLevels...)
+		if codexSupportsHighTierEffort(model) {
+			levels = append(levels, "max", "ultra")
+		}
+		return levels
 	default:
 		return nil
 	}
+}
+
+func codexSupportsHighTierEffort(model string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-5.6")
 }
 
 // SuggestedReasoningLevels returns shell-completion suggestions for reasoning levels.
