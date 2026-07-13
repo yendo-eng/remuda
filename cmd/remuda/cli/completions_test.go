@@ -106,6 +106,13 @@ func TestCompleteReasoningLevel_UsesConfigDefaults(t *testing.T) {
 	require.Equal(t, agentlauncher.SuggestedReasoningLevels("codex", agentlauncher.EffectiveModel("codex", "")), got)
 }
 
+func TestCompleteReasoningLevel_ClaudeOffersCurrentEffortLevels(t *testing.T) {
+	home := t.TempDir()
+
+	got := runComplete(t, cli.EnvMap{}, home, "vibe", "--agent", "claude", "--reasoning-level", "")
+	require.Equal(t, agentlauncher.ClaudeEffortLevels, got)
+}
+
 func TestCompleteNoUse_UsesConfigDefaultsAndUseFlags(t *testing.T) {
 	home := t.TempDir()
 	writeCompletionConfig(t, home, "version: 1\ndefaults:\n  use_prompts: [small-commits]\n")
