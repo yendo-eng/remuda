@@ -21,6 +21,8 @@ var ClaudeEffortLevels = []string{
 	"low",
 	"medium",
 	"high",
+	"xhigh",
+	"max",
 }
 
 // SupportedReasoningLevels returns the supported reasoning levels for the agent/model.
