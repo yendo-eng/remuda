@@ -337,7 +337,7 @@ func (o *AgentSessionOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fs := cmd.Flags()
 	fs.StringVar(&o.Agent, "agent", "codex", "Built-in agent to use (codex|opencode|claude|bash).")
 	fs.StringVar(&o.Model, "model", "", "Specific model to use. Use agent-default to omit any model flag and let the agent CLI choose its own default.")
-	fs.StringVar(&o.ReasoningLevel, "reasoning-level", "", "Reasoning level for codex/claude (none|minimal|low|medium|high|xhigh|max|ultra for codex; low|medium|high|xhigh|max for claude).")
+	fs.StringVar(&o.ReasoningLevel, "reasoning-level", "", "Reasoning level for codex/claude (none|minimal|low|medium|high|xhigh for codex; max|ultra for gpt-5.6 Codex models; low|medium|high|xhigh|max for claude).")
 	fs.StringVar(&o.AgentCmd, "agent-cmd", "", "Override the agent command entirely.")
 	fs.StringArrayVar(&o.AgentArg, "agent-arg", nil, "Additional argument to append to the selected built-in agent command (repeatable). Ignored when --agent-cmd is set.")
 	fl.bind("agent", bindEnvs("REMUDA_AGENT"), bindKey("defaults.agent"), bindEnum(enums.ValidAgents...))
