@@ -22,8 +22,10 @@ or populate values automatically, but you can configure them explicitly:
 - `REMUDA_MODEL` – default model used when you omit `--model`. Use
   `agent-default` to omit any model flag and let the agent CLI choose.
 - `REMUDA_REASONING_LEVEL` – default reasoning level for supported agents.
-  For codex this uses `none|minimal|low|medium|high|xhigh|max|ultra`; for claude the
-  value is forwarded to Claude Code as `--effort`.
+  For codex this uses `none|minimal|low|medium|high|xhigh`, with `max|ultra`
+  available for `gpt-5.6*` models; unknown values are passed through with a
+  warning for Codex to validate. For claude the value is forwarded to Claude
+  Code as `--effort`.
 - `REMUDA_SLUGIFY_REASONING_LEVEL` – reasoning level used when Remuda auto-
   generates workspace names from prompts.
 - `REMUDA_EXPERIMENTS` – comma- or whitespace-separated list of experimental
