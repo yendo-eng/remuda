@@ -59,6 +59,8 @@ func TestResolveReasoningLevel_AgentCmdBypassesBuiltInReasoning(t *testing.T) {
 }
 
 func TestResolveReasoningLevel_OpenCodeWarnsAndIgnores(t *testing.T) {
+	t.Parallel()
+
 	var logs bytes.Buffer
 	got, err := resolveReasoningLevel(
 		zerolog.New(&logs),
@@ -72,14 +74,51 @@ func TestResolveReasoningLevel_OpenCodeWarnsAndIgnores(t *testing.T) {
 	require.Contains(t, logs.String(), "reasoning-level ignored")
 }
 
-func TestResolveReasoningLevel_CodexValidationStillApplies(t *testing.T) {
-	_, err := resolveReasoningLevel(
-		zerolog.New(io.Discard),
+func TestResolveReasoningLevel_CodexWarnsAndPassesThroughUnsupportedLevels(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		model string
+		level string
+	}{
+		{name: "high tier on older model", model: "gpt-5.5", level: "max"},
+		{name: "unknown level", model: "gpt-5.6-sol", level: "turbo"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var logs bytes.Buffer
+			got, err := resolveReasoningLevel(
+				zerolog.New(&logs),
+				string(agentlauncher.AgentCodex),
+				tt.model,
+				"",
+				tt.level,
+			)
+			require.NoError(t, err)
+			require.Equal(t, tt.level, got)
+			require.Contains(t, logs.String(), "reasoning level may not be supported by codex model")
+			require.Contains(t, logs.String(), tt.model)
+			require.Contains(t, logs.String(), tt.level)
+		})
+	}
+}
+
+func TestResolveReasoningLevel_CodexSupportsGPT56HighTierWithoutWarning(t *testing.T) {
+	t.Parallel()
+
+	var logs bytes.Buffer
+	got, err := resolveReasoningLevel(
+		zerolog.New(&logs),
 		string(agentlauncher.AgentCodex),
-		"gpt-5",
+		"gpt-5.6-luna",
 		"",
-		"turbo",
+		"max",
 	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "reasoning-level")
+	require.NoError(t, err)
+	require.Equal(t, "max", got)
+	require.Empty(t, logs.String())
 }
