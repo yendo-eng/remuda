@@ -22,9 +22,10 @@ func TestContextEngineeringOptionsNoUseFiltersUse(t *testing.T) {
 
 	added, err := opts.AddedPromptContext(ctx, PromptContextInput{})
 	require.NoError(t, err)
-	require.Len(t, added, 1)
-	require.Contains(t, added[0], "git commit")
-	require.NotContains(t, added[0], "gh pr create")
+	require.Len(t, added.UsePrompts, 1)
+	require.Empty(t, added.Reference)
+	require.Contains(t, added.UsePrompts[0], "git commit")
+	require.NotContains(t, added.UsePrompts[0], "gh pr create")
 }
 
 func TestContextEngineeringOptionsWrapsUsePromptsWithContextTags(t *testing.T) {
@@ -38,9 +39,9 @@ func TestContextEngineeringOptionsWrapsUsePromptsWithContextTags(t *testing.T) {
 
 	added, err := opts.AddedPromptContext(ctx, PromptContextInput{WrapUsePrompts: true})
 	require.NoError(t, err)
-	require.Len(t, added, 1)
-	require.Equal(t, 1, strings.Count(added[0], "<context>"))
-	require.Equal(t, 1, strings.Count(added[0], "</context>"))
+	require.Len(t, added.UsePrompts, 1)
+	require.Equal(t, 1, strings.Count(added.UsePrompts[0], "<context>"))
+	require.Equal(t, 1, strings.Count(added.UsePrompts[0], "</context>"))
 }
 
 func TestShouldAddMainPromptMarker(t *testing.T) {
@@ -49,6 +50,45 @@ func TestShouldAddMainPromptMarker(t *testing.T) {
 	require.False(t, shouldAddMainPromptMarker(false, true))
 	require.False(t, shouldAddMainPromptMarker(true, false))
 	require.False(t, shouldAddMainPromptMarker(false, false))
+}
+
+func TestArrangePromptContext(t *testing.T) {
+	t.Parallel()
+
+	parts := PromptContextParts{
+		UsePrompts: []string{"saved"},
+		Reference:  []string{"jira"},
+	}
+	tests := []struct {
+		name       string
+		position   string
+		addMarker  bool
+		wantBefore []string
+		wantAfter  []string
+	}{
+		{
+			name:       "before preserves saved prompt first",
+			position:   "before",
+			addMarker:  true,
+			wantBefore: []string{"saved", "jira", "Main prompt:"},
+		},
+		{
+			name:       "after keeps reference before main prompt",
+			position:   "after",
+			addMarker:  true,
+			wantBefore: []string{"jira", "Main prompt:"},
+			wantAfter:  []string{"saved"},
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			before, after := arrangePromptContext(parts, test.position, test.addMarker)
+			require.Equal(t, test.wantBefore, before)
+			require.Equal(t, test.wantAfter, after)
+		})
+	}
 }
 
 func TestContextEngineeringOptionsValidatePromptUsage_AllowsNoUseWithEmptyPrompt(t *testing.T) {
@@ -168,7 +208,8 @@ func TestContextEngineeringOptionsPassesJiraAuthOverrideToRuntime(t *testing.T) 
 
 	added, err := opts.AddedPromptContext(ctx, PromptContextInput{})
 	require.NoError(t, err)
-	require.Len(t, added, 1)
+	require.Empty(t, added.UsePrompts)
+	require.Len(t, added.Reference, 1)
 	require.Equal(t, jira.AuthConfig{
 		Endpoint: "https://jira.example.atlassian.net",
 		User:     "dev@example.com",

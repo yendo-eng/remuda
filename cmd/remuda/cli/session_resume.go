@@ -173,22 +173,15 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 	}
 
 	prompt := c.Prompt
+	var beforePrompt, afterPrompt []string
 	if prompt != "" {
-		addedContext, err := c.AddedPromptContext(ctx, PromptContextInput{
+		parts, err := c.AddedPromptContext(ctx, PromptContextInput{
 			GitHubRepoSlug: repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, selectedAbs),
 		})
 		if err != nil {
 			return pkgerrors.Wrap(err, "adding prompt context")
 		}
-		if len(addedContext) > 0 {
-			var fullPrompt strings.Builder
-			for _, p := range addedContext {
-				fullPrompt.WriteString(p)
-				fullPrompt.WriteString("\n")
-			}
-			fullPrompt.WriteString(prompt)
-			prompt = fullPrompt.String()
-		}
+		beforePrompt, afterPrompt = arrangePromptContext(parts, c.effectiveUsePromptsPosition(), false)
 	}
 
 	cmd := internal.SessionResumeCommand{
@@ -197,6 +190,8 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 		Model:               c.Model,
 		AgentCmd:            c.AgentCmd,
 		Prompt:              prompt,
+		BeforePrompt:        beforePrompt,
+		AfterPrompt:         afterPrompt,
 		Detached:            c.DetachedMode(),
 		Attach:              c.Attach,
 		Yolo:                c.Yolo,

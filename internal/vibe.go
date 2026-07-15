@@ -114,19 +114,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		agent = parsed
 	}
 	checkModelSupported(logger, agent, cmd.Model)
-	// Build up the prompt. Should before the befores + user + afters.
-	var fullPrompt strings.Builder
-	for _, p := range cmd.BeforePrompt {
-		fullPrompt.WriteString(p)
-		fullPrompt.WriteString("\n")
-	}
-	fullPrompt.WriteString(cmd.Prompt)
-	for _, p := range cmd.AfterPrompt {
-		fullPrompt.WriteString("\n")
-		fullPrompt.WriteString(p)
-	}
-
-	prompt := fullPrompt.String()
+	prompt := assemblePrompt(cmd.BeforePrompt, cmd.Prompt, cmd.AfterPrompt)
 
 	// TODO: reinstate this if encessary
 	// cmd.APIKeyOptions.ApplyToEnv()

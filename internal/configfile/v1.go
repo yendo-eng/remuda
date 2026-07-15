@@ -62,6 +62,7 @@ type DefaultsV1 struct {
 	AgentCmd              *string             `yaml:"agent_cmd,omitempty"`
 	AgentArgs             map[string][]string `yaml:"agent_args,omitempty"`
 	UsePrompts            *[]string           `yaml:"use_prompts,omitempty"`
+	UsePromptsPosition    *string             `yaml:"use_prompts_position,omitempty"`
 	NoUse                 *[]string           `yaml:"no_use,omitempty"`
 	Experiments           *[]string           `yaml:"experiments,omitempty"`
 	Yolo                  *bool               `yaml:"yolo,omitempty"`
@@ -368,6 +369,12 @@ func (d DefaultsV1) validate(path string) error {
 		if !slices.Contains(enums.ValidAgents, *d.Agent) {
 			return pkgerrors.Errorf("%s.agent: invalid value %q (valid: %s)",
 				path, *d.Agent, strings.Join(enums.ValidAgents, ", "))
+		}
+	}
+	if d.UsePromptsPosition != nil {
+		if !slices.Contains(enums.ValidUsePromptPositions, *d.UsePromptsPosition) {
+			return pkgerrors.Errorf("%s.use_prompts_position: invalid value %q (valid: %s)",
+				path, *d.UsePromptsPosition, strings.Join(enums.ValidUsePromptPositions, ", "))
 		}
 	}
 	if d.SlugifyReasoningLevel != nil {
