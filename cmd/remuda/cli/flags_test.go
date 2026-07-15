@@ -20,6 +20,7 @@ func newResolutionFixture(t *testing.T, args ...string) (*flagSet, *flagResoluti
 	Agent        string
 	Model        string
 	Use          []string
+	UsePosition  string
 	Experiments  string
 	Yolo         bool
 	ContainerOpt []string
@@ -29,6 +30,7 @@ func newResolutionFixture(t *testing.T, args ...string) (*flagSet, *flagResoluti
 		Agent        string
 		Model        string
 		Use          []string
+		UsePosition  string
 		Experiments  string
 		Yolo         bool
 		ContainerOpt []string
@@ -38,6 +40,7 @@ func newResolutionFixture(t *testing.T, args ...string) (*flagSet, *flagResoluti
 	fs.StringVar(&vals.Agent, "agent", "codex", "")
 	fs.StringVar(&vals.Model, "model", "", "")
 	fs.StringSliceVar(&vals.Use, "use", nil, "")
+	fs.StringVar(&vals.UsePosition, "use-position", "before", "")
 	fs.StringVar(&vals.Experiments, "experiments", "", "")
 	fs.BoolVar(&vals.Yolo, "yolo", false, "")
 	fs.StringSliceVar(&vals.ContainerOpt, "container-opt", nil, "")
@@ -46,6 +49,7 @@ func newResolutionFixture(t *testing.T, args ...string) (*flagSet, *flagResoluti
 	fl.bind("agent", bindEnvs("REMUDA_AGENT"), bindKey("defaults.agent"), bindEnum("codex", "opencode", "claude", "bash"))
 	fl.bind("model", bindEnvs("REMUDA_MODEL"), bindKey("defaults.model"))
 	fl.bind("use", bindEnvs("REMUDA_USE_PROMPTS"), bindKey("defaults.use_prompts"), bindMergeConfigSlice())
+	fl.bind("use-position", bindEnvs("REMUDA_USE_PROMPTS_POSITION"), bindKey("defaults.use_prompts_position"), bindEnum("before", "after"))
 	fl.bind("experiments", bindEnvs("REMUDA_EXPERIMENTS"), bindKey("defaults.experiments"))
 	fl.bind("yolo", bindEnvs("REMUDA_YOLO"), bindKey("defaults.yolo"))
 	fl.bind("container-opt", bindEnvs("REMUDA_CONTAINER_OPTS"), bindKey("defaults.container.opts"))
@@ -88,6 +92,38 @@ defaults:
 			require.NoError(t, rs.validateEnums())
 			require.Equal(t, tc.wantAgent, vals.Agent)
 			require.Equal(t, tc.wantModel, vals.Model)
+		})
+	}
+}
+
+func TestFlagResolution_UsePromptPositionPrecedence(t *testing.T) {
+	t.Parallel()
+	cfg := parseTestConfig(t, `
+version: 1
+defaults:
+  use_prompts_position: after
+`)
+
+	tests := []struct {
+		name string
+		args []string
+		env  EnvMap
+		want string
+	}{
+		{name: "config", want: "after"},
+		{name: "environment", env: EnvMap{"REMUDA_USE_PROMPTS_POSITION": "before"}, want: "before"},
+		{name: "flag", args: []string{"--use-position", "after"}, env: EnvMap{"REMUDA_USE_PROMPTS_POSITION": "before"}, want: "after"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, rs, vals := newResolutionFixture(t, test.args...)
+			eff, err := newEffectiveConfig(cfg, "", profileRef{})
+			require.NoError(t, err)
+			require.NoError(t, rs.apply(test.env, eff))
+			require.NoError(t, rs.validateEnums())
+			require.Equal(t, test.want, vals.UsePosition)
 		})
 	}
 }

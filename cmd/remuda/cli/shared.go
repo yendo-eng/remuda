@@ -92,15 +92,16 @@ func (o *CloneHooksOption) register(cmd *cobra.Command) {
 // ContextEngineeringOptions captures the common flags to help add context to agent
 // sessions.
 type ContextEngineeringOptions struct {
-	Jira         []string
-	JiraEndpoint string
-	JiraUser     string
-	JiraToken    string
-	SlackThread  []string
-	GitHubIssue  []string
-	ghIssueAlias []string
-	Use          []string
-	NoUse        []string
+	Jira               []string
+	JiraEndpoint       string
+	JiraUser           string
+	JiraToken          string
+	SlackThread        []string
+	GitHubIssue        []string
+	ghIssueAlias       []string
+	Use                []string
+	UsePromptsPosition string
+	NoUse              []string
 }
 
 func (c *ContextEngineeringOptions) register(cmd *cobra.Command, fl *flagSet) {
@@ -113,12 +114,14 @@ func (c *ContextEngineeringOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fs.StringSliceVar(&c.GitHubIssue, "github-issue", nil, "GitHub issue URL or number to prepend as context (repeatable; number requires repo inference).")
 	fs.StringSliceVar(&c.ghIssueAlias, "gh-issue", nil, "Alias for --github-issue.")
 	fs.Lookup("gh-issue").Hidden = true
-	fs.StringSliceVarP(&c.Use, "use", "u", nil, "Prepend one or more saved prompts (repeatable). Custom prompts override built-ins when names collide.")
+	fs.StringSliceVarP(&c.Use, "use", "u", nil, "Apply one or more saved prompts (repeatable). Custom prompts override built-ins when names collide.")
+	fs.StringVar(&c.UsePromptsPosition, "use-position", enums.UsePromptPositionBefore, "Place saved prompts before or after the main prompt.")
 	fs.StringSliceVar(&c.NoUse, "no-use", nil, "Exclude one or more saved prompts (repeatable).")
 	fl.bind("jira-endpoint", bindEnvs("REMUDA_JIRA_ENDPOINT"), bindKey("jira.endpoint"))
 	fl.bind("jira-user", bindEnvs("REMUDA_JIRA_USER"), bindKey("jira.user"))
 	fl.bind("jira-token", bindEnvs("REMUDA_JIRA_API_TOKEN", "REMUDA_JIRA_TOKEN"), bindKey("jira.api_token"))
 	fl.bind("use", bindEnvs("REMUDA_USE_PROMPTS"), bindKey("defaults.use_prompts"), bindMergeConfigSlice())
+	fl.bind("use-position", bindEnvs("REMUDA_USE_PROMPTS_POSITION"), bindKey("defaults.use_prompts_position"), bindEnum(enums.ValidUsePromptPositions...))
 	fl.bind("no-use", bindKey("defaults.no_use"))
 	registerPromptNameCompletion(cmd, "use")
 	registerNoUsePromptNameCompletion(cmd, "no-use")
@@ -127,6 +130,11 @@ func (c *ContextEngineeringOptions) register(cmd *cobra.Command, fl *flagSet) {
 type PromptContextInput struct {
 	GitHubRepoSlug string
 	WrapUsePrompts bool
+}
+
+type PromptContextParts struct {
+	UsePrompts []string
+	Reference  []string
 }
 
 var jiraIssueKeyPattern = regexp.MustCompile(`^[A-Z][A-Z0-9]+-\d+$`)
@@ -148,15 +156,15 @@ func normalizeAndValidateJiraKeys(keys []string) ([]string, error) {
 	return normalized, nil
 }
 
-func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptContextInput) ([]string, error) {
-	addedContext := []string{}
+func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptContextInput) (PromptContextParts, error) {
+	parts := PromptContextParts{}
 
 	if err := c.validatePromptNames(ctx); err != nil {
-		return nil, err
+		return PromptContextParts{}, err
 	}
 	normalizedJira, err := normalizeAndValidateJiraKeys(c.Jira)
 	if err != nil {
-		return nil, err
+		return PromptContextParts{}, err
 	}
 
 	usePrompts := c.effectiveUsePrompts()
@@ -165,7 +173,7 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 		for _, builtin := range usePrompts {
 			prompt, err := ctx.Remuda.ShowPrompt(builtin)
 			if err != nil {
-				return nil, err
+				return PromptContextParts{}, err
 			}
 			preface = append(preface, strings.TrimRight(prompt, "\n"))
 		}
@@ -173,7 +181,7 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 		if input.WrapUsePrompts {
 			prefaceContent = "<context>\n" + prefaceContent + "\n</context>"
 		}
-		addedContext = append(addedContext, prefaceContent+"\n")
+		parts.UsePrompts = append(parts.UsePrompts, prefaceContent+"\n")
 	}
 
 	// JIRA context
@@ -188,9 +196,9 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 		}
 		jiraContext, err = jira.BuildContext(ctx.Remuda.Jira, normalizedJira)
 		if err != nil {
-			return nil, pkgerrors.Wrap(err, "jira context")
+			return PromptContextParts{}, pkgerrors.Wrap(err, "jira context")
 		}
-		addedContext = append(addedContext, jiraContext)
+		parts.Reference = append(parts.Reference, jiraContext)
 	}
 
 	// Slack thread context
@@ -199,21 +207,45 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 		var err error
 		slackContext, err = slack.BuildSlackThreadContext(ctx.Remuda.Slack, c.SlackThread)
 		if err != nil {
-			return nil, pkgerrors.Wrap(err, "slack thread context")
+			return PromptContextParts{}, pkgerrors.Wrap(err, "slack thread context")
 		}
-		addedContext = append(addedContext, slackContext)
+		parts.Reference = append(parts.Reference, slackContext)
 	}
 
 	// GitHub issues context
 	if len(c.GitHubIssue) > 0 {
 		githubContext, err := github.BuildIssueContext(ctx.Remuda.GitHub, input.GitHubRepoSlug, c.GitHubIssue)
 		if err != nil {
-			return nil, pkgerrors.Wrap(err, "github issue context")
+			return PromptContextParts{}, pkgerrors.Wrap(err, "github issue context")
 		}
-		addedContext = append(addedContext, githubContext)
+		parts.Reference = append(parts.Reference, githubContext)
 	}
 
-	return addedContext, nil
+	return parts, nil
+}
+
+func (c ContextEngineeringOptions) effectiveUsePromptsPosition() string {
+	if strings.TrimSpace(c.UsePromptsPosition) == "" {
+		return enums.UsePromptPositionBefore
+	}
+	return c.UsePromptsPosition
+}
+
+func arrangePromptContext(parts PromptContextParts, position string, addMainPromptMarker bool) (before, after []string) {
+	if position == enums.UsePromptPositionAfter {
+		before = append(before, parts.Reference...)
+		if addMainPromptMarker {
+			before = append(before, "Main prompt:")
+		}
+		return before, append(after, parts.UsePrompts...)
+	}
+
+	before = append(before, parts.UsePrompts...)
+	before = append(before, parts.Reference...)
+	if addMainPromptMarker {
+		before = append(before, "Main prompt:")
+	}
+	return before, nil
 }
 
 func (c ContextEngineeringOptions) validatePromptUsage(ctx Context, prompt string) error {

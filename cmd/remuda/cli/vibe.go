@@ -206,17 +206,16 @@ func (c *VibeCmd) Run(ctx Context) error {
 	cmd.UsePromptIDs = usePromptIDs
 
 	if strings.TrimSpace(c.Prompt) != "" {
-		addedContext, err := c.AddedPromptContext(ctx, PromptContextInput{
+		parts, err := c.AddedPromptContext(ctx, PromptContextInput{
 			GitHubRepoSlug: repoSlug,
 			WrapUsePrompts: wrapUsePrompts,
 		})
 		if err != nil {
 			return pkgerrors.Wrap(err, "adding prompt context")
 		}
-		cmd.BeforePrompt = append(cmd.BeforePrompt, addedContext...)
-		if shouldAddMainPromptMarker(wrapUsePrompts, usePromptsSelected) {
-			cmd.BeforePrompt = append(cmd.BeforePrompt, "Main prompt:")
-		}
+		before, after := arrangePromptContext(parts, c.effectiveUsePromptsPosition(), shouldAddMainPromptMarker(wrapUsePrompts, usePromptsSelected))
+		cmd.BeforePrompt = append(cmd.BeforePrompt, before...)
+		cmd.AfterPrompt = append(cmd.AfterPrompt, after...)
 	}
 
 	cmd.Clone.Name = c.Name

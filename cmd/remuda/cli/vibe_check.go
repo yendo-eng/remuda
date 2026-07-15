@@ -201,7 +201,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	wrapUsePrompts := c.ExperimentEnabled(experimentUsePromptsContextWrapper)
 	usePromptsSelected := len(usePromptIDs) > 0
 
-	addedContext, err := c.AddedPromptContext(ctx, PromptContextInput{
+	parts, err := c.AddedPromptContext(ctx, PromptContextInput{
 		GitHubRepoSlug: repoSlug,
 		WrapUsePrompts: wrapUsePrompts,
 	})
@@ -230,10 +230,9 @@ func (c VibeCheckCmd) run(ctx Context) error {
 			FullClone:      c.FullClone,
 		},
 	}
-	cmd.BeforePrompt = append(cmd.BeforePrompt, addedContext...)
-	if shouldAddMainPromptMarker(wrapUsePrompts, usePromptsSelected) {
-		cmd.BeforePrompt = append(cmd.BeforePrompt, "Main prompt:")
-	}
+	before, after := arrangePromptContext(parts, c.effectiveUsePromptsPosition(), shouldAddMainPromptMarker(wrapUsePrompts, usePromptsSelected))
+	cmd.BeforePrompt = append(cmd.BeforePrompt, before...)
+	cmd.AfterPrompt = append(cmd.AfterPrompt, after...)
 
 	err = ctx.Remuda.Vibe(ctx.ctx, cmd)
 	return pkgerrors.Wrap(err, "vibe check")

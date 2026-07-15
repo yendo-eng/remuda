@@ -211,10 +211,26 @@ func TestParseV1_PointerFields(t *testing.T) {
 	require.Nil(t, cfg.Defaults.Model)
 	require.Nil(t, cfg.Defaults.ReasoningLevel)
 	require.Nil(t, cfg.Defaults.SlugifyReasoningLevel)
+	require.Nil(t, cfg.Defaults.UsePromptsPosition)
 	require.Nil(t, cfg.Defaults.AgentArgs)
 	require.Nil(t, cfg.Defaults.Yolo)
 	require.Nil(t, cfg.Defaults.Merge)
 	require.Nil(t, cfg.Defaults.Container)
+}
+
+func TestParseV1_UsePromptsPosition(t *testing.T) {
+	cfg, err := ParseV1([]byte("version: 1\ndefaults:\n  use_prompts_position: after\n"))
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Defaults)
+	require.NotNil(t, cfg.Defaults.UsePromptsPosition)
+	require.Equal(t, "after", *cfg.Defaults.UsePromptsPosition)
+}
+
+func TestParseV1_InvalidUsePromptsPosition(t *testing.T) {
+	_, err := ParseV1([]byte("version: 1\ndefaults:\n  use_prompts_position: beside\n"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "defaults.use_prompts_position")
+	require.Contains(t, err.Error(), "beside")
 }
 
 func TestParseV1_DefaultsAgentArgsRoundTrip(t *testing.T) {

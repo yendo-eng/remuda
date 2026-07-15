@@ -22,6 +22,10 @@ type SessionResumeCommand struct {
 	AgentCmd string
 	// Prompt is injected into the resumed conversation when provided.
 	Prompt string
+	// BeforePrompt is prepended to Prompt in order.
+	BeforePrompt []string
+	// AfterPrompt is appended to Prompt in order.
+	AfterPrompt []string
 
 	Detached bool
 	Attach   bool
@@ -65,14 +69,15 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	model := strings.TrimSpace(cmd.Model)
 
 	agentCmd := strings.TrimSpace(cmd.AgentCmd)
+	prompt := assemblePrompt(cmd.BeforePrompt, cmd.Prompt, cmd.AfterPrompt)
 	if agentCmd == "" {
 		var err error
-		agentCmd, err = sessionResumeCommandForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, cmd.Prompt)
+		agentCmd, err = sessionResumeCommandForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, prompt)
 		if err != nil {
 			return err
 		}
 	} else {
-		agentCmd = agentlauncher.Custom(agentCmd).Command(cmd.Prompt)
+		agentCmd = agentlauncher.Custom(agentCmd).Command(prompt)
 	}
 
 	envOverrides := make(map[string]string, len(cmd.EnvOverrides)+1)
