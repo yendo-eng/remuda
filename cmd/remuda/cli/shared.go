@@ -125,6 +125,7 @@ func (c *ContextEngineeringOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fl.bind("no-use", bindKey("defaults.no_use"))
 	registerPromptNameCompletion(cmd, "use")
 	registerNoUsePromptNameCompletion(cmd, "no-use")
+	registerStaticCompletion(cmd, "use-position", enums.ValidUsePromptPositions)
 }
 
 type PromptContextInput struct {
