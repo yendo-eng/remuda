@@ -155,6 +155,7 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 		"REMUDA_REAL_TMUX="+realTmux,
 		"REMUDA_TMUX_SOCKET="+socketName,
 	)
+	seedEnv := append(append([]string{}, baseEnv...), "STALE_SECRET=stale-value")
 
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -167,7 +168,7 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "tmux", "new-session", "-d", "-s", "seed", "sleep 30")
-	cmd.Env = baseEnv
+	cmd.Env = seedEnv
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(out))
 
@@ -180,14 +181,14 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	require.True(t, ok)
 	err = starter.StartWithEnv(
 		"env-check",
-		"printf '%s' \"$REMUDA_TEST_PANE_ENV\" > "+shellSingleQuoteForTest(outputPath),
+		"printf '%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"${STALE_SECRET-unset}\" > "+shellSingleQuoteForTest(outputPath),
 		startEnv,
 	)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
 		data, readErr := os.ReadFile(outputPath)
-		return readErr == nil && string(data) == "tmux-secret value"
+		return readErr == nil && string(data) == "tmux-secret value|unset"
 	}, 2*time.Second, 50*time.Millisecond)
 }
 

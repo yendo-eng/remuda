@@ -35,7 +35,7 @@ func TestStartSessionWithEnvAddsPathWhenMissing(t *testing.T) {
 	mgr := &captureEnvSession{}
 	provider := env.StaticProvider{Values: map[string]string{"FOO": "bar"}}
 
-	require.NoError(t, startSessionWithEnv(mgr, "sess", "cmd", provider))
+	require.NoError(t, startSessionWithEnv(mgr, "sess", "cmd", provider, "", []string{"FOO"}))
 
 	value, ok := envValue(mgr.env, "PATH")
 	require.True(t, ok)
@@ -51,7 +51,7 @@ func TestStartSessionWithEnvKeepsProvidedPath(t *testing.T) {
 	mgr := &captureEnvSession{}
 	provider := env.StaticProvider{Values: map[string]string{"PATH": "/custom/bin"}}
 
-	require.NoError(t, startSessionWithEnv(mgr, "sess", "cmd", provider))
+	require.NoError(t, startSessionWithEnv(mgr, "sess", "cmd", provider, "", nil))
 
 	value, ok := envValue(mgr.env, "PATH")
 	require.True(t, ok)
