@@ -224,7 +224,8 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 		Detached:          true,
 		ExistingWorkspace: workspace,
 		EnvOverrides: map[string]string{
-			"OPENAI_API_KEY": "vibe-secret",
+			"OPENAI_API_KEY":  "vibe-secret",
+			"CUSTOM_OVERRIDE": "custom-secret",
 		},
 	})
 	require.NoError(t, err)
@@ -233,6 +234,9 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 	value, ok := envValue(sm.startEnv, "OPENAI_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "vibe-secret", value)
+	value, ok = envValue(sm.startEnv, "CUSTOM_OVERRIDE")
+	require.True(t, ok)
+	require.Equal(t, "custom-secret", value)
 }
 
 func TestVibe_DetachedTmuxForwardsAllowlistedEnvOnly(t *testing.T) {

@@ -143,13 +143,16 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
+	tmuxEnvDir := filepath.Join(tmp, "tmux env'files")
+	require.NoError(t, os.MkdirAll(tmuxEnvDir, 0o755))
+	t.Setenv("TMPDIR", tmuxEnvDir)
 	socketName := fmt.Sprintf("remuda-test-%d", time.Now().UnixNano())
 	wrapperPath := filepath.Join(tmp, "tmux")
 	wrapper := "#!/bin/sh\nexec \"$REMUDA_REAL_TMUX\" -L \"$REMUDA_TMUX_SOCKET\" \"$@\"\n"
 	require.NoError(t, os.WriteFile(wrapperPath, []byte(wrapper), 0o755))
 
 	pathEnv := tmp + string(os.PathListSeparator) + os.Getenv("PATH")
-	baseEnv := filteredEnvWithout("PATH", "TMUX", "TMUX_PANE")
+	baseEnv := filteredEnvWithout("PATH", "TMUX", "TMUX_PANE", "TERM")
 	baseEnv = append(baseEnv,
 		"PATH="+pathEnv,
 		"REMUDA_REAL_TMUX="+realTmux,
@@ -181,14 +184,14 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	require.True(t, ok)
 	err = starter.StartWithEnv(
 		"env-check",
-		"printf '%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"${STALE_SECRET-unset}\" > "+shellSingleQuoteForTest(outputPath),
+		"printf '%s|%s|%s|%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"${STALE_SECRET-unset}\" \"${TERM:+set}\" \"${TMUX:+set}\" \"${TMUX_PANE:+set}\" > "+shellSingleQuoteForTest(outputPath),
 		startEnv,
 	)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
 		data, readErr := os.ReadFile(outputPath)
-		return readErr == nil && string(data) == "tmux-secret value|unset"
+		return readErr == nil && string(data) == "tmux-secret value|unset|set|set|set"
 	}, 2*time.Second, 50*time.Millisecond)
 }
 
@@ -242,6 +245,7 @@ func TestTmuxStartWithEnvKeepsValuesOffArgv(t *testing.T) {
 		t.Skip("requires shell script stub")
 	}
 
+	t.Setenv("TMPDIR", t.TempDir())
 	tmp := t.TempDir()
 	argsPath := filepath.Join(tmp, "tmux-args")
 	tmuxPath := filepath.Join(tmp, "tmux")
@@ -271,6 +275,7 @@ func TestTmuxStartWithEnvBoundsArgvForLargeEnvironment(t *testing.T) {
 		t.Skip("requires shell script stub")
 	}
 
+	t.Setenv("TMPDIR", t.TempDir())
 	tmp := t.TempDir()
 	argsPath := filepath.Join(tmp, "tmux-args")
 	tmuxPath := filepath.Join(tmp, "tmux")
