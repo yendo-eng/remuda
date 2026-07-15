@@ -237,6 +237,25 @@ func TestCompletePromptNames_ReturnsAllPrompts(t *testing.T) {
 	require.Contains(t, got, "make-pr")
 }
 
+func TestCompleteUsePosition_ReturnsValidValues(t *testing.T) {
+	home := t.TempDir()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "vibe", args: []string{"vibe"}},
+		{name: "vibe-check", args: []string{"vibe-check"}},
+		{name: "session resume", args: []string{"session", "resume"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := runComplete(t, cli.EnvMap{}, home, append(test.args, "--use-position", "")...)
+			require.Equal(t, []string{"before", "after"}, got)
+		})
+	}
+}
+
 func TestCompletionsCmd_GeneratesBashScript(t *testing.T) {
 	home := t.TempDir()
 
