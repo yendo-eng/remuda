@@ -236,6 +236,64 @@ func TestTmuxStartWithEnvSurfacesStderrOnDuplicateSession(t *testing.T) {
 	require.ErrorContains(t, err, "duplicate session")
 }
 
+func TestTmuxStartWithEnvKeepsValuesOffArgv(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires shell script stub")
+	}
+
+	tmp := t.TempDir()
+	argsPath := filepath.Join(tmp, "tmux-args")
+	tmuxPath := filepath.Join(tmp, "tmux")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$TMUX_ARGS_FILE\"\n"
+	require.NoError(t, os.WriteFile(tmuxPath, []byte(script), 0o755))
+
+	pathEnv := tmp + string(os.PathListSeparator) + os.Getenv("PATH")
+	secret := "openai-secret-value"
+	env := []string{
+		"PATH=" + pathEnv,
+		"TMUX_ARGS_FILE=" + argsPath,
+		"OPENAI_API_KEY=" + secret,
+	}
+
+	starter, ok := session.NewTmuxManager().(session.EnvStarter)
+	require.True(t, ok)
+	require.NoError(t, starter.StartWithEnv("argv-check", "true", env))
+
+	args, err := os.ReadFile(argsPath)
+	require.NoError(t, err)
+	require.NotContains(t, string(args), secret)
+	require.NotContains(t, string(args), "OPENAI_API_KEY="+secret)
+}
+
+func TestTmuxStartWithEnvBoundsArgvForLargeEnvironment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires shell script stub")
+	}
+
+	tmp := t.TempDir()
+	argsPath := filepath.Join(tmp, "tmux-args")
+	tmuxPath := filepath.Join(tmp, "tmux")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$TMUX_ARGS_FILE\"\n"
+	require.NoError(t, os.WriteFile(tmuxPath, []byte(script), 0o755))
+
+	pathEnv := tmp + string(os.PathListSeparator) + os.Getenv("PATH")
+	env := []string{
+		"PATH=" + pathEnv,
+		"TMUX_ARGS_FILE=" + argsPath,
+	}
+	for i := 0; i < 256; i++ {
+		env = append(env, fmt.Sprintf("SYNTHETIC_%03d=%s", i, strings.Repeat("x", 1024)))
+	}
+
+	starter, ok := session.NewTmuxManager().(session.EnvStarter)
+	require.True(t, ok)
+	require.NoError(t, starter.StartWithEnv("large-env", "true", env))
+
+	args, err := os.ReadFile(argsPath)
+	require.NoError(t, err)
+	require.Less(t, len(args), 4096)
+}
+
 func filteredEnvWithout(keys ...string) []string {
 	skip := make(map[string]struct{}, len(keys))
 	for _, key := range keys {

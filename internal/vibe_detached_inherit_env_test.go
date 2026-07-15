@@ -234,3 +234,38 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "vibe-secret", value)
 }
+
+func TestVibe_DetachedTmuxForwardsAllowlistedEnvOnly(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "openai-secret")
+	t.Setenv("GH_TOKEN", "github-token")
+	t.Setenv("POSTMAN_API_KEY", "passthrough-secret")
+	t.Setenv("UNFORWARDED_SECRET", "do-not-forward")
+
+	sm := &captureSessionManager{}
+	k := Remuda{
+		Session: sm,
+		IO:      DefaultIO(),
+	}
+
+	err := k.Vibe(context.Background(), VibeCommand{
+		Agent:               "codex",
+		AgentCmd:            "true",
+		Prompt:              "ignored",
+		Detached:            true,
+		ExistingWorkspace:   t.TempDir(),
+		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
+	})
+	require.NoError(t, err)
+
+	value, ok := envValue(sm.startEnv, "OPENAI_API_KEY")
+	require.True(t, ok)
+	require.Equal(t, "openai-secret", value)
+	value, ok = envValue(sm.startEnv, "GH_TOKEN")
+	require.True(t, ok)
+	require.Equal(t, "github-token", value)
+	value, ok = envValue(sm.startEnv, "POSTMAN_API_KEY")
+	require.True(t, ok)
+	require.Equal(t, "passthrough-secret", value)
+	_, ok = envValue(sm.startEnv, "UNFORWARDED_SECRET")
+	require.False(t, ok)
+}
