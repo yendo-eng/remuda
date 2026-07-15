@@ -42,9 +42,12 @@ or populate values automatically, but you can configure them explicitly:
   falls back to `VISUAL`, then `EDITOR`. The value is passed to your shell so
   you can include flags (eg. `export REMUDA_EDITOR='code --wait'`).
 - `REMUDA_USE_PROMPTS` – comma-separated list of built-in prompt names to apply
-  by default when running `vibe` or `vibe-check`. Equivalent to
+  by default when running `vibe`, `vibe-check`, or `session resume`. Equivalent to
   passing `--use` for each entry; use `--no-use` to exclude a default prompt for
   a single run.
+- `REMUDA_USE_PROMPTS_POSITION` – place saved prompts `before` or `after` the
+  main prompt (default: `before`). Equivalent to `--use-position`; CLI flags
+  override environment values, which override config-file values.
 - `REMUDA_CONTAINER` – set to `true` to run `vibe` sessions inside a Docker container
   by default. Equivalent to passing `--container`.
 - `REMUDA_CONTAINER_OPTS` – comma-separated list of extra `docker run` arguments to
@@ -135,6 +138,7 @@ defaults:
     codex: ["--approval-mode=full-auto"]
     claude: ["--verbose"]
   use_prompts: ["small-commits"]
+  use_prompts_position: before  # before|after
   no_use: ["make-pr"]
   merge:
     gh_flags: ["--rebase"]
@@ -219,6 +223,7 @@ profiles:
     agent_args:
       <agent>: [string]
     use_prompts: [string]
+    use_prompts_position: string  # before|after
     no_use: [string]
     experiments: [string]
     yolo: bool

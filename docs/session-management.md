@@ -85,7 +85,7 @@ from config. `--active` and `--inactive` are mutually exclusive.
 `remuda session resume` supports the same post-clone launch flags as `remuda vibe`:
 
 - `--agent`, `--model`, `--reasoning-level`, `--agent-cmd`
-- `--use`, `--no-use`, `--jira`, `--github-issue` (alias: `--gh-issue`)
+- `--use`, `--no-use`, `--use-position`, `--jira`, `--github-issue` (alias: `--gh-issue`)
 - `--openai-api-key`
 - `--profile`, `--yolo`, `--[no-]detached`, `--attach`, and container flags
 - an optional trailing prompt argument
