@@ -143,6 +143,11 @@ Run `remuda vibe --help` for more options. Common flags:
   values append after resolved config defaults. Ignored when `--agent-cmd` is set.
 - `--agent-cmd <cmd>` – provide a complete custom command; your prompt will be
   appended as the final argument.
+- `--use <prompt-name>` – apply a saved prompt (repeatable); `--no-use` excludes
+  selected prompts.
+- `--use-position before|after` – place saved prompts before or after the main
+  prompt (default: `before`). Jira, Slack, and GitHub issue context remains
+  before the main prompt in either mode.
 - `--jira <ID>` – prepend Jira issue context (repeatable; format `ABC-123`).
 - `--jira-endpoint <url>` – override Jira base URL for `--jira` context fetches.
 - `--jira-user <email>` – override Jira user/email for `--jira` context fetches.
@@ -183,10 +188,12 @@ Remuda has a variety of saved prompts (built-in and custom) to influence the
 behavior of the agent. To use a prompt, add `--use <prompt-name>` (repeatable).
 To exclude a prompt for a single run, pass `--no-use <prompt-name>` (repeatable);
 exclusions win over inclusions and apply to defaults from `REMUDA_USE_PROMPTS`.
-These prompt flags are shared by `vibe` and `vibe-check`.
+These prompt flags are shared by `vibe`, `vibe-check`, and `session resume`.
 
 Notes:
 - `--no-use` accepts comma-separated prompt names and can be repeated.
+- `--use-position after` places only the saved prompts after the main prompt;
+  fetched Jira, Slack, and GitHub issue context stays before it.
 - Exclusions are applied after combining `--use` with defaults from `REMUDA_USE_PROMPTS`.
 - Config-based exclusions are available via `defaults.no_use`, `per_repo.<repo>.defaults.no_use`, and `profiles.<name>.no_use`.
 - Unknown prompt names in `--no-use` are errors, matching `--use`.
@@ -199,6 +206,9 @@ Example:
 # Start a session with a small-commits coaching preface.
 # The agent will build the feature incrementally, making git commits along the way.
 remuda vibe --use small-commits --name feature/pagination "Implement pagination for transactions"
+
+# Put saved coaching instructions after the task while keeping fetched context first.
+remuda vibe --use small-commits --use-position after --name feature/pagination "Implement pagination for transactions"
 
 # You can set your favorite prompts (built-in or custom) as defaults with
 # REMUDA_USE_PROMPTS. make-pr will instruct the agent to try and open a PR with
