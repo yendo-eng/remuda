@@ -30,18 +30,23 @@ var tmuxSessionEnvAllowlist = []string{
 	"REMUDA_MODEL",
 	"SHELL",
 	"SSH_AUTH_SOCK",
-	"TERM",
 	"TMPDIR",
 	"VISUAL",
 }
 
-func tmuxSessionEnvValues(provider env.Provider, agent string, extraEnvNames []string) []string {
-	allowed := make(map[string]struct{}, len(tmuxSessionEnvAllowlist)+len(extraEnvNames)+1)
+func tmuxSessionEnvValues(provider env.Provider, agent string, extraEnvNames, overrideEnvNames []string) []string {
+	allowed := make(map[string]struct{}, len(tmuxSessionEnvAllowlist)+len(extraEnvNames)+len(overrideEnvNames)+1)
 	for _, name := range tmuxSessionEnvAllowlist {
 		allowed[name] = struct{}{}
 	}
 	for _, name := range tmuxContainerEnvNames(agent, extraEnvNames) {
 		allowed[name] = struct{}{}
+	}
+	for _, name := range overrideEnvNames {
+		name = strings.TrimSpace(name)
+		if util.IsValidEnvVarName(name) {
+			allowed[name] = struct{}{}
+		}
 	}
 
 	var forwarded []string

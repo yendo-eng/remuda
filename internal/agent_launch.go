@@ -115,7 +115,11 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	// OPENAI_API_KEY never appear in shell history, tmux buffers, or logs.
 	startCmd := fmt.Sprintf("cd %s && %s", shellSingleQuote(workspaceAbs), launchCmd)
 	startCmd = wrapWithCrashRecoverySleep(startCmd)
-	if err := startSessionWithEnv(k.Session, sessionName, startCmd, envProvider, cmd.AgentName, cmd.ContainerInheritEnv); err != nil {
+	overrideEnvNames := make([]string, 0, len(cmd.EnvOverrides))
+	for key := range cmd.EnvOverrides {
+		overrideEnvNames = append(overrideEnvNames, key)
+	}
+	if err := startSessionWithEnv(k.Session, sessionName, startCmd, envProvider, cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Session.Name(), sessionName)
 	}
 

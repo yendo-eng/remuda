@@ -115,12 +115,12 @@ func tmuxCommandWithEnvFile(envFile, command string) string {
 	quotedFile := shellutil.SingleQuote(envFile)
 	cleanup := "rm -f -- " + quotedFile
 	inner := strings.Join([]string{
-		"trap " + shellutil.SingleQuote("rm -f -- "+envFile) + " EXIT",
+		"trap " + shellutil.SingleQuote(cleanup) + " EXIT",
 		". " + quotedFile,
 		cleanup,
 		command,
 	}, "; ")
-	return "exec env -i bash -lc " + shellutil.SingleQuote(inner)
+	return "exec env -i TERM=\"$TERM\" TMUX=\"$TMUX\" TMUX_PANE=\"$TMUX_PANE\" USER=\"$USER\" LOGNAME=\"$LOGNAME\" bash -lc " + shellutil.SingleQuote(inner)
 }
 
 func (m *defaultTmuxManager) resolveSessionName(name string) (string, error) {
