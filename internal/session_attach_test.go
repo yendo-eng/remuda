@@ -60,4 +60,3 @@ func TestSessionAttach_TerminalTitle(t *testing.T) {
 		})
 	}
 }
-

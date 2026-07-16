@@ -1,9 +1,10 @@
-package titletemplate
+package titletemplate_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/titletemplate"
 )
 
 func TestValidate(t *testing.T) {
@@ -15,7 +16,7 @@ func TestValidate(t *testing.T) {
 		wantErr  bool
 	}{
 		{name: "empty is valid", template: ""},
-		{name: "default template", template: Default},
+		{name: "default template", template: titletemplate.Default},
 		{name: "reordered literal", template: "{repo}/{name}"},
 		{name: "off case-insensitive", template: "OFF"},
 		{name: "off with surrounding space", template: "  off  "},
@@ -27,7 +28,7 @@ func TestValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := Validate(tt.template)
+			err := titletemplate.Validate(tt.template)
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -93,7 +94,7 @@ func TestRender(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			title, ok := Render(tt.template, tt.sessionName)
+			title, ok := titletemplate.Render(tt.template, tt.sessionName)
 			require.Equal(t, tt.wantOK, ok)
 			if tt.wantOK {
 				require.Equal(t, tt.wantTitle, title)
