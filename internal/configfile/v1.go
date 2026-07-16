@@ -10,6 +10,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/enums"
+	"github.com/yendo-eng/remuda/internal/titletemplate"
 	"github.com/yendo-eng/remuda/internal/util"
 	"gopkg.in/yaml.v3"
 )
@@ -36,8 +37,9 @@ type ReposV1 struct {
 }
 
 type SessionV1 struct {
-	Manager *string         `yaml:"manager,omitempty"`
-	Prune   *SessionPruneV1 `yaml:"prune,omitempty"`
+	Manager       *string         `yaml:"manager,omitempty"`
+	TerminalTitle *string         `yaml:"terminal_title,omitempty"`
+	Prune         *SessionPruneV1 `yaml:"prune,omitempty"`
 }
 
 type SessionPruneV1 struct {
@@ -287,6 +289,11 @@ func (s SessionV1) validate(path string) error {
 		if !slices.Contains(enums.ValidSessionManagers, *s.Manager) {
 			return pkgerrors.Errorf("%s.manager: invalid value %q (valid: %s)",
 				path, *s.Manager, strings.Join(enums.ValidSessionManagers, ", "))
+		}
+	}
+	if s.TerminalTitle != nil {
+		if err := titletemplate.Validate(*s.TerminalTitle); err != nil {
+			return pkgerrors.Wrapf(err, "%s.terminal_title", path)
 		}
 	}
 	if s.Prune != nil {
