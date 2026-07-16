@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -18,3 +19,44 @@ func TestTerminalTitleSequence_StripsControlChars(t *testing.T) {
 	require.Equal(t, "okbad✓", title)
 }
 
+func TestSessionAttach_TerminalTitle(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		terminalTitle string
+		wantStderr    string
+	}{
+		{
+			name:          "unset template matches current behavior",
+			terminalTitle: "",
+			wantStderr:    "\x1b]2;acme/example-repo/feat\x07",
+		},
+		{
+			name:          "custom template",
+			terminalTitle: "{repo}/{name}",
+			wantStderr:    "\x1b]2;example-repo/feat\x07",
+		},
+		{
+			name:          "off disables title",
+			terminalTitle: "off",
+			wantStderr:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var stderr bytes.Buffer
+			k := Remuda{
+				Config:  Config{TerminalTitle: tt.terminalTitle},
+				Session: &fakeSessionManager{},
+				IO:      IO{Err: &stderr},
+			}
+
+			require.NoError(t, k.SessionAttach("acme/example-repo/feat"))
+			require.Equal(t, tt.wantStderr, stderr.String())
+		})
+	}
+}

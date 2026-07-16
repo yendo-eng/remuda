@@ -16,6 +16,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/titletemplate"
 )
 
 type SessionManagerFactory func(session.SupportedSessionManager, zerolog.Logger) session.SessionManager
@@ -135,7 +136,7 @@ func (a *app) applyRepoOverlays(slug string) error {
 	}
 
 	a.applyReposBaseDir(eff)
-	return nil
+	return a.applyTerminalTitle(eff)
 }
 
 // applyReposBaseDir honors precedence env > config > built-in default for
@@ -168,6 +169,27 @@ func (a *app) applyReposBaseDir(eff *koanf.Koanf) {
 	}
 
 	kctx.Remuda.Config.ReposBaseDir = baseDir
+}
+
+// applyTerminalTitle honors precedence env > config > built-in default for
+// the session.terminal_title template.
+func (a *app) applyTerminalTitle(eff *koanf.Koanf) error {
+	kctx := a.kctx
+	env := envFromContext(*kctx)
+
+	template := env.Getenv("REMUDA_TERMINAL_TITLE")
+	if template == "" && eff != nil && eff.Exists("session.terminal_title") {
+		template = eff.String("session.terminal_title")
+	}
+	if template == "" {
+		return nil
+	}
+
+	if err := titletemplate.Validate(template); err != nil {
+		return pkgerrors.Wrap(err, "session.terminal_title")
+	}
+	kctx.Remuda.Config.TerminalTitle = template
+	return nil
 }
 
 // finishSetup applies the resolved --verbose and --session-manager values.

@@ -233,6 +233,27 @@ func TestParseV1_InvalidUsePromptsPosition(t *testing.T) {
 	require.Contains(t, err.Error(), "beside")
 }
 
+func TestParseV1_SessionTerminalTitleRoundTrip(t *testing.T) {
+	cfg, err := ParseV1([]byte("version: 1\nsession:\n  terminal_title: \"{repo}/{name}\"\n"))
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Session)
+	require.NotNil(t, cfg.Session.TerminalTitle)
+	require.Equal(t, "{repo}/{name}", *cfg.Session.TerminalTitle)
+}
+
+func TestParseV1_SessionTerminalTitleOff(t *testing.T) {
+	cfg, err := ParseV1([]byte("version: 1\nsession:\n  terminal_title: off\n"))
+	require.NoError(t, err)
+	require.Equal(t, "off", *cfg.Session.TerminalTitle)
+}
+
+func TestParseV1_SessionTerminalTitleUnknownPlaceholder(t *testing.T) {
+	_, err := ParseV1([]byte("version: 1\nsession:\n  terminal_title: \"{branch}\"\n"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "session.terminal_title")
+	require.Contains(t, err.Error(), "{branch}")
+}
+
 func TestParseV1_DefaultsAgentArgsRoundTrip(t *testing.T) {
 	yaml := `version: 1
 defaults:
