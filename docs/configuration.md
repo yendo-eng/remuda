@@ -70,6 +70,9 @@ or populate values automatically, but you can configure them explicitly:
 - `REMUDA_REPOS_BASE_DIR` – overrides the root where repositories are cached and
   worktrees are created. The `<org>/<repo>` substructure is preserved, e.g.
   `$HOME/vibing/acme-org/example-repo/<workspace>`.
+- `REMUDA_TERMINAL_TITLE` – template for the terminal window title set on
+  session attach (`session attach`, `session resume --attach`, `vibe --attach`).
+  See [Terminal title](#terminal-title) below.
 
 ## Jira Ticket Context (`--jira`)
 
@@ -126,6 +129,7 @@ version: 1
 
 session:
   manager: tmux   # tmux|zellij
+  terminal_title: "{org}/{repo}/{name}"   # default; see Terminal title below
 
 workspaces:
   ignore:
@@ -182,6 +186,21 @@ per_repo:
 ```
 
 Note: `container` can also be set to a boolean (`true`/`false`) as shorthand for `container.enabled`.
+
+### Terminal title
+
+`session.terminal_title` (or `REMUDA_TERMINAL_TITLE`) controls the terminal
+window title Remuda sets on session attach (`session attach`,
+`session resume --attach`, `vibe --attach`). It's a template over the
+session-name segments `org/repo/name`:
+
+- Placeholders: `{org}`, `{repo}`, `{name}`. Literals and reordering are
+  allowed, e.g. `"{repo}/{name}"`, `"⧉ {name}"`.
+- Default (key unset): `"{org}/{repo}/{name}"` — the historic title.
+- Set to `off` (case-insensitive) to disable title-setting entirely, e.g. if
+  you manage titles via tmux or your shell.
+- An unknown placeholder (e.g. `{branch}`) is rejected with a config error
+  naming the allowed set.
 
 ### Jira Context Auth (`--jira`)
 

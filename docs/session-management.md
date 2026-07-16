@@ -21,6 +21,9 @@ remuda session list --json
 remuda session attach acme-org/example-repo/feature-login-audit
 remuda session attach --pick
 
+# Attach also sets the terminal window title from session.terminal_title
+# (default: org/repo/name; set to "off" to disable). See docs/configuration.md.
+
 # Print recent pane output (like tail -n)
 remuda session readbuf acme-org/example-repo/feature-login-audit -n 500
 remuda session readbuf --pick -n 200
