@@ -123,6 +123,9 @@ func (k *Remuda) SetLogger(logger zerolog.Logger) {
 type Config struct {
 	// The base directory for cloned repositories. Defaults to "~/.remuda/repos".
 	ReposBaseDir string
+	// TerminalTitle is the session.terminal_title template. Empty means the
+	// titletemplate.Default template.
+	TerminalTitle string
 }
 
 func ConfigFromEnv() Config {

@@ -3,10 +3,14 @@ package internal
 import (
 	"strings"
 	"unicode"
+
+	"github.com/yendo-eng/remuda/internal/titletemplate"
 )
 
 func (k Remuda) SessionAttach(name string) error {
-	k.IO.ErrWrite(terminalTitleSequence(name))
+	if title, ok := titletemplate.Render(k.Config.TerminalTitle, name); ok && title != "" {
+		k.IO.ErrWrite(terminalTitleSequence(title))
+	}
 	return k.Session.Attach(name)
 }
 
