@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/util"
+	"github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 // SessionEdit resolves the workspace for a session and opens it in the user's editor.
@@ -27,20 +28,16 @@ func (k Remuda) SessionEdit(sessionName, editorCmd string) error {
 
 func launchEditor(logger zerolog.Logger, io IO, editorCmd, workspace string, provider env.Provider) error {
 	provider = env.OrDefault(provider)
-	shell := strings.TrimSpace(provider.Getenv("SHELL"))
-	if shell == "" {
-		shell = "/bin/sh"
+	shellPath := strings.TrimSpace(provider.Getenv("SHELL"))
+	if shellPath == "" {
+		shellPath = "/bin/sh"
 	}
 
-	command := fmt.Sprintf("%s %s", editorCmd, singleQuote(workspace))
-	cmd := util.CmdWithLogger(logger, shell, "-lc", command)
+	command := fmt.Sprintf("%s %s", editorCmd, shell.SingleQuote(workspace))
+	cmd := util.CmdWithLogger(logger, shellPath, "-lc", command)
 	cmd.Stdin = io.In
 	cmd.Stdout = io.Out
 	cmd.Stderr = io.Err
 
 	return pkgerrors.Wrapf(cmd.Run(), "launch editor %q", editorCmd)
-}
-
-func singleQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }

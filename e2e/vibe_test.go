@@ -144,9 +144,9 @@ per_repo:
 
 	recorded := sessionMgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
 	require.NotNil(t, recorded)
-	require.Contains(t, recorded.CommandRan, "-v /host/.beads:/workspaces/.beads-issues/.beads")
-	require.Contains(t, recorded.CommandRan, "-e BEADS_DIR=/workspaces/.beads-issues/.beads")
-	require.NotContains(t, recorded.CommandRan, " -e BEADS_DIR ")
+	require.Contains(t, recorded.CommandRan, "'-v' '/host/.beads:/workspaces/.beads-issues/.beads'")
+	require.Contains(t, recorded.CommandRan, "'-e' 'BEADS_DIR=/workspaces/.beads-issues/.beads'")
+	require.NotContains(t, recorded.CommandRan, "'-e' 'BEADS_DIR'")
 	require.NotContains(t, recorded.CommandRan, "/host/system/beads")
 }
 
@@ -859,17 +859,17 @@ func TestVibeClaudeContainerComposesHermeticDockerCommand(t *testing.T) {
 	value, ok = sessionEnvValue(recorded.StartEnv, "REMUDA_MODEL")
 	require.True(t, ok)
 	require.Equal(t, "claude-sonnet-4", value)
-	require.Contains(t, recorded.CommandRan, "docker run --rm -it")
-	require.Contains(t, recorded.CommandRan, "--name "+expectedContainer)
-	require.Contains(t, recorded.CommandRan, fmt.Sprintf("-v %q", workspace+":"+containerWS))
-	require.Contains(t, recorded.CommandRan, "-w "+containerWS)
-	require.NotContains(t, recorded.CommandRan, "-w /workspace ")
-	require.Contains(t, recorded.CommandRan, "-e OPENAI_API_KEY")
-	require.Contains(t, recorded.CommandRan, "-e GH_TOKEN")
-	require.Contains(t, recorded.CommandRan, "-e GITHUB_TOKEN")
-	require.Contains(t, recorded.CommandRan, "-e ANTHROPIC_API_KEY")
-	require.Contains(t, recorded.CommandRan, fmt.Sprintf("-v %q:%q:rw", claudeDir, "/root/.claude"))
-	require.Contains(t, recorded.CommandRan, fmt.Sprintf("-v %q:%q:rw", claudeJSON, "/root/.claude.json"))
+	require.Contains(t, recorded.CommandRan, "'docker' 'run' '--rm' '-it'")
+	require.Contains(t, recorded.CommandRan, "'--name' '"+expectedContainer+"'")
+	require.Contains(t, recorded.CommandRan, "'-v' '"+workspace+":"+containerWS+"'")
+	require.Contains(t, recorded.CommandRan, "'-w' '"+containerWS+"'")
+	require.NotContains(t, recorded.CommandRan, "'-w' '/workspace'")
+	require.Contains(t, recorded.CommandRan, "'-e' 'OPENAI_API_KEY'")
+	require.Contains(t, recorded.CommandRan, "'-e' 'GH_TOKEN'")
+	require.Contains(t, recorded.CommandRan, "'-e' 'GITHUB_TOKEN'")
+	require.Contains(t, recorded.CommandRan, "'-e' 'ANTHROPIC_API_KEY'")
+	require.Contains(t, recorded.CommandRan, "'-v' '"+claudeDir+":/root/.claude:rw'")
+	require.Contains(t, recorded.CommandRan, "'-v' '"+claudeJSON+":/root/.claude.json:rw'")
 	require.Contains(
 		t,
 		recorded.CommandRan,

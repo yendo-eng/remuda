@@ -270,7 +270,14 @@ func (k Remuda) composeLaunchCommand(
 		absWS = workspace
 	}
 
-	containerOpts := append([]string{}, cmd.ContainerOpts...)
+	// User-supplied --container-opt values are raw docker CLI text (eg. "-v
+	// /base:/base" or "--cpus=4"); split each into its own argv tokens so they
+	// combine correctly with the argv opts built below instead of relying on a
+	// shell to word-split them later.
+	var containerOpts []string
+	for _, raw := range cmd.ContainerOpts {
+		containerOpts = append(containerOpts, strings.Fields(raw)...)
+	}
 	if len(cmd.ContainerInheritEnv) > 0 {
 		inheritOpts, err := containerInheritEnvOpts(cmd.ContainerInheritEnv)
 		if err != nil {
@@ -278,12 +285,12 @@ func (k Remuda) composeLaunchCommand(
 		}
 		containerOpts = append(containerOpts, inheritOpts...)
 	}
-	containerOpts = append([]string{"-e BD_ACTOR"}, containerOpts...)
+	containerOpts = append([]string{"-e", "BD_ACTOR"}, containerOpts...)
 	if _, ok := envProvider.LookupEnv("BEADS_DIR"); ok && !containerOptsDefineEnv(containerOpts, "BEADS_DIR") {
-		containerOpts = append(containerOpts, "-e BEADS_DIR")
+		containerOpts = append(containerOpts, "-e", "BEADS_DIR")
 	}
-	if mountOpt, ok := docker.ExtraGitMountForWorktree(absWS); ok {
-		containerOpts = append([]string{mountOpt}, containerOpts...)
+	if mountVal, ok := docker.ExtraGitMountForWorktree(absWS); ok {
+		containerOpts = append([]string{"-v", mountVal}, containerOpts...)
 	}
 
 	containerOpts = append(containerOpts, docker.BuildGoCacheMountOptsWithLogger(logger)...)
@@ -291,10 +298,10 @@ func (k Remuda) composeLaunchCommand(
 		containerOpts = append(containerOpts, codexDockerVolumeMountOptions(logger, envProvider)...)
 	}
 	if strings.EqualFold(cmd.Agent, "claude") || strings.EqualFold(cmd.Agent, "bash") {
-		containerOpts = append(containerOpts, "-e ANTHROPIC_API_KEY")
+		containerOpts = append(containerOpts, "-e", "ANTHROPIC_API_KEY")
 	}
 	if strings.EqualFold(cmd.Agent, "claude") && cmd.Yolo {
-		containerOpts = append(containerOpts, "-e IS_SANDBOX")
+		containerOpts = append(containerOpts, "-e", "IS_SANDBOX")
 	}
 
 	authOpts := docker.BuildContainerAuthOptsWithProvider(envProvider)
@@ -348,7 +355,7 @@ func dockerEnvSpecName(spec string) string {
 }
 
 func containerInheritEnvOpts(names []string) ([]string, error) {
-	opts := make([]string, 0, len(names))
+	opts := make([]string, 0, len(names)*2)
 	for _, raw := range names {
 		name := strings.TrimSpace(raw)
 		if name == "" {
@@ -357,13 +364,9 @@ func containerInheritEnvOpts(names []string) ([]string, error) {
 		if !util.IsValidEnvVarName(name) {
 			return nil, pkgerrors.Errorf("invalid env var name %q", raw)
 		}
-		opts = append(opts, "-e "+name)
+		opts = append(opts, "-e", name)
 	}
 	return opts, nil
-}
-
-func shellSingleQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
 // wrapWithCrashRecoverySleep appends a sleep command after the given command
@@ -422,7 +425,7 @@ func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider)
 				}
 				opts := []string{
 					"--tmpfs", "/root/.codex:rw,mode=0755",
-					fmt.Sprintf("-v %q:/root/.codex/auth.json:ro", authPath),
+					"-v", authPath + ":/root/.codex/auth.json:ro",
 				}
 				if len(stateMount) > 0 {
 					opts = append(opts, stateMount...)
@@ -430,7 +433,7 @@ func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider)
 				}
 				cfgDst := filepath.Join(tmpDir, "config.toml")
 				if _, statErr := os.Stat(cfgDst); statErr == nil {
-					opts = append(opts, fmt.Sprintf("-v %q:/root/.codex/config.toml:ro", cfgDst))
+					opts = append(opts, "-v", cfgDst+":/root/.codex/config.toml:ro")
 				}
 				if len(promptMount) > 0 {
 					opts = append(opts, promptMount...)
@@ -486,7 +489,7 @@ func codexPromptsMountOptions(provider env.Provider) []string {
 	if err != nil || !info.IsDir() {
 		return nil
 	}
-	return []string{fmt.Sprintf("-v %q:/root/.codex/prompts:ro", promptsDir)}
+	return []string{"-v", promptsDir + ":/root/.codex/prompts:ro"}
 }
 
 // codexRulesMountOptions returns a read-only bind mount for ~/.codex/rules when present.
@@ -504,7 +507,7 @@ func codexRulesMountOptions(provider env.Provider) []string {
 	if !info.IsDir() && !info.Mode().IsRegular() {
 		return nil
 	}
-	return []string{fmt.Sprintf("-v %q:/root/.codex/rules:ro", rulesPath)}
+	return []string{"-v", rulesPath + ":/root/.codex/rules:ro"}
 }
 
 // codexSkillsMountOptions returns a read-only bind mount for ~/.codex/skills when present.
@@ -525,7 +528,7 @@ func codexSkillsMountOptions(logger zerolog.Logger, provider env.Provider) []str
 	if !info.IsDir() {
 		return nil
 	}
-	return []string{fmt.Sprintf("-v %q:/root/.codex/skills:ro", skillsDir)}
+	return []string{"-v", skillsDir + ":/root/.codex/skills:ro"}
 }
 
 // codexAgentsMountOptions returns a read-only bind mount for ~/.codex/AGENTS.md when present.
@@ -540,7 +543,7 @@ func codexAgentsMountOptions(provider env.Provider) []string {
 	if err != nil || !info.Mode().IsRegular() {
 		return nil
 	}
-	return []string{fmt.Sprintf("-v %q:/root/.codex/AGENTS.md:ro", agentsPath)}
+	return []string{"-v", agentsPath + ":/root/.codex/AGENTS.md:ro"}
 }
 
 // codexAccountAuthMountOptions returns a bind mount for the whole host ~/.codex directory,
@@ -562,7 +565,7 @@ func codexAccountAuthMountOptions(provider env.Provider) []string {
 	if err != nil || !info.Mode().IsRegular() {
 		return nil
 	}
-	return []string{fmt.Sprintf("-v %q:/root/.codex:rw", codexDir)}
+	return []string{"-v", codexDir + ":/root/.codex:rw"}
 }
 
 func codexStateMountOptions(logger zerolog.Logger, provider env.Provider) []string {
@@ -584,14 +587,14 @@ func codexStateMountOptions(logger zerolog.Logger, provider env.Provider) []stri
 	if err := ensureRegularFile(historyPath, 0o600); err != nil {
 		logger.Warn().Err(err).Msg("failed ensuring ~/.codex/history.jsonl exists; continuing without Codex history mount")
 	} else {
-		opts = append(opts, fmt.Sprintf("-v %q:/root/.codex/history.jsonl:rw", historyPath))
+		opts = append(opts, "-v", historyPath+":/root/.codex/history.jsonl:rw")
 	}
 
 	sessionsDir := filepath.Join(codexDir, "sessions")
 	if err := os.MkdirAll(sessionsDir, 0o700); err != nil {
 		logger.Warn().Err(err).Msg("failed ensuring ~/.codex/sessions exists; continuing without Codex sessions mount")
 	} else {
-		opts = append(opts, fmt.Sprintf("-v %q:/root/.codex/sessions:rw", sessionsDir))
+		opts = append(opts, "-v", sessionsDir+":/root/.codex/sessions:rw")
 	}
 
 	return opts

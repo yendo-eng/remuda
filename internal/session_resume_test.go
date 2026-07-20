@@ -233,7 +233,7 @@ func TestSessionResume_DetachedTmuxExportsImplicitAnthropicForClaudeContainer(t 
 
 	cmd, ok := mgr.started["org/repo/folder"]
 	require.True(t, ok)
-	require.Contains(t, cmd, "-e ANTHROPIC_API_KEY")
+	require.Contains(t, cmd, "'-e' 'ANTHROPIC_API_KEY'")
 	require.NotContains(t, cmd, "export ANTHROPIC_API_KEY=")
 	value, ok := envValue(mgr.startEnv["org/repo/folder"], "ANTHROPIC_API_KEY")
 	require.True(t, ok)
