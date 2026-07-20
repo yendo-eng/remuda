@@ -265,7 +265,7 @@ per_repo:
 
 		sess := mgr.FindSession("org/repo/folder")
 		require.NotNil(t, sess)
-		require.Contains(t, sess.CommandRan, "docker run --rm -it")
+		require.Contains(t, sess.CommandRan, "'docker' 'run' '--rm' '-it'")
 		require.Contains(t, sess.CommandRan, "ghcr.io/acme/vibe-dev:latest")
 		require.Contains(t, sess.CommandRan, "--memory=2g")
 	})
@@ -395,6 +395,6 @@ defaults:
 		sess := mgr.FindSession("org/repo/folder")
 		require.NotNil(t, sess)
 		require.Contains(t, sess.CommandRan, "ghcr.io/acme/vibe-dev:latest")
-		require.Contains(t, sess.CommandRan, "docker run --rm -it")
+		require.Contains(t, sess.CommandRan, "'docker' 'run' '--rm' '-it'")
 	})
 }

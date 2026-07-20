@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,12 +57,12 @@ func TestCodexDockerVolumeMountOptions_ForwardsPromptsWithoutOpenAIKey(t *testin
 
 	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
 	expected := []string{
-		fmt.Sprintf("-v %q:/root/.codex/prompts:ro", promptsDir),
-		fmt.Sprintf("-v %q:/root/.codex/rules:ro", rulesDir),
-		fmt.Sprintf("-v %q:/root/.codex/skills:ro", skillsDir),
-		fmt.Sprintf("-v %q:/root/.codex/AGENTS.md:ro", agentsPath),
-		fmt.Sprintf("-v %q:/root/.codex/history.jsonl:rw", filepath.Join(tmpHome, ".codex", "history.jsonl")),
-		fmt.Sprintf("-v %q:/root/.codex/sessions:rw", filepath.Join(tmpHome, ".codex", "sessions")),
+		"-v", promptsDir + ":/root/.codex/prompts:ro",
+		"-v", rulesDir + ":/root/.codex/rules:ro",
+		"-v", skillsDir + ":/root/.codex/skills:ro",
+		"-v", agentsPath + ":/root/.codex/AGENTS.md:ro",
+		"-v", filepath.Join(tmpHome, ".codex", "history.jsonl") + ":/root/.codex/history.jsonl:rw",
+		"-v", filepath.Join(tmpHome, ".codex", "sessions") + ":/root/.codex/sessions:rw",
 	}
 	require.Equal(t, expected, opts)
 	require.FileExists(t, filepath.Join(tmpHome, ".codex", "history.jsonl"))
@@ -81,7 +80,7 @@ func TestCodexDockerVolumeMountOptions_ForwardsAccountAuthDirWithoutOpenAIKey(t 
 	require.NoError(t, os.MkdirAll(promptsDir, 0o755))
 
 	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
-	require.Equal(t, []string{fmt.Sprintf("-v %q:/root/.codex:rw", codexDir)}, opts)
+	require.Equal(t, []string{"-v", codexDir + ":/root/.codex:rw"}, opts)
 }
 
 func TestCodexDockerVolumeMountOptions_OmitsAccountAuthDirWithOpenAIKey(t *testing.T) {

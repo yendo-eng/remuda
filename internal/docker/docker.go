@@ -2,7 +2,6 @@ package docker
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -57,34 +56,31 @@ func BuildContainerAuthOptsWithProvider(provider env.Provider) []string {
 	if err == nil && home != "" {
 		ghDir := filepath.Join(home, ".config", "gh")
 		if st, err := os.Stat(ghDir); err == nil && st.IsDir() {
-			opts = append(opts, "-v "+quote(ghDir)+":"+quote("/root/.config/gh")+":ro")
+			opts = append(opts, "-v", ghDir+":/root/.config/gh:ro")
 		}
 		// Do not mount host ~/.gitconfig by default. We want the container to
 		// be able to write its own /root/.gitconfig so we can configure the
 		// gh credential helper non-interactively without touching the host.
 		sshDir := filepath.Join(home, ".ssh")
 		if st, err := os.Stat(sshDir); err == nil && st.IsDir() {
-			opts = append(opts, "-v "+quote(sshDir)+":"+quote("/root/.ssh")+":ro")
+			opts = append(opts, "-v", sshDir+":/root/.ssh:ro")
 		}
 	}
 
 	// SSH agent: prefer Docker Desktop's magic path on macOS to avoid
 	// mounting launchd sockets which often fails with "operation not supported".
 	if runtime.GOOS == "darwin" {
-		opts = append(opts, "-v "+quote("/run/host-services/ssh-auth.sock")+":"+quote("/ssh-agent"))
-		opts = append(opts, "-e SSH_AUTH_SOCK=/ssh-agent")
+		opts = append(opts, "-v", "/run/host-services/ssh-auth.sock:/ssh-agent")
+		opts = append(opts, "-e", "SSH_AUTH_SOCK=/ssh-agent")
 	} else if sock := provider.Getenv("SSH_AUTH_SOCK"); strings.TrimSpace(sock) != "" {
 		if st, err := os.Stat(sock); err == nil && !st.IsDir() {
-			opts = append(opts, "-v "+quote(sock)+":"+quote("/ssh-agent"))
-			opts = append(opts, "-e SSH_AUTH_SOCK=/ssh-agent")
+			opts = append(opts, "-v", sock+":/ssh-agent")
+			opts = append(opts, "-e", "SSH_AUTH_SOCK=/ssh-agent")
 		}
 	}
 
 	return opts
 }
-
-// quote wraps a path in double-quotes to be safe in docker run strings.
-func quote(p string) string { return "\"" + p + "\"" }
 
 // BuildGoCacheMountOpts returns docker volume mounts that bind the host's Go build and module caches
 // into the container so successive containerized sessions can reuse compiled artifacts.
@@ -114,7 +110,7 @@ func BuildGoCacheMountOptsWithLogger(logger zerolog.Logger) []string {
 			logger.Warn().Err(err).Str("path", abs).Str("key", mapping.key).Msg("failed ensuring Go cache directory exists")
 			continue
 		}
-		opts = append(opts, "-v "+quote(abs)+":"+quote(mapping.target))
+		opts = append(opts, "-v", abs+":"+mapping.target)
 	}
 
 	return opts
@@ -142,10 +138,11 @@ func goEnvPath(logger zerolog.Logger, key string) string {
 	return strings.TrimSpace(out)
 }
 
-// ExtraGitMountForWorktree returns a docker `-v` argument that bind-mounts the
-// parent repository cache directory (which contains the actual .git directory
-// for a worktree) to the same absolute path inside the container. This keeps
-// the .git indirection inside the worktree valid when running with --container.
+// ExtraGitMountForWorktree returns the value for a docker `-v` argument that
+// bind-mounts the parent repository cache directory (which contains the
+// actual .git directory for a worktree) to the same absolute path inside the
+// container. This keeps the .git indirection inside the worktree valid when
+// running with --container.
 //
 // If the expected cache directory does not exist, it returns ("", false).
 func ExtraGitMountForWorktree(workspaceAbs string) (string, bool) {
@@ -156,8 +153,7 @@ func ExtraGitMountForWorktree(workspaceAbs string) (string, bool) {
 	if st, err := os.Stat(cacheDir); err == nil && st.IsDir() {
 		// Mount host path to identical path inside container to satisfy the
 		// absolute path recorded in the worktree's .git file.
-		// Quote the argument to preserve spaces.
-		return fmt.Sprintf("-v %q:%q", cacheDir, cacheDir), true
+		return cacheDir + ":" + cacheDir, true
 	}
 	return "", false
 }
@@ -243,7 +239,7 @@ func buildOpenCodeStateMountOpts(logger zerolog.Logger, goos, home string) []str
 	candidates := opencodeStateDirCandidates(goos, home)
 	for _, dir := range candidates {
 		if st, err := os.Stat(dir); err == nil && st.IsDir() {
-			return []string{"-v " + quote(dir) + ":" + quote("/root/.local/share/opencode") + ":rw"}
+			return []string{"-v", dir + ":/root/.local/share/opencode:rw"}
 		}
 	}
 
@@ -257,7 +253,7 @@ func buildOpenCodeStateMountOpts(logger zerolog.Logger, goos, home string) []str
 		logger.Warn().Err(err).Str("path", preferred).Msg("failed ensuring OpenCode state directory exists; continuing without mount")
 		return nil
 	}
-	return []string{"-v " + quote(preferred) + ":" + quote("/root/.local/share/opencode") + ":rw"}
+	return []string{"-v", preferred + ":/root/.local/share/opencode:rw"}
 }
 
 func opencodeStateDirCandidates(goos, home string) []string {
@@ -302,7 +298,7 @@ func buildClaudeStateMountOpts(logger zerolog.Logger, home string) []string {
 	var opts []string
 	if st, err := os.Stat(claudeDir); err == nil {
 		if st.IsDir() {
-			opts = append(opts, "-v "+quote(claudeDir)+":"+quote("/root/.claude")+":rw")
+			opts = append(opts, "-v", claudeDir+":/root/.claude:rw")
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		logger.Warn().Err(err).Str("path", claudeDir).Msg("failed checking Claude state directory; skipping mount")
@@ -310,7 +306,7 @@ func buildClaudeStateMountOpts(logger zerolog.Logger, home string) []string {
 
 	if st, err := os.Stat(claudeJSON); err == nil {
 		if !st.IsDir() {
-			opts = append(opts, "-v "+quote(claudeJSON)+":"+quote("/root/.claude.json")+":rw")
+			opts = append(opts, "-v", claudeJSON+":/root/.claude.json:rw")
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		logger.Warn().Err(err).Str("path", claudeJSON).Msg("failed checking Claude state file; skipping mount")

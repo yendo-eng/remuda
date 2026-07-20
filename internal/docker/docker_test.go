@@ -46,16 +46,16 @@ func TestBuildContainerAuthOpts_ProducesMountsWhenAvailable(t *testing.T) {
 		t.Skip("Windows path semantics not covered")
 	}
 
-	require.Contains(t, opts, "-v \""+ghDir+"\":\"/root/.config/gh\":ro")
+	require.Contains(t, opts, ghDir+":/root/.config/gh:ro")
 	// We intentionally do NOT mount host ~/.gitconfig to keep container writable.
-	require.Contains(t, opts, "-v \""+sshDir+"\":\"/root/.ssh\":ro")
+	require.Contains(t, opts, sshDir+":/root/.ssh:ro")
 	// Darwin uses Docker Desktop magic socket path; others use SSH_AUTH_SOCK
 	if runtime.GOOS == "darwin" {
-		require.Contains(t, opts, "-v \"/run/host-services/ssh-auth.sock\":\"/ssh-agent\"")
+		require.Contains(t, opts, "/run/host-services/ssh-auth.sock:/ssh-agent")
 	} else {
-		require.Contains(t, opts, "-v \""+sock+"\":\"/ssh-agent\"")
+		require.Contains(t, opts, sock+":/ssh-agent")
 	}
-	require.Contains(t, opts, "-e SSH_AUTH_SOCK=/ssh-agent")
+	require.Contains(t, opts, "SSH_AUTH_SOCK=/ssh-agent")
 }
 
 func TestExtraGitMountForWorktree_ReturnsMountForCacheDir(t *testing.T) {
@@ -79,7 +79,7 @@ func TestExtraGitMountForWorktree_ReturnsMountForCacheDir(t *testing.T) {
 	// It should mount the cache dir to the identical path inside the container
 	absCache, err := filepath.Abs(cacheDir)
 	require.NoError(t, err)
-	require.Equal(t, "-v \""+absCache+"\":"+"\""+absCache+"\"", mount)
+	require.Equal(t, absCache+":"+absCache, mount)
 }
 
 func TestExtraGitMountForWorktree_NoCache_NoMount(t *testing.T) {
@@ -136,8 +136,8 @@ func TestBuildGoCacheMountOpts_UsesGoEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("GOMODCACHE", hostMod))
 
 	opts := docker.BuildGoCacheMountOpts()
-	require.Contains(t, opts, "-v \""+hostCache+"\":\"/root/.cache/go-build\"")
-	require.Contains(t, opts, "-v \""+hostMod+"\":\"/go/pkg/mod\"")
+	require.Contains(t, opts, hostCache+":/root/.cache/go-build")
+	require.Contains(t, opts, hostMod+":/go/pkg/mod")
 
 	// helper should create directories if they were missing
 	_, err := os.Stat(hostCache)

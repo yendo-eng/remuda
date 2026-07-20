@@ -12,6 +12,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/util"
+	"github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 type agentLaunchCommand struct {
@@ -113,7 +114,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	// Keep detached command text limited to navigation + launch. Agent metadata
 	// and secrets travel through the session start environment so values such as
 	// OPENAI_API_KEY never appear in shell history, tmux buffers, or logs.
-	startCmd := fmt.Sprintf("cd %s && %s", shellSingleQuote(workspaceAbs), launchCmd)
+	startCmd := fmt.Sprintf("cd %s && %s", shell.SingleQuote(workspaceAbs), launchCmd)
 	startCmd = wrapWithCrashRecoverySleep(startCmd)
 	overrideEnvNames := make([]string, 0, len(cmd.EnvOverrides))
 	for key := range cmd.EnvOverrides {

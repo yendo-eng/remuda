@@ -2,7 +2,6 @@ package docker
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,8 +23,8 @@ func TestBuildClaudeStateMountOpts_BothPathsPresent(t *testing.T) {
 	require.Equal(
 		t,
 		[]string{
-			fmt.Sprintf("-v %q:%q:rw", claudeDir, "/root/.claude"),
-			fmt.Sprintf("-v %q:%q:rw", claudeJSON, "/root/.claude.json"),
+			"-v", claudeDir + ":/root/.claude:rw",
+			"-v", claudeJSON + ":/root/.claude.json:rw",
 		},
 		opts,
 	)
@@ -65,10 +64,10 @@ func TestBuildClaudeStateMountOptsWithProvider_Permutations(t *testing.T) {
 
 			var want []string
 			if tc.withDir {
-				want = append(want, fmt.Sprintf("-v %q:%q:rw", claudeDir, "/root/.claude"))
+				want = append(want, "-v", claudeDir+":/root/.claude:rw")
 			}
 			if tc.withFile {
-				want = append(want, fmt.Sprintf("-v %q:%q:rw", claudeJSON, "/root/.claude.json"))
+				want = append(want, "-v", claudeJSON+":/root/.claude.json:rw")
 			}
 			require.Equal(t, want, opts)
 		})

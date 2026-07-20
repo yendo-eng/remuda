@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,9 +32,9 @@ func TestComposeLaunchCommand_ForwardsContainerInheritEnv(t *testing.T) {
 
 	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.Contains(t, launchCmd, "-e AWS_REGION ")
-	require.Contains(t, launchCmd, "-e FOO_BAR ")
-	require.Contains(t, launchCmd, "-e GOPRIVATE ")
+	require.Contains(t, launchCmd, "'-e' 'AWS_REGION'")
+	require.Contains(t, launchCmd, "'-e' 'FOO_BAR'")
+	require.Contains(t, launchCmd, "'-e' 'GOPRIVATE'")
 }
 
 func TestComposeLaunchCommand_InvalidContainerInheritEnvFails(t *testing.T) {
@@ -98,12 +97,12 @@ func TestComposeLaunchCommand_BashAgentIncludesCodexStateMounts(t *testing.T) {
 
 	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.Contains(t, launchCmd, "-e ANTHROPIC_API_KEY ")
+	require.Contains(t, launchCmd, "'-e' 'ANTHROPIC_API_KEY'")
 	require.Contains(t, launchCmd, ":/root/.codex/history.jsonl:rw")
 	require.Contains(t, launchCmd, ":/root/.codex/sessions:rw")
-	require.Contains(t, launchCmd, ":\"/root/.local/share/opencode\":rw")
-	require.Contains(t, launchCmd, fmt.Sprintf("-v %q:%q:rw", claudeDir, "/root/.claude"))
-	require.Contains(t, launchCmd, fmt.Sprintf("-v %q:%q:rw", claudeJSON, "/root/.claude.json"))
+	require.Contains(t, launchCmd, ":/root/.local/share/opencode:rw")
+	require.Contains(t, launchCmd, claudeDir+":/root/.claude:rw")
+	require.Contains(t, launchCmd, claudeJSON+":/root/.claude.json:rw")
 }
 
 func TestComposeLaunchCommand_ClaudeAgentIncludesClaudeStateMountsAndEnv(t *testing.T) {
@@ -134,10 +133,10 @@ func TestComposeLaunchCommand_ClaudeAgentIncludesClaudeStateMountsAndEnv(t *test
 
 	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.Contains(t, launchCmd, "-e ANTHROPIC_API_KEY ")
-	require.NotContains(t, launchCmd, "-e IS_SANDBOX=1 ")
-	require.Contains(t, launchCmd, fmt.Sprintf("-v %q:%q:rw", claudeDir, "/root/.claude"))
-	require.Contains(t, launchCmd, fmt.Sprintf("-v %q:%q:rw", claudeJSON, "/root/.claude.json"))
+	require.Contains(t, launchCmd, "'-e' 'ANTHROPIC_API_KEY'")
+	require.NotContains(t, launchCmd, "IS_SANDBOX")
+	require.Contains(t, launchCmd, claudeDir+":/root/.claude:rw")
+	require.Contains(t, launchCmd, claudeJSON+":/root/.claude.json:rw")
 }
 
 func TestComposeLaunchCommand_ClaudeYoloSetsSandboxEnv(t *testing.T) {
@@ -169,8 +168,8 @@ func TestComposeLaunchCommand_ClaudeYoloSetsSandboxEnv(t *testing.T) {
 
 	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.Contains(t, launchCmd, "-e ANTHROPIC_API_KEY ")
-	require.Contains(t, launchCmd, "-e IS_SANDBOX ")
+	require.Contains(t, launchCmd, "'-e' 'ANTHROPIC_API_KEY'")
+	require.Contains(t, launchCmd, "'-e' 'IS_SANDBOX'")
 }
 
 func TestComposeLaunchCommand_CodexAgentOmitsClaudeStateMountsAndEnv(t *testing.T) {
@@ -201,7 +200,7 @@ func TestComposeLaunchCommand_CodexAgentOmitsClaudeStateMountsAndEnv(t *testing.
 
 	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.NotContains(t, launchCmd, "-e ANTHROPIC_API_KEY ")
+	require.NotContains(t, launchCmd, "ANTHROPIC_API_KEY")
 	require.NotContains(t, launchCmd, "/root/.claude")
 	require.NotContains(t, launchCmd, "/root/.claude.json")
 }

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 // ContainerWorkspacePath returns a unique, stable in-container mount path for a
@@ -57,6 +59,11 @@ func ContainerWorkspacePath(workspaceAbs string) string {
 
 // BuildRunCommand composes the docker run command string for containerized sessions.
 // It is exported to allow unit testing without invoking Docker.
+//
+// opts is an argv-style slice of docker run arguments (eg. []string{"-v",
+// "/host:/container:ro", "-e", "FOO"}), not pre-joined or pre-quoted shell
+// text. The full docker invocation is quoted exactly once here, at the
+// session-start boundary, via the canonical shell helper.
 func BuildRunCommand(
 	workspaceAbs, image string,
 	opts []string,
@@ -66,46 +73,34 @@ func BuildRunCommand(
 ) string {
 	containerWS := ContainerWorkspacePath(workspaceAbs)
 
-	var b strings.Builder
-	b.WriteString("docker run --rm -it ")
+	argv := []string{"docker", "run", "--rm", "-it"}
 	if strings.TrimSpace(containerName) != "" {
-		b.WriteString("--name ")
-		b.WriteString(containerName)
-		b.WriteString(" ")
+		argv = append(argv, "--name", containerName)
 	}
 	if allocateTTY {
-		b.WriteString("-t ")
+		argv = append(argv, "-t")
 	}
-	// Quote the -v argument to handle spaces in paths.
-	b.WriteString("-v \"")
-	b.WriteString(workspaceAbs)
-	b.WriteString(":")
-	b.WriteString(containerWS)
-	b.WriteString("\" ")
-	b.WriteString("-w ")
-	b.WriteString(containerWS)
-	b.WriteString(" ")
+	argv = append(argv, "-v", workspaceAbs+":"+containerWS)
+	argv = append(argv, "-w", containerWS)
 	// Forward common env vars required by agents and GitHub auth
-	b.WriteString("-e OPENAI_API_KEY ")
+	argv = append(argv, "-e", "OPENAI_API_KEY")
 	// Forward Remuda agent metadata for downstream tooling.
-	b.WriteString("-e REMUDA_AGENT ")
-	b.WriteString("-e REMUDA_MODEL ")
-	b.WriteString("-e GH_TOKEN ")
-	b.WriteString("-e GITHUB_TOKEN ")
-	b.WriteString("-e GIT_HTTPS_USERNAME ")
+	argv = append(argv, "-e", "REMUDA_AGENT")
+	argv = append(argv, "-e", "REMUDA_MODEL")
+	argv = append(argv, "-e", "GH_TOKEN")
+	argv = append(argv, "-e", "GITHUB_TOKEN")
+	argv = append(argv, "-e", "GIT_HTTPS_USERNAME")
 	// Prevent interactive git prompts and auto-accept new host keys to avoid hangs
-	b.WriteString("-e GIT_TERMINAL_PROMPT=0 ")
-	b.WriteString("-e GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new' ")
+	argv = append(argv, "-e", "GIT_TERMINAL_PROMPT=0")
+	argv = append(argv, "-e", "GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=accept-new")
 	for _, o := range opts {
 		if strings.TrimSpace(o) == "" {
 			continue
 		}
-		b.WriteString(o)
-		b.WriteString(" ")
+		argv = append(argv, o)
 	}
-	b.WriteString(image)
-	b.WriteString(" ")
-	b.WriteString("bash -lc ")
+	argv = append(argv, image)
+
 	var inner strings.Builder
 	// Configure Git credentials non-interactively. Prefer explicit token if provided.
 	inner.WriteString("if [ -n \"$GITHUB_TOKEN\" ] || [ -n \"$GH_TOKEN\" ]; then ")
@@ -131,10 +126,11 @@ func BuildRunCommand(
 	// forwarded SSH agents inside the container.
 	inner.WriteString(`git config --global url."git@github.com:".insteadOf "https://github.com/" >/dev/null 2>&1 || true; `)
 	inner.WriteString(agentCmd)
-	b.WriteString(shellSingleQuote(inner.String()))
-	return b.String()
-}
+	argv = append(argv, "bash", "-lc", inner.String())
 
-func shellSingleQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+	quoted := make([]string, len(argv))
+	for i, tok := range argv {
+		quoted[i] = shell.SingleQuote(tok)
+	}
+	return strings.Join(quoted, " ")
 }
