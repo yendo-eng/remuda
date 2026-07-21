@@ -74,10 +74,24 @@ func attachTestInvocationWithContainerFlags(t *testing.T, ctx *Context, cfg *con
 
 func attachTestInvocationWithExperiments(t *testing.T, ctx *Context, cfg *configfile.V1, profiled bool) *ExperimentsOption {
 	t.Helper()
+	a := &app{kctx: ctx, cfg: cfg}
+	cmd := &cobra.Command{Use: "test"}
+	fl := newFlagSet(cmd.PersistentFlags())
+	if profiled {
+		var profile string
+		registerProfileFlag(cmd, &profile)
+	}
 	experiments := &ExperimentsOption{}
-	newTestInvocation(t, ctx, cfg, profiled, nil, func(cmd *cobra.Command, fl *flagSet) {
-		experiments.register(cmd, fl)
-	})
+	experiments.registerPersistent(cmd, fl)
+	rs, err := beginResolution(fl)
+	require.NoError(t, err)
+	ctx.inv = &invocation{
+		app:      a,
+		cmd:      cmd,
+		rs:       rs,
+		env:      envFromContext(*ctx),
+		profiled: profiled,
+	}
 	return experiments
 }
 
