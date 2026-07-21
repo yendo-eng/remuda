@@ -25,7 +25,6 @@ type VibeCheckCmd struct {
 	// Agent / session flags (subset of vibe)
 	AgentSessionOptions
 	APIKeyOptions
-	ExperimentsOption
 	ContextEngineeringOptions
 
 	PRRef string
@@ -76,7 +75,6 @@ func (a *app) vibeCheckCmd() *cobra.Command {
 	c.CloneHooksOption.register(cmd)
 	c.AgentSessionOptions.register(cmd, fl)
 	c.APIKeyOptions.register(cmd, fl)
-	c.ExperimentsOption.register(cmd, fl)
 	c.ContextEngineeringOptions.register(cmd, fl)
 
 	fs := cmd.Flags()
@@ -198,7 +196,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	}
 
 	usePromptIDs := c.effectiveUsePromptNames()
-	wrapUsePrompts := c.ExperimentEnabled(experimentUsePromptsContextWrapper)
+	wrapUsePrompts := ctx.ExperimentEnabled(experimentUsePromptsContextWrapper)
 	usePromptsSelected := len(usePromptIDs) > 0
 
 	parts, err := c.AddedPromptContext(ctx, PromptContextInput{

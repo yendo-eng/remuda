@@ -472,6 +472,12 @@ func (o *ExperimentsOption) register(cmd *cobra.Command, fl *flagSet) {
 	registerStaticCompletion(cmd, "experiments", experimentCompletionValues())
 }
 
+func (o *ExperimentsOption) registerPersistent(cmd *cobra.Command, fl *flagSet) {
+	cmd.PersistentFlags().StringVar(&o.Experiments, "experiments", "", "Enable experimental features (comma- or whitespace-separated list).")
+	fl.bind("experiments", bindEnvs("REMUDA_EXPERIMENTS"), bindKey("defaults.experiments"))
+	registerStaticCompletion(cmd, "experiments", experimentCompletionValues())
+}
+
 // registerProfileFlag adds the --profile flag shared by profile-aware
 // commands. REMUDA_PROFILE and per_repo profile selection are handled by
 // selectProfile, not by flag binding.

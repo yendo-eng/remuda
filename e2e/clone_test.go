@@ -111,6 +111,26 @@ func TestClonePlacesWorkspaceUnderConfiguredBaseDir(t *testing.T) {
 	require.DirExists(t, filepath.Join(expectedBase, ".repo_cache"))
 }
 
+func TestCloneAcceptsRegisteredExperimentFlag(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	reposDir := t.TempDir()
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposDir}))
+
+	res := h.Run("clone", "--experiments", "use-prompts-context-wrapper", "--name", "wk", "--repo-url", remoteURL)
+	require.NoError(t, res.Err, res.String())
+}
+
+func TestCloneRejectsUnknownExperimentFlag(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	reposDir := t.TempDir()
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposDir}))
+
+	res := h.Run("clone", "--experiments", "not-real", "--name", "wk", "--repo-url", remoteURL)
+	require.ErrorContains(t, res.Err, `--experiments: unknown experiment "not-real"`)
+}
+
 func TestCloneCreatesBranchMatchingBaseName(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)

@@ -14,7 +14,6 @@ type VibeCmd struct {
 	CloneHooksOption
 	FullCloneOption
 	AgentSessionOptions
-	ExperimentsOption
 	ContextEngineeringOptions
 	APIKeyOptions
 	SlugifyOptions
@@ -91,7 +90,6 @@ func (a *app) vibeCmd() *cobra.Command {
 	c.CloneHooksOption.register(cmd)
 	c.FullCloneOption.register(cmd, fl)
 	c.AgentSessionOptions.register(cmd, fl)
-	c.ExperimentsOption.register(cmd, fl)
 	c.ContextEngineeringOptions.register(cmd, fl)
 	c.APIKeyOptions.register(cmd, fl)
 	c.SlugifyOptions.register(cmd, fl)
@@ -201,7 +199,7 @@ func (c *VibeCmd) Run(ctx Context) error {
 	cmd.ExistingWorkspace = c.In
 
 	usePromptIDs := c.effectiveUsePromptNames()
-	wrapUsePrompts := c.ExperimentEnabled(experimentUsePromptsContextWrapper)
+	wrapUsePrompts := ctx.ExperimentEnabled(experimentUsePromptsContextWrapper)
 	usePromptsSelected := len(usePromptIDs) > 0
 	cmd.UsePromptIDs = usePromptIDs
 
