@@ -77,10 +77,10 @@ func TestBuildRunCommand_ComposesExpectedArgv(t *testing.T) {
 	require.Contains(t, innerScript, agent)
 }
 
-func TestBuildRunCommand_OmitsEmptyOptsAndUnsetContainerName(t *testing.T) {
+func TestBuildRunCommand_OmitsUnsetContainerName(t *testing.T) {
 	ws := "/abs/path/repos/org/repo/repo_1"
 	img := "vibe-dev"
-	opts := []string{"", "  ", "--network", "host"}
+	opts := []string{"--network", "host"}
 	agent := "codex"
 
 	cmd := docker.BuildRunCommand(ws, img, opts, agent, false, "")

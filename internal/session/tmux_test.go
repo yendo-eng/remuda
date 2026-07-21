@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 // writeStubTmux creates a stub tmux that simulates various behaviors for list-sessions.
@@ -184,7 +185,7 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	require.True(t, ok)
 	err = starter.StartWithEnv(
 		"env-check",
-		"printf '%s|%s|%s|%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"${STALE_SECRET-unset}\" \"${TERM:+set}\" \"${TMUX:+set}\" \"${TMUX_PANE:+set}\" > "+shellSingleQuoteForTest(outputPath),
+		"printf '%s|%s|%s|%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"${STALE_SECRET-unset}\" \"${TERM:+set}\" \"${TMUX:+set}\" \"${TMUX_PANE:+set}\" > "+shell.SingleQuote(outputPath),
 		startEnv,
 	)
 	require.NoError(t, err)
@@ -318,8 +319,4 @@ func filteredEnvWithout(keys ...string) []string {
 		out = append(out, kv)
 	}
 	return out
-}
-
-func shellSingleQuoteForTest(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
