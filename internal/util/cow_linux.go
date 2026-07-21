@@ -30,6 +30,7 @@ func cloneFile(src, dst string) error {
 	}
 	defer func() { _ = out.Close() }()
 
+	//nolint:gosec // G115: file descriptors are small non-negative ints, so the uintptr conversion cannot overflow.
 	if err := unix.IoctlFileClone(int(out.Fd()), int(in.Fd())); err != nil {
 		// dst is an empty placeholder at this point; drop it so the byte-copy
 		// fallback starts from a clean slate.
