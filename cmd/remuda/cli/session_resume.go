@@ -14,6 +14,7 @@ import (
 type SessionResumeCmd struct {
 	AgentSessionOptions
 	ContextEngineeringOptions
+	ExperimentsOption
 	APIKeyOptions
 	VibeContainerOptions
 
@@ -68,6 +69,7 @@ func (a *app) sessionResumeCmd() *cobra.Command {
 	fl = newFlagSet(cmd.Flags())
 	c.AgentSessionOptions.register(cmd, fl)
 	c.ContextEngineeringOptions.register(cmd, fl)
+	c.ExperimentsOption.register(cmd, fl)
 	c.APIKeyOptions.register(cmd, fl)
 	c.VibeContainerOptions.register(cmd, fl)
 	cmd.Flags().BoolVar(&c.Pick, "pick", false, "Use fzf to interactively select an inactive workspace to resume.")
@@ -175,13 +177,17 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 	prompt := c.Prompt
 	var beforePrompt, afterPrompt []string
 	if prompt != "" {
+		usePromptIDs := c.effectiveUsePromptNames()
+		wrapUsePrompts := c.ExperimentEnabled(experimentUsePromptsContextWrapper)
+		usePromptsSelected := len(usePromptIDs) > 0
 		parts, err := c.AddedPromptContext(ctx, PromptContextInput{
 			GitHubRepoSlug: repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, selectedAbs),
+			WrapUsePrompts: wrapUsePrompts,
 		})
 		if err != nil {
 			return pkgerrors.Wrap(err, "adding prompt context")
 		}
-		beforePrompt, afterPrompt = arrangePromptContext(parts, c.effectiveUsePromptsPosition(), false)
+		beforePrompt, afterPrompt = arrangePromptContext(parts, c.effectiveUsePromptsPosition(), shouldAddMainPromptMarker(wrapUsePrompts, usePromptsSelected))
 	}
 
 	cmd := internal.SessionResumeCommand{

@@ -136,8 +136,20 @@ func TestCompleteAgent_ListsValidAgents(t *testing.T) {
 func TestCompleteExperiments_ListsRegisteredExperiments(t *testing.T) {
 	home := t.TempDir()
 
-	got := runComplete(t, cli.EnvMap{}, home, "vibe", "--experiments", "")
-	require.Equal(t, []string{"use-prompts-context-wrapper"}, got)
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "vibe", args: []string{"vibe"}},
+		{name: "vibe-check", args: []string{"vibe-check"}},
+		{name: "session resume", args: []string{"session", "resume"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := runComplete(t, cli.EnvMap{}, home, append(test.args, "--experiments", "")...)
+			require.Equal(t, []string{"use-prompts-context-wrapper"}, got)
+		})
+	}
 }
 
 func TestCompleteReasoningLevel_UsesConfigDefaults(t *testing.T) {
