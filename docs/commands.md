@@ -87,6 +87,10 @@ Options:
   config). Use `remuda repo list` to see aliases available in your environment.
 - `--force` – replace the existing workspace if it already exists.
 - `--full-clone` – copy the cache into the workspace instead of creating a linked worktree.
+- `--experiments cow-clone` – populate a `--full-clone` workspace with copy-on-write clones of
+  the cache, so the workspace shares blocks with it instead of duplicating them. Requires APFS,
+  btrfs, XFS with `reflink=1` or bcachefs; other filesystems (ext4, overlayfs) fall back to a
+  plain copy.
 - `--no-clone-hooks` – skip running all post-clone hooks (built-in and config-defined).
 - `[repo_url]` – clone a different repository instead of the configured default URL.
 
