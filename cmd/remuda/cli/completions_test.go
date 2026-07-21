@@ -133,6 +133,13 @@ func TestCompleteAgent_ListsValidAgents(t *testing.T) {
 	require.Equal(t, []string{"codex", "opencode", "claude", "bash"}, got)
 }
 
+func TestCompleteExperiments_ListsRegisteredExperiments(t *testing.T) {
+	home := t.TempDir()
+
+	got := runComplete(t, cli.EnvMap{}, home, "vibe", "--experiments", "")
+	require.Equal(t, []string{"use-prompts-context-wrapper"}, got)
+}
+
 func TestCompleteReasoningLevel_UsesConfigDefaults(t *testing.T) {
 	home := t.TempDir()
 	writeCompletionConfig(t, home, "version: 1\ndefaults:\n  agent: codex\n")

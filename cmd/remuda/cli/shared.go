@@ -462,12 +462,6 @@ func validateContainerImageSelection(containerEnabled bool, containerImage strin
 	)
 }
 
-// ExperimentsOption captures experimental feature toggles.
-//
-// REMUDA_EXPERIMENTS accepts a comma- or whitespace-separated list,
-// case-insensitive, e.g. "my-experiment, other".
-const experimentUsePromptsContextWrapper = "use-prompts-context-wrapper"
-
 type ExperimentsOption struct {
 	Experiments string
 }
@@ -475,6 +469,7 @@ type ExperimentsOption struct {
 func (o *ExperimentsOption) register(cmd *cobra.Command, fl *flagSet) {
 	cmd.Flags().StringVar(&o.Experiments, "experiments", "", "Enable experimental features (comma- or whitespace-separated list).")
 	fl.bind("experiments", bindEnvs("REMUDA_EXPERIMENTS"), bindKey("defaults.experiments"))
+	registerStaticCompletion(cmd, "experiments", experimentCompletionValues())
 }
 
 // registerProfileFlag adds the --profile flag shared by profile-aware
