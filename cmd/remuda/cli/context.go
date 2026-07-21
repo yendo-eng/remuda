@@ -51,6 +51,13 @@ func (c Context) FlagExplicit(name string) bool {
 	return c.inv.rs.flagExplicit(name)
 }
 
+func (c Context) ExperimentEnabled(name string) bool {
+	if c.inv == nil || c.inv.app == nil {
+		return false
+	}
+	return c.inv.app.experiments.ExperimentEnabled(name)
+}
+
 // EffectiveConfig is the overlay-merged config view for this invocation.
 // Never nil after parsing; empty when no config file was found.
 func (c Context) EffectiveConfig() *koanf.Koanf {

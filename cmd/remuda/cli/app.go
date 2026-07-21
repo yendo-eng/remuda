@@ -44,6 +44,7 @@ type app struct {
 	sessionFactory SessionManagerFactory
 
 	rootFlags      *flagSet
+	experiments    ExperimentsOption
 	verbose        bool
 	sessionManager string
 }
@@ -250,6 +251,7 @@ func (a *app) buildRoot() *cobra.Command {
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "Enable verbose logging.")
 	pf.StringVar(&a.sessionManager, "session-manager", string(session.SessionManagerTmux), "Session manager to use.")
 	a.rootFlags = newFlagSet(pf)
+	a.experiments.registerPersistent(root, a.rootFlags)
 	a.rootFlags.bind("session-manager",
 		bindEnvs("REMUDA_SESSION_MANAGER"),
 		bindKey("session.manager"),
