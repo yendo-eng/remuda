@@ -4,6 +4,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
+	expregistry "github.com/yendo-eng/remuda/internal/experiments"
 )
 
 type CloneCmd struct {
@@ -72,6 +73,7 @@ func (c *CloneCmd) Run(ctx Context) error {
 		sel.SkipCloneHooks = c.NoCloneHooks
 		sel.Force = c.Force
 		sel.FullClone = c.FullClone
+		sel.CoWCopy = ctx.ExperimentEnabled(expregistry.CoWClone)
 		sel.Branch = c.Branch
 
 		path, err := ctx.Remuda.Clone(sel)
@@ -89,6 +91,7 @@ func (c *CloneCmd) Run(ctx Context) error {
 		SkipCloneHooks:   c.NoCloneHooks,
 		Force:            c.Force,
 		FullClone:        c.FullClone,
+		CoWCopy:          ctx.ExperimentEnabled(expregistry.CoWClone),
 		Branch:           c.Branch,
 		SkipCacheRefresh: c.SkipCacheRefresh,
 	}

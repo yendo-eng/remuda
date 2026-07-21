@@ -299,6 +299,29 @@ func TestFullCloneCreatesStandaloneRepository(t *testing.T) {
 	require.True(t, fullInfo.IsDir(), ".git should be a directory when --full-clone is used")
 }
 
+// The cow-clone experiment only changes how bytes get from the cache to the
+// workspace, and it falls back to a plain copy on filesystems without
+// copy-on-write — so the workspace must come out identical either way.
+func TestFullCloneWithCoWExperiment(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	baseRoot := filepath.Join(t.TempDir(), "repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}))
+
+	org, repo, err := github.ParseRepo(remoteURL)
+	require.NoError(t, err)
+
+	h.RunOK("clone", "--name", "wk-cow", "--repo-url", remoteURL, "--full-clone", "--experiments", "cow-clone")
+
+	wkPath := filepath.Join(baseRoot, org, repo, "wk-cow")
+	gitInfo, err := os.Stat(filepath.Join(wkPath, ".git"))
+	require.NoError(t, err)
+	require.True(t, gitInfo.IsDir(), ".git should be a directory when --full-clone is used")
+	require.FileExists(t, filepath.Join(wkPath, "README.md"))
+	require.Equal(t, "", testutils.RunGit(t, wkPath, "status", "--porcelain"))
+}
+
 func TestCloneConcurrentSameRepo(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
