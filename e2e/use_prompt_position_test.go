@@ -43,6 +43,15 @@ func TestUsePromptPosition(t *testing.T) {
 	}
 }
 
+func TestSessionResumeUsePromptsContextWrapperExperiment(t *testing.T) {
+	t.Parallel()
+
+	prompt := runSessionResumeWithExperiments(t, "MAIN PROMPT", "use-prompts-context-wrapper")
+	require.Contains(t, prompt, "<context>\nKeep scope tight and touch only what the request requires.")
+	require.Contains(t, prompt, "</context>")
+	assertUsePromptPosition(t, prompt, "MAIN PROMPT", "before")
+}
+
 func runVibeWithUsePromptPosition(t *testing.T, position, prompt string) string {
 	t.Helper()
 
@@ -118,6 +127,32 @@ func runSessionResumeWithUsePromptPosition(t *testing.T, position, prompt string
 	args := []string{"session", "resume", "--no-container", "--use", "minimal-change", "--jira", "ABC-1"}
 	if position == "after" {
 		args = append(args, "--use-position", position)
+	}
+	args = append(args, workspace, prompt)
+	h.RunOK(args...)
+
+	recorded := mgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
+	require.NotNil(t, recorded)
+	return extractPromptFromCommand(t, recorded.CommandRan)
+}
+
+func runSessionResumeWithExperiments(t *testing.T, prompt string, experiments ...string) string {
+	t.Helper()
+
+	base := t.TempDir()
+	workspace := filepath.Join(base, "org", "repo", "resume")
+	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+	mgr := &testutils.MockSessionManager{}
+	h := testutils.NewHarness(t,
+		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
+		testutils.WithSessionManager(mgr),
+		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
+		testutils.WithDocker(&docker.Mock{Running: false}),
+	)
+
+	args := []string{"session", "resume", "--no-container", "--use", "minimal-change", "--jira", "ABC-1"}
+	if len(experiments) > 0 {
+		args = append(args, "--experiments", strings.Join(experiments, ","))
 	}
 	args = append(args, workspace, prompt)
 	h.RunOK(args...)
