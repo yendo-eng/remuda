@@ -37,6 +37,37 @@ func writeConfigFile(t *testing.T, h *testutils.Harness, content string) string 
 	return configPath
 }
 
+func TestConfigValidateRejectsUnknownExperiment(t *testing.T) {
+	t.Parallel()
+	h := testutils.NewHarness(t)
+
+	writeConfigFile(t, h, `
+version: 1
+defaults:
+  experiments:
+    - not-real
+`)
+
+	res := h.Run("config", "validate")
+	require.ErrorContains(t, res.Err, `defaults.experiments: unknown experiment "not-real"`)
+}
+
+func TestConfigValidateWarnsRetiredExperiment(t *testing.T) {
+	t.Parallel()
+	h := testutils.NewHarness(t)
+
+	writeConfigFile(t, h, `
+version: 1
+defaults:
+  experiments:
+    - auto-workspace-name
+`)
+
+	res := h.Run("config", "validate")
+	require.NoError(t, res.Err, res.String())
+	require.Contains(t, res.Stderr, `warning: experiment "auto-workspace-name" was mainlined and is now a no-op; remove it`)
+}
+
 // =============================================================================
 // Config Precedence Tests (using use_prompts as observable field)
 // =============================================================================

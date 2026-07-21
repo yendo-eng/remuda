@@ -348,6 +348,97 @@ func TestResolveRepoSelectionWithFTUE_AppliesPerRepoContainerOverlay(t *testing.
 	require.Equal(t, opts, container.ContainerOpt)
 }
 
+func TestResolveRepoSelectionWithFTUE_RejectsUnknownPerRepoExperiment(t *testing.T) {
+	installFTUEAliases(t)
+
+	tty := openDevNullTTY(t)
+	orig := ftueSelectRepoFn
+	t.Cleanup(func() {
+		ftueSelectRepoFn = orig
+	})
+	ftueSelectRepoFn = func() (repoChoice, bool, error) {
+		return repoChoice{Alias: "remuda"}, false, nil
+	}
+
+	experiments := []string{"not-real"}
+	cfg := &configfile.V1{
+		Version: 1,
+		PerRepo: map[string]configfile.OverlayV1{
+			"acme/remuda": {
+				Defaults: &configfile.DefaultsV1{
+					Experiments: &experiments,
+				},
+			},
+		},
+	}
+
+	ctx := NewContext(
+		context.Background(),
+		internal.Remuda{
+			IO: internal.IO{
+				In:  tty,
+				Out: tty,
+				Err: &bytes.Buffer{},
+			},
+		},
+		WithEnv(EnvMap{}),
+	)
+	ctx.ConfigFile = cfg
+	attachTestInvocationWithExperiments(t, &ctx, cfg, false)
+
+	_, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
+		AllowFallback: true,
+	}, true)
+	require.ErrorContains(t, err, `per_repo["acme/remuda"].defaults.experiments: unknown experiment "not-real"`)
+}
+
+func TestResolveRepoSelectionWithFTUE_WarnsRetiredPerRepoExperiment(t *testing.T) {
+	installFTUEAliases(t)
+
+	tty := openDevNullTTY(t)
+	orig := ftueSelectRepoFn
+	t.Cleanup(func() {
+		ftueSelectRepoFn = orig
+	})
+	ftueSelectRepoFn = func() (repoChoice, bool, error) {
+		return repoChoice{Alias: "remuda"}, false, nil
+	}
+
+	stderr := &bytes.Buffer{}
+	experiments := []string{"auto-workspace-name"}
+	cfg := &configfile.V1{
+		Version: 1,
+		PerRepo: map[string]configfile.OverlayV1{
+			"acme/remuda": {
+				Defaults: &configfile.DefaultsV1{
+					Experiments: &experiments,
+				},
+			},
+		},
+	}
+
+	ctx := NewContext(
+		context.Background(),
+		internal.Remuda{
+			IO: internal.IO{
+				In:  tty,
+				Out: tty,
+				Err: stderr,
+			},
+		},
+		WithEnv(EnvMap{}),
+	)
+	ctx.ConfigFile = cfg
+	attachTestInvocationWithExperiments(t, &ctx, cfg, false)
+
+	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
+		AllowFallback: true,
+	}, true)
+	require.NoError(t, err)
+	require.Equal(t, RepoSourceExplicit, selection.Source)
+	require.Contains(t, stderr.String(), `warning: experiment "auto-workspace-name" was mainlined and is now a no-op; remove it`)
+}
+
 // Guards the re-entrant resolution contract: a flag set explicitly on the
 // command line must survive both the pre-FTUE apply pass (prepare, with no
 // slug known yet) and the post-selection apply pass (ApplyRepoOverlays with

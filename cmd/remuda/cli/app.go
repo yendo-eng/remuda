@@ -100,9 +100,6 @@ func (a *app) prepare(cmd *cobra.Command, opts prepareOpts) error {
 	if err := rs.validateEnums(); err != nil {
 		return err
 	}
-	if err := a.validateExperiments(rs); err != nil {
-		return err
-	}
 
 	a.finishSetup()
 	return nil
@@ -122,10 +119,14 @@ func (a *app) validateExperiments(rs *flagResolution) error {
 			return err
 		}
 		for _, name := range retired {
-			a.kctx.Remuda.IO.Errf("warning: experiment %q %s\n", name, retiredExperimentsRegistry()[name])
+			a.warnRetiredExperiment(name)
 		}
 	}
 	return nil
+}
+
+func (a *app) warnRetiredExperiment(name string) {
+	a.kctx.Remuda.IO.Errf("warning: experiment %q %s\n", name, retiredExperimentsRegistry()[name])
 }
 
 // applyRepoOverlays re-resolves flags with per_repo/profile overlays for the
@@ -152,6 +153,9 @@ func (a *app) applyRepoOverlays(slug string) error {
 	inv.slug = normalizeRepoSlug(slug)
 	if !inv.rs.flagExplicit("experiments") && strings.TrimSpace(inv.env.Getenv("REMUDA_EXPERIMENTS")) == "" && eff.Exists("defaults.experiments") {
 		inv.rs.resolved["experiments"] = experimentConfigSource(a.cfg, inv.slug, profile)
+	}
+	if err := a.validateExperiments(inv.rs); err != nil {
+		return err
 	}
 
 	if a.cfg != nil && inv.slug != "" {
