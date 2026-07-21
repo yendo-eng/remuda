@@ -222,6 +222,7 @@ func (c *VibeCmd) Run(ctx Context) error {
 	cmd.Clone.SkipCloneHooks = c.NoCloneHooks
 	cmd.Clone.Force = c.Force
 	cmd.Clone.FullClone = c.FullClone
+	cmd.Clone.CoWCopy = ctx.ExperimentEnabled(expregistry.CoWClone)
 	cmd.Clone.Branch = c.Branch
 
 	// Auto-generate a workspace name when --name is omitted.

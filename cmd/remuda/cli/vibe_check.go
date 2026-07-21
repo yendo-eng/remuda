@@ -227,6 +227,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 			Force:          c.Force,
 			SkipCloneHooks: c.NoCloneHooks,
 			FullClone:      c.FullClone,
+			CoWCopy:        ctx.ExperimentEnabled(expregistry.CoWClone),
 		},
 	}
 	before, after := arrangePromptContext(parts, c.effectiveUsePromptsPosition(), shouldAddMainPromptMarker(wrapUsePrompts, usePromptsSelected))

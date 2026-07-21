@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/util"
@@ -35,6 +36,10 @@ type CloneCommand struct {
 	// If true, clone the entire repo into the workspace instead of adding a
 	// linked worktree that shares objects with the cache.
 	FullClone bool
+
+	// If true, populate a full clone with copy-on-write clones of the cache
+	// instead of byte copies. Only meaningful with FullClone.
+	CoWCopy bool
 
 	// If true, skip refreshing the cache before cloning. Use for offline
 	// development or to speed up big clone batches.
@@ -102,7 +107,7 @@ func (k Remuda) Clone(
 			if err := os.MkdirAll(filepath.Dir(target), dirPermissions); err != nil {
 				return pkgerrors.Wrap(err, "creating workspace parent")
 			}
-			if err := util.CopyDir(cacheDir, target); err != nil {
+			if err := copyRepoCache(logger, cacheDir, target, cmd.CoWCopy); err != nil {
 				_ = os.RemoveAll(target)
 				return pkgerrors.Wrap(err, "copying repo cache")
 			}
@@ -205,6 +210,25 @@ func cleanupWorkspace(g git.Git, baseDir, cacheDir, target string, fullClone boo
 	return withRepoMutationLock(baseDir, func() error {
 		return git.WorktreeRemove(g, cacheDir, target)
 	})
+}
+
+// copyRepoCache populates a full-clone workspace from the repo cache. With CoW
+// enabled the copy shares blocks with the cache, which costs near-zero disk;
+// filesystems that cannot clone silently get the plain byte copy.
+func copyRepoCache(logger zerolog.Logger, cacheDir, target string, cow bool) error {
+	if !cow {
+		return util.CopyDir(cacheDir, target)
+	}
+	cloned, err := util.CoWCopyDir(cacheDir, target)
+	if err != nil {
+		return err
+	}
+	if !cloned {
+		logger.Info().
+			Str("cacheDir", cacheDir).
+			Msg("copy-on-write unavailable on this filesystem; copied repo cache instead")
+	}
+	return nil
 }
 
 func removeCopiedWorktrees(target string) error {

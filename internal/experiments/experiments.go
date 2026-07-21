@@ -8,6 +8,10 @@ import (
 
 const UsePromptsContextWrapper = "use-prompts-context-wrapper"
 
+// CoWClone populates --full-clone workspaces with copy-on-write clones of the
+// repo cache instead of byte copies.
+const CoWClone = "cow-clone"
+
 type Experiment struct {
 	Name        string
 	Description string
@@ -18,6 +22,10 @@ func Registry() []Experiment {
 		{
 			Name:        UsePromptsContextWrapper,
 			Description: "wrap saved prompt context before injecting it into the agent prompt",
+		},
+		{
+			Name:        CoWClone,
+			Description: "populate --full-clone workspaces with copy-on-write clones of the repo cache instead of byte copies",
 		},
 	}
 }
