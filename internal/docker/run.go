@@ -93,12 +93,7 @@ func BuildRunCommand(
 	// Prevent interactive git prompts and auto-accept new host keys to avoid hangs
 	argv = append(argv, "-e", "GIT_TERMINAL_PROMPT=0")
 	argv = append(argv, "-e", "GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=accept-new")
-	for _, o := range opts {
-		if strings.TrimSpace(o) == "" {
-			continue
-		}
-		argv = append(argv, o)
-	}
+	argv = append(argv, opts...)
 	argv = append(argv, image)
 
 	var inner strings.Builder

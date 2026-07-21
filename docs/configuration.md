@@ -52,6 +52,10 @@ or populate values automatically, but you can configure them explicitly:
   by default. Equivalent to passing `--container`.
 - `REMUDA_CONTAINER_OPTS` – comma-separated list of extra `docker run` arguments to
   append when container mode is enabled. Equivalent to repeating `--container-opt`.
+  Each value is split on whitespace into separate docker CLI tokens (eg.
+  `"-v /a:/b"` becomes `-v` and `/a:/b`); there is no shell quoting, `$VAR`
+  expansion, or `~` expansion, so a value containing meaningful whitespace
+  (eg. a host path with a space) cannot be passed this way.
 - `REMUDA_CONTAINER_INHERIT_ENVS` – comma-separated list of environment variable names
   to forward into container sessions. Equivalent to repeating `--container-inherit-env`.
 - `REMUDA_YOLO` – set to `true` to enable yolo mode (ignore sandboxing/approvals for

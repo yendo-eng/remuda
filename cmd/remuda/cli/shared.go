@@ -427,7 +427,12 @@ func (o *VibeContainerOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fs := cmd.Flags()
 	fs.BoolVar(&o.Container, "container", false, "Run session inside a Docker container.")
 	fs.StringVar(&o.ContainerName, "container-name", "", "Container image to use when --container is set.")
-	fs.StringSliceVar(&o.ContainerOpt, "container-opt", nil, "Append raw docker run argument (repeatable).")
+	fs.StringSliceVar(
+		&o.ContainerOpt, "container-opt", nil,
+		"Append raw docker run argument (repeatable). Each value is split on whitespace into "+
+			"separate docker CLI tokens; there is no shell quoting, $VAR expansion, or ~ expansion, "+
+			"so whitespace-containing values (eg. paths with spaces) cannot be passed this way.",
+	)
 	fs.StringSliceVar(&o.ContainerInheritEnv, "container-inherit-env", nil, "Forward host env var into container (repeatable).")
 	fl.negatable("container")
 	fl.bind("container", bindEnvs("REMUDA_CONTAINER"), bindKey("defaults.container.enabled"))
