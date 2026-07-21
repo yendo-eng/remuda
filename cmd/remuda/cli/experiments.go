@@ -75,6 +75,47 @@ func validateExperiments(raw string, source string) ([]string, error) {
 	return retiredNames, nil
 }
 
+func validateConfigExperiments(cfg *configfile.V1, warnRetired func(string)) error {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.Defaults != nil {
+		if err := validateConfigExperimentList("defaults.experiments", cfg.Defaults.Experiments, warnRetired); err != nil {
+			return err
+		}
+	}
+	for name, defaults := range cfg.Profiles {
+		if err := validateConfigExperimentList(fmt.Sprintf("profiles[%q].experiments", name), defaults.Experiments, warnRetired); err != nil {
+			return err
+		}
+	}
+	for slug, overlay := range cfg.PerRepo {
+		if overlay.Defaults == nil {
+			continue
+		}
+		if err := validateConfigExperimentList(fmt.Sprintf("per_repo[%q].defaults.experiments", slug), overlay.Defaults.Experiments, warnRetired); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateConfigExperimentList(source string, experiments *[]string, warnRetired func(string)) error {
+	if experiments == nil {
+		return nil
+	}
+	retired, err := validateExperiments(strings.Join(*experiments, ","), source)
+	if err != nil {
+		return err
+	}
+	for _, name := range retired {
+		if warnRetired != nil {
+			warnRetired(name)
+		}
+	}
+	return nil
+}
+
 func experimentConfigSource(cfg *configfile.V1, slug string, profile profileRef) string {
 	source := "defaults.experiments"
 	if cfg == nil {

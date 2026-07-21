@@ -72,6 +72,15 @@ func attachTestInvocationWithContainerFlags(t *testing.T, ctx *Context, cfg *con
 	return container
 }
 
+func attachTestInvocationWithExperiments(t *testing.T, ctx *Context, cfg *configfile.V1, profiled bool) *ExperimentsOption {
+	t.Helper()
+	experiments := &ExperimentsOption{}
+	newTestInvocation(t, ctx, cfg, profiled, nil, func(cmd *cobra.Command, fl *flagSet) {
+		experiments.register(cmd, fl)
+	})
+	return experiments
+}
+
 // attachTestInvocationWithFlags registers VibeContainerOptions and
 // ContextEngineeringOptions, parses args (so flags set there are snapshotted
 // as explicit by beginResolution), and attaches the resulting invocation to
