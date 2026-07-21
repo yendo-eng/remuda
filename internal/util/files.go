@@ -44,6 +44,11 @@ func CopyFile(src, dst string) error {
 // overwritten when files collide. Sockets are skipped and symlinks are
 // recreated as symlinks.
 func CopyDir(src, dst string) error {
+	return copyTree(src, dst, CopyFile)
+}
+
+// copyTree walks src into dst, delegating regular files to copyFile.
+func copyTree(src, dst string, copyFile func(src, dst string) error) error {
 	info, err := os.Stat(src)
 	if err != nil {
 		return err
@@ -89,7 +94,7 @@ func CopyDir(src, dst string) error {
 			return os.MkdirAll(target, mode&os.ModePerm)
 		}
 		if mode.IsRegular() {
-			return CopyFile(path, target)
+			return copyFile(path, target)
 		}
 		return &fs.PathError{Op: "copydir", Path: path, Err: fs.ErrInvalid}
 	})
