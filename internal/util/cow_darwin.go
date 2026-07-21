@@ -24,7 +24,7 @@ func cloneFile(src, dst string) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, unix.ENOTSUP), errors.Is(err, unix.EXDEV), errors.Is(err, unix.EINVAL):
+	case errors.Is(err, unix.ENOTSUP), errors.Is(err, unix.EXDEV):
 		return errCoWUnsupported
 	}
 	return pkgerrors.Wrap(err, "clonefile")

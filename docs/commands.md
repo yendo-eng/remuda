@@ -166,6 +166,7 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--branch <name>` – checkout this git branch (workspace folder still derives from `--name`). Defaults to the name when omitted.
 - `--force` – replace the existing workspace if it already exists.
 - `--full-clone` – copy the cache into the workspace instead of creating a linked worktree.
+- `--experiments cow-clone` – copy the cache copy-on-write; see the [Clone](#clone) options.
 - `--no-clone-hooks` – skip running all post-clone hooks (built-in and config-defined).
 - `--[no-]detached` – run the agent in the current terminal instead of using the configured session manager.
 - `--session-manager tmux|zellij` – override the session manager for this invocation (tmux remains the default).
@@ -263,6 +264,7 @@ Notes:
 
 - Artifacts are written under `.vibe/check/` (pr.json + diff.patch); the Markdown report is emitted in the session output.
 - `vibe-check` defaults to a full clone (`--full-clone`); use `--no-full-clone` to review via linked worktrees.
+- `--experiments cow-clone` copies the cache copy-on-write; see the [Clone](#clone) options.
 - `--no-clone-hooks` is supported and skips all post-clone hooks (built-in + config-defined).
 
 Examples:
