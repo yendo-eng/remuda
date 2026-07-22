@@ -68,6 +68,22 @@ defaults:
 	require.Contains(t, res.Stderr, `warning: experiment "auto-workspace-name" was mainlined and is now a no-op; remove it`)
 }
 
+func TestConfigValidateExplicitExperimentOverridesConfig(t *testing.T) {
+	t.Parallel()
+	h := testutils.NewHarness(t)
+
+	writeConfigFile(t, h, `
+version: 1
+defaults:
+  experiments:
+    - auto-workspace-name
+`)
+
+	res := h.Run("config", "validate", "--experiments", "not-real")
+	require.ErrorContains(t, res.Err, `--experiments: unknown experiment "not-real"`)
+	require.NotContains(t, res.Stderr, `auto-workspace-name`)
+}
+
 // =============================================================================
 // Config Precedence Tests (using use_prompts as observable field)
 // =============================================================================

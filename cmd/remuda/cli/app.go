@@ -13,6 +13,7 @@ import (
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/enums"
+	expregistry "github.com/yendo-eng/remuda/internal/experiments"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -43,10 +44,11 @@ type app struct {
 	cfg            *configfile.V1
 	sessionFactory SessionManagerFactory
 
-	rootFlags      *flagSet
-	experiments    ExperimentsOption
-	verbose        bool
-	sessionManager string
+	rootFlags                *flagSet
+	experiments              ExperimentsOption
+	warnedRetiredExperiments map[string]struct{}
+	verbose                  bool
+	sessionManager           string
 }
 
 // prepareOpts controls per-command flag resolution.
@@ -72,6 +74,7 @@ func (a *app) prepare(cmd *cobra.Command, opts prepareOpts) error {
 	if err != nil {
 		return err
 	}
+	rs.captureExplicitFlags(cmd.Flags())
 
 	env := envFromContext(*a.kctx)
 	a.kctx.inv = &invocation{
@@ -107,27 +110,34 @@ func (a *app) prepare(cmd *cobra.Command, opts prepareOpts) error {
 }
 
 func (a *app) validateExperiments(rs *flagResolution) error {
-	if rs == nil {
+	if strings.TrimSpace(a.experiments.Experiments) == "" {
 		return nil
 	}
-	for _, set := range rs.sets {
-		fl := set.fs.Lookup("experiments")
-		if fl == nil {
-			continue
-		}
-		retired, err := validateExperiments(fl.Value.String(), rs.source("experiments"))
-		if err != nil {
-			return err
-		}
-		for _, name := range retired {
-			a.warnRetiredExperiment(name)
-		}
+	source := experimentInputSource(rs, a.kctx.inv.env)
+	retired, err := validateExperiments(a.experiments.Experiments, source)
+	if err != nil {
+		return err
+	}
+	for _, name := range retired {
+		a.warnRetiredExperiment(name)
 	}
 	return nil
 }
 
 func (a *app) warnRetiredExperiment(name string) {
-	a.kctx.Remuda.IO.Errf("warning: experiment %q %s\n", name, retiredExperimentsRegistry()[name])
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return
+	}
+	if a.warnedRetiredExperiments == nil {
+		a.warnedRetiredExperiments = map[string]struct{}{}
+	}
+	if _, ok := a.warnedRetiredExperiments[name]; ok {
+		return
+	}
+	a.warnedRetiredExperiments[name] = struct{}{}
+	reason, _ := expregistry.RetiredReason(name)
+	a.kctx.Remuda.IO.Errf("warning: experiment %q %s\n", name, reason)
 }
 
 // applyRepoOverlays re-resolves flags with per_repo/profile overlays for the
@@ -152,9 +162,6 @@ func (a *app) applyRepoOverlays(slug string) error {
 	}
 	inv.eff = eff
 	inv.slug = normalizeRepoSlug(slug)
-	if !inv.rs.flagExplicit("experiments") && strings.TrimSpace(inv.env.Getenv("REMUDA_EXPERIMENTS")) == "" && eff.Exists("defaults.experiments") {
-		inv.rs.resolved["experiments"] = experimentConfigSource(a.cfg, inv.slug, profile)
-	}
 	if err := a.validateExperiments(inv.rs); err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
+	expregistry "github.com/yendo-eng/remuda/internal/experiments"
 	igit "github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -196,7 +197,7 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	}
 
 	usePromptIDs := c.effectiveUsePromptNames()
-	wrapUsePrompts := ctx.ExperimentEnabled(experimentUsePromptsContextWrapper)
+	wrapUsePrompts := ctx.ExperimentEnabled(expregistry.UsePromptsContextWrapper)
 	usePromptsSelected := len(usePromptIDs) > 0
 
 	parts, err := c.AddedPromptContext(ctx, PromptContextInput{

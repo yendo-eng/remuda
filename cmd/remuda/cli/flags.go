@@ -88,7 +88,6 @@ func (f *flagSet) negatable(name string) {
 type flagResolution struct {
 	sets     []*flagSet
 	explicit map[string]bool
-	resolved map[string]string
 	// explicitSlices holds the user-provided values of mergeConfigSlice
 	// flags, so repeated resolution passes merge against the original flag
 	// values rather than compounding earlier merges.
@@ -103,7 +102,7 @@ type explicitSlice struct {
 // beginResolution snapshots explicitly-set flags and reconciles hidden
 // --no-<flag> negations into their target flags.
 func beginResolution(sets ...*flagSet) (*flagResolution, error) {
-	r := &flagResolution{sets: sets, explicit: map[string]bool{}, resolved: map[string]string{}, explicitSlices: map[string]explicitSlice{}}
+	r := &flagResolution{sets: sets, explicit: map[string]bool{}, explicitSlices: map[string]explicitSlice{}}
 	for _, set := range sets {
 		set.fs.Visit(func(fl *pflag.Flag) {
 			r.explicit[fl.Name] = true
@@ -142,15 +141,17 @@ func (r *flagResolution) flagExplicit(name string) bool {
 	return r != nil && r.explicit[name]
 }
 
-func (r *flagResolution) source(name string) string {
-	if r == nil {
-		return "--" + name
+func (r *flagResolution) captureExplicitFlags(parsed *pflag.FlagSet) {
+	if r == nil || parsed == nil {
+		return
 	}
-	source := strings.TrimSpace(r.resolved[name])
-	if source == "" {
-		return "--" + name
+	for _, set := range r.sets {
+		for name := range set.bindings {
+			if parsed.Changed(name) {
+				r.explicit[name] = true
+			}
+		}
 	}
-	return source
 }
 
 // apply resolves every bound flag that was not set explicitly:
@@ -170,16 +171,15 @@ func (r *flagResolution) apply(env EnvProvider, cfg *koanf.Koanf) error {
 }
 
 func (r *flagResolution) applyOne(fl *pflag.Flag, b *flagBinding, env EnvProvider, cfg *koanf.Koanf) error {
-	envValue, envSource, envIsSet := "", "", false
+	envValue, envIsSet := "", false
 	for _, key := range b.envs {
 		if val, ok := env.LookupEnv(key); ok && val != "" {
-			envValue, envSource, envIsSet = val, key, true
+			envValue, envIsSet = val, true
 			break
 		}
 	}
 
 	if r.explicit[fl.Name] {
-		r.resolved[fl.Name] = "--" + fl.Name
 		if !b.mergeConfigSlice || envIsSet || cfg == nil || b.key == "" || !cfg.Exists(b.key) {
 			return nil
 		}
@@ -188,12 +188,10 @@ func (r *flagResolution) applyOne(fl *pflag.Flag, b *flagBinding, env EnvProvide
 	}
 
 	if envIsSet {
-		r.resolved[fl.Name] = envSource
 		return setFlagFromString(fl, envValue)
 	}
 
 	if cfg != nil && b.key != "" && cfg.Exists(b.key) {
-		r.resolved[fl.Name] = b.key
 		return setFlagFromConfig(fl, cfg.Get(b.key))
 	}
 
