@@ -14,11 +14,8 @@ func (a *app) configCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 	a.simpleCmd(validate, nil, func([]string) error {
-		cfg, _, err := loadConfigV1(*a.kctx)
-		if err != nil {
-			return err
-		}
-		return validateConfigExperiments(cfg, a.warnRetiredExperiment)
+		_, _, err := loadConfigV1(*a.kctx)
+		return err
 	})
 
 	cmd.AddCommand(validate)

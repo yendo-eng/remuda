@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal"
-	"github.com/yendo-eng/remuda/internal/configfile"
 )
 
 func TestValidateExperiments_RejectsUnknown(t *testing.T) {
@@ -32,29 +31,6 @@ func TestValidateExperiments_UsesFlexibleListParsing(t *testing.T) {
 	retired, err := validateExperiments(" USE-PROMPTS-CONTEXT-WRAPPER\nauto-workspace-name ", "REMUDA_EXPERIMENTS")
 	require.NoError(t, err)
 	require.Equal(t, []string{"auto-workspace-name"}, retired)
-}
-
-func TestExperimentConfigSource_ReportsOverlaySource(t *testing.T) {
-	t.Parallel()
-
-	baseExperiments := []string{"base"}
-	repoExperiments := []string{"repo"}
-	profileExperiments := []string{"profile"}
-	cfg := &configfile.V1{
-		Defaults: &configfile.DefaultsV1{Experiments: &baseExperiments},
-		PerRepo: map[string]configfile.OverlayV1{
-			"acme/utils": {
-				Defaults: &configfile.DefaultsV1{Experiments: &repoExperiments},
-			},
-		},
-		Profiles: map[string]configfile.DefaultsV1{
-			"fast": {Experiments: &profileExperiments},
-		},
-	}
-
-	require.Equal(t, "defaults.experiments", experimentConfigSource(cfg, "", profileRef{}))
-	require.Equal(t, `per_repo["acme/utils"].defaults.experiments`, experimentConfigSource(cfg, "acme/utils", profileRef{}))
-	require.Equal(t, `profiles["fast"].experiments`, experimentConfigSource(cfg, "acme/utils", profileRef{Name: "fast"}))
 }
 
 func TestVibeCheckUnknownExperimentFailsBeforeCommandValidation(t *testing.T) {

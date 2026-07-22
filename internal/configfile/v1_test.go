@@ -654,6 +654,33 @@ defaults:
 	require.Contains(t, err.Error(), "cannot be empty")
 }
 
+func TestParseV1_InvalidExperimentName_Unknown(t *testing.T) {
+	yaml := `version: 1
+profiles:
+  review:
+    experiments:
+      - not-real
+`
+	_, err := ParseV1([]byte(yaml))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `profiles["review"].experiments`)
+	require.Contains(t, err.Error(), `unknown experiment "not-real"`)
+}
+
+func TestParseV1_RetiredExperimentNameAllowed(t *testing.T) {
+	yaml := `version: 1
+per_repo:
+  acme/widgets:
+    defaults:
+      experiments:
+        - auto-workspace-name
+`
+	cfg, err := ParseV1([]byte(yaml))
+	require.NoError(t, err)
+	require.NotNil(t, cfg.PerRepo["acme/widgets"].Defaults)
+	require.Equal(t, []string{"auto-workspace-name"}, *cfg.PerRepo["acme/widgets"].Defaults.Experiments)
+}
+
 func TestParseV1_InvalidContainerInheritEnvName(t *testing.T) {
 	yaml := `version: 1
 defaults:

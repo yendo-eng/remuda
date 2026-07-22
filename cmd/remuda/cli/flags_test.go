@@ -252,35 +252,3 @@ func TestFlagResolution_EnumRejectsInvalidResolvedValue(t *testing.T) {
 	require.ErrorContains(t, err, "--agent must be one of")
 	require.ErrorContains(t, err, "not-an-agent")
 }
-
-func TestFlagResolution_TracksResolvedSource(t *testing.T) {
-	t.Parallel()
-
-	t.Run("flag", func(t *testing.T) {
-		t.Parallel()
-		_, rs, _ := newResolutionFixture(t, "--experiments", "not-real")
-		require.NoError(t, rs.apply(EnvMap{"REMUDA_EXPERIMENTS": "ignored"}, nil))
-		require.Equal(t, "--experiments", rs.source("experiments"))
-	})
-
-	t.Run("environment", func(t *testing.T) {
-		t.Parallel()
-		_, rs, _ := newResolutionFixture(t)
-		require.NoError(t, rs.apply(EnvMap{"REMUDA_EXPERIMENTS": "not-real"}, nil))
-		require.Equal(t, "REMUDA_EXPERIMENTS", rs.source("experiments"))
-	})
-
-	t.Run("config", func(t *testing.T) {
-		t.Parallel()
-		cfg := parseTestConfig(t, `
-version: 1
-defaults:
-  experiments: [not-real]
-`)
-		_, rs, _ := newResolutionFixture(t)
-		eff, err := newEffectiveConfig(cfg, "", profileRef{})
-		require.NoError(t, err)
-		require.NoError(t, rs.apply(EnvMap{}, eff))
-		require.Equal(t, "defaults.experiments", rs.source("experiments"))
-	})
-}

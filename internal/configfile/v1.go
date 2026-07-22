@@ -10,6 +10,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/enums"
+	expregistry "github.com/yendo-eng/remuda/internal/experiments"
 	"github.com/yendo-eng/remuda/internal/util"
 	"gopkg.in/yaml.v3"
 )
@@ -401,6 +402,9 @@ func (d DefaultsV1) validate(path string) error {
 			if strings.TrimSpace(exp) == "" {
 				return pkgerrors.Errorf("%s: experiment name cannot be empty", expPath)
 			}
+		}
+		if _, err := expregistry.Validate(*d.Experiments, path+".experiments"); err != nil {
+			return err
 		}
 	}
 	if d.Merge != nil {

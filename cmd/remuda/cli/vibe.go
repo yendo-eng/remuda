@@ -6,6 +6,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
+	expregistry "github.com/yendo-eng/remuda/internal/experiments"
 )
 
 type VibeCmd struct {
@@ -199,7 +200,7 @@ func (c *VibeCmd) Run(ctx Context) error {
 	cmd.ExistingWorkspace = c.In
 
 	usePromptIDs := c.effectiveUsePromptNames()
-	wrapUsePrompts := ctx.ExperimentEnabled(experimentUsePromptsContextWrapper)
+	wrapUsePrompts := ctx.ExperimentEnabled(expregistry.UsePromptsContextWrapper)
 	usePromptsSelected := len(usePromptIDs) > 0
 	cmd.UsePromptIDs = usePromptIDs
 

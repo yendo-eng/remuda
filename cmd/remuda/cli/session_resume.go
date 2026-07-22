@@ -7,6 +7,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
+	expregistry "github.com/yendo-eng/remuda/internal/experiments"
 	"github.com/yendo-eng/remuda/internal/logging"
 )
 
@@ -176,7 +177,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 	var beforePrompt, afterPrompt []string
 	if prompt != "" {
 		usePromptIDs := c.effectiveUsePromptNames()
-		wrapUsePrompts := ctx.ExperimentEnabled(experimentUsePromptsContextWrapper)
+		wrapUsePrompts := ctx.ExperimentEnabled(expregistry.UsePromptsContextWrapper)
 		usePromptsSelected := len(usePromptIDs) > 0
 		parts, err := c.AddedPromptContext(ctx, PromptContextInput{
 			GitHubRepoSlug: repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, selectedAbs),
