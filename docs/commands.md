@@ -19,6 +19,10 @@ This document covers the main commands provided by Remuda.
   - `session resume` is stateless: Remuda does not detect which agent created the original session. Use the same agent that created the workspace session history.
   - `session resume` defaults to Codex unless config/env defaults resolve to Claude via existing resume-default logic.
   - Clone-creation flags (`--repo`, `--repo-url`, `--full-clone`, `--no-clone-hooks`, wizard repo-selection) are intentionally not supported on `session resume`.
+  - `--experiments session-manifest` – `vibe` writes a `.remuda.json` launch manifest (agent,
+    model, reasoning level, yolo, container settings, use-prompts) into the workspace root, local
+    and untracked. With the same experiment enabled, `session resume` reads it back to default any
+    of the flags above that weren't passed explicitly, instead of falling back to Codex.
 
 ---
 
