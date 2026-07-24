@@ -12,6 +12,11 @@ const UsePromptsContextWrapper = "use-prompts-context-wrapper"
 // repo cache instead of byte copies.
 const CoWClone = "cow-clone"
 
+// SessionManifest writes a .remuda.json launch manifest into the workspace on
+// vibe, and has session resume read it back to default flags that weren't
+// passed explicitly.
+const SessionManifest = "session-manifest"
+
 type Experiment struct {
 	Name        string
 	Description string
@@ -26,6 +31,10 @@ func Registry() []Experiment {
 		{
 			Name:        CoWClone,
 			Description: "populate --full-clone workspaces with copy-on-write clones of the repo cache instead of byte copies",
+		},
+		{
+			Name:        SessionManifest,
+			Description: "write a .remuda.json launch manifest into the workspace and have session resume default flags from it",
 		},
 	}
 }
