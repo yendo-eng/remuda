@@ -193,7 +193,9 @@ func (c *VibeCmd) Run(ctx Context) error {
 		ContainerOpts:       c.ContainerOpt,
 		ContainerInheritEnv: c.ContainerInheritEnv,
 		RemoteControl:       c.Remote,
+		UsePromptsPosition:  c.effectiveUsePromptsPosition(),
 	}
+	cmd.SessionManifestEnabled = ctx.ExperimentEnabled(expregistry.SessionManifest)
 	if ctx.FlagExplicit("openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {
 		cmd.EnvOverrides = map[string]string{"OPENAI_API_KEY": c.OpenAIAPIKey}
 	}

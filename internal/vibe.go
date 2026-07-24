@@ -87,6 +87,15 @@ type VibeCommand struct {
 	// Environment values to apply to the launched agent without embedding them
 	// in the shell command string.
 	EnvOverrides map[string]string
+
+	// Position saved prompts (UsePromptIDs) are arranged in relative to the
+	// main prompt ("before" or "after"). Recorded in the session manifest.
+	UsePromptsPosition string
+
+	// When true (gated on the session-manifest experiment), write a
+	// .remuda.json launch manifest into the workspace so session resume can
+	// reconstruct these settings later.
+	SessionManifestEnabled bool
 }
 
 func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
@@ -143,6 +152,28 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	workspaceAbs, err := filepath.Abs(workspace)
 	if err != nil {
 		workspaceAbs = workspace
+	}
+
+	if cmd.SessionManifestEnabled {
+		manifest := SessionManifest{
+			Agent:          agent.Name(),
+			Model:          cmd.Model,
+			ReasoningLevel: cmd.ReasoningLevel,
+			Yolo:           cmd.Yolo,
+			AgentCmd:       cmd.AgentCmd,
+			AgentArgs:      cmd.AgentArgs,
+			UsePrompts:     cmd.UsePromptIDs,
+			UsePosition:    cmd.UsePromptsPosition,
+			Container: SessionManifestContainer{
+				Enabled:    cmd.Container,
+				Image:      cmd.ContainerName,
+				Opts:       cmd.ContainerOpts,
+				InheritEnv: cmd.ContainerInheritEnv,
+			},
+		}
+		if err := WriteSessionManifest(k.Git, workspaceAbs, manifest); err != nil {
+			return pkgerrors.Wrap(err, "session manifest")
+		}
 	}
 
 	sessionName := session.SessionNameFromWorkspaceName(workspace)
