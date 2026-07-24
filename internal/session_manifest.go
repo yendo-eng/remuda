@@ -117,11 +117,12 @@ func excludeFromGit(g git.Git, workspace, name string) error {
 	if err := os.MkdirAll(filepath.Dir(excludePath), 0o755); err != nil {
 		return pkgerrors.Wrapf(err, "failed to create %s", filepath.Dir(excludePath))
 	}
+	//nolint:gosec // G302: git itself creates info/exclude world-readable; it holds no secrets.
 	f, err := os.OpenFile(excludePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return pkgerrors.Wrapf(err, "failed to open %s", excludePath)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	prefix := ""
 	if len(existing) > 0 && existing[len(existing)-1] != '\n' {
