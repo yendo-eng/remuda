@@ -38,7 +38,7 @@ or populate values automatically, but you can configure them explicitly:
 - `REMUDA_PROFILE` – apply a named profile from `config.yaml` for `vibe`,
   `vibe-check`, and `session resume`. `--profile` overrides this value, and
   this env var overrides `per_repo.<slug>.profile`.
-- `REMUDA_EDITOR` – command invoked by `remuda session edit`. If unset, Remuda
+- `REMUDA_EDITOR` – command invoked by `remuda workspaces edit`. If unset, Remuda
   falls back to `VISUAL`, then `EDITOR`. The value is passed to your shell so
   you can include flags (eg. `export REMUDA_EDITOR='code --wait'`).
 - `REMUDA_USE_PROMPTS` – comma-separated list of built-in prompt names to apply

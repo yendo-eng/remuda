@@ -13,8 +13,9 @@ This document covers the main commands provided by Remuda.
   - Note: does not forward `--yolo`. The branch (or PR head branch) is checked out in the workspace before review.
 - `remuda workspaces list [--active|--inactive]`: list Remuda-managed workspaces on disk, one absolute path per line.
 - `remuda workspaces remove [--dry-run] [--force] <target>...`: remove one or more explicit workspaces by absolute path or `org/repo/workspace` identifier.
+- `remuda workspaces edit <target>`: open a workspace (active or inactive) in `$REMUDA_EDITOR`/`$VISUAL`/`$EDITOR` by absolute path or `org/repo/workspace` identifier.
 - `remuda config validate`: validate the resolved config file (missing config is treated as success).
-- `remuda session <subcommand>`: manage running sessions created by Remuda. Subcommands: `list`, `attach`, `readbuf`, `send`, `path`, `kill`, `inactive`, `resume`, `reap`, `shell`, `edit`. See [Session Management](session-management.md).
+- `remuda session <subcommand>`: manage running sessions created by Remuda. Subcommands: `list`, `attach`, `readbuf`, `send`, `path`, `kill`, `inactive`, `resume`, `reap`, `shell`. See [Session Management](session-management.md).
   - `session resume` supports the same post-clone launch flags as `vibe`: `--agent`, `--model`, `--reasoning-level`, `--agent-cmd`, `--use`, `--no-use`, `--jira`, `--github-issue` (alias: `--gh-issue`), `--openai-api-key`, `--profile`, `--yolo`, plus detached/attach/container flags and an optional trailing prompt arg.
   - `session resume` is stateless: Remuda does not detect which agent created the original session. Use the same agent that created the workspace session history.
   - `session resume` defaults to Codex unless config/env defaults resolve to Claude via existing resume-default logic.
@@ -53,6 +54,9 @@ remuda workspaces remove acme-org/example-repo/feature-login-audit
 remuda workspaces remove \
   acme-org/example-repo/feature-login-audit \
   acme-org/example-repo/feature-cache-index
+
+# Open a workspace (active or inactive) in your editor
+remuda workspaces edit acme-org/example-repo/feature-login-audit
 ```
 
 Behavior:

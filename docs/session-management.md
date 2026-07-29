@@ -33,10 +33,6 @@ remuda session send --pick "Continue with the next step"
 remuda session send --name acme-org/example-repo/feature-login-audit --name acme-org/example-repo/feature-cache-indexing "Sync up on next steps"
 remuda session send --no-newline acme-org/example-repo/feature-login-audit "export DEBUG=1"
 
-# Open the workspace for a session in your preferred editor
-remuda session edit acme-org/example-repo/feature-login-audit
-remuda session edit --pick                    # fzf flow; requires $REMUDA_EDITOR/$VISUAL/$EDITOR
-
 # Kill one or multiple sessions
 remuda session kill --name acme-org/example-repo/feature-login-audit
 remuda session kill --pick                # multi-select via fzf
@@ -61,6 +57,9 @@ remuda workspaces list --active
 
 # List inactive workspaces (no active session); one path per line for scripting
 remuda workspaces list --inactive
+
+# Open a workspace (active or inactive) in your preferred editor
+remuda workspaces edit acme-org/example-repo/feature-login-audit
 
 # Resume the most recent session in an inactive workspace
 remuda session resume ~/.remuda/repos/acme-org/example-repo/feature-login-audit
