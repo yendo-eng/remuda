@@ -7,6 +7,6 @@ func (a *app) workspacesCmd() *cobra.Command {
 		Use:   "workspaces",
 		Short: "Inspect Remuda-managed workspaces on disk.",
 	}
-	cmd.AddCommand(a.workspacesListCmd(), a.workspacesRemoveCmd())
+	cmd.AddCommand(a.workspacesListCmd(), a.workspacesRemoveCmd(), a.workspacesEditCmd())
 	return cmd
 }

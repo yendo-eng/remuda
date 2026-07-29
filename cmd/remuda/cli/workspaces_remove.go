@@ -36,23 +36,30 @@ func (a *app) workspacesRemoveCmd() *cobra.Command {
 
 func (c WorkspacesRemoveCmd) Validate() error {
 	for _, target := range c.Targets {
-		trimmed := strings.TrimSpace(target)
-		if trimmed == "" {
-			return pkgerrors.New("target cannot be blank")
+		if err := validateWorkspaceTarget(target); err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		if strings.HasPrefix(trimmed, "~") {
-			if !isSupportedTildePath(trimmed) {
-				return pkgerrors.Errorf("invalid target %q: unsupported tilde path", target)
-			}
-			continue
+func validateWorkspaceTarget(target string) error {
+	trimmed := strings.TrimSpace(target)
+	if trimmed == "" {
+		return pkgerrors.New("target cannot be blank")
+	}
+
+	if strings.HasPrefix(trimmed, "~") {
+		if !isSupportedTildePath(trimmed) {
+			return pkgerrors.Errorf("invalid target %q: unsupported tilde path", target)
 		}
-		if filepath.IsAbs(trimmed) {
-			continue
-		}
-		if !isWorkspaceIdentifier(trimmed) {
-			return pkgerrors.Errorf("invalid target %q: expected absolute path or org/repo/workspace identifier", target)
-		}
+		return nil
+	}
+	if filepath.IsAbs(trimmed) {
+		return nil
+	}
+	if !isWorkspaceIdentifier(trimmed) {
+		return pkgerrors.Errorf("invalid target %q: expected absolute path or org/repo/workspace identifier", target)
 	}
 	return nil
 }
