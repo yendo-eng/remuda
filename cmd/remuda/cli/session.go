@@ -18,7 +18,6 @@ func (a *app) sessionCmd() *cobra.Command {
 		a.sessionResumeCmd(),
 		a.sessionReapCmd(),
 		a.sessionShellCmd(),
-		a.sessionEditCmd(),
 	)
 	return cmd
 }
