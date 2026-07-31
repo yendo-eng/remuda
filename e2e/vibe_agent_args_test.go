@@ -19,7 +19,7 @@ func TestVibeAgentArgs_ConfigPerRepoAndCLIApplyWithShellQuoting(t *testing.T) {
 
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "owner", "repo", "wk")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -72,7 +72,7 @@ func TestVibeAgentArgs_IgnoredWhenAgentCmdIsSet(t *testing.T) {
 
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "owner", "repo", "wk")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(`

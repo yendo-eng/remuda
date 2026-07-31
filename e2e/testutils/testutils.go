@@ -73,6 +73,14 @@ func InitTestRemote(t *testing.T) string {
 	return remotePath
 }
 
+// InitWorkspace creates dir as a git repo, the shape `vibe --in` expects.
+func InitWorkspace(t *testing.T, dir string) string {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	RunGit(t, dir, "init", "--quiet")
+	return dir
+}
+
 func RequireDirExists(t *testing.T, path string) {
 	t.Helper()
 	_, err := os.Stat(path)

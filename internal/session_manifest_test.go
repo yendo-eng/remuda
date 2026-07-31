@@ -7,19 +7,19 @@ import (
 	"testing"
 )
 
-type fakeExcludeGit struct {
+type fakeGit struct {
 	excludePath string
 	dirSeen     string
 }
 
-func (g *fakeExcludeGit) Clone(repoURL, dir string) error                        { return nil }
-func (g *fakeExcludeGit) Pull(dir string) error                                  { return nil }
-func (g *fakeExcludeGit) WorktreeAdd(dir, branch string, args ...string) error   { return nil }
-func (g *fakeExcludeGit) WorktreeRemove(dir string, args ...string) error        { return nil }
-func (g *fakeExcludeGit) Checkout(dir string, args ...string) error              { return nil }
-func (g *fakeExcludeGit) ShowRef(dir, ref string, opts ...string) error          { return nil }
-func (g *fakeExcludeGit) Branch(dir string, args ...string) error                { return nil }
-func (g *fakeExcludeGit) RevParse(dir, rev string, opts ...string) (string, error) {
+func (g *fakeGit) Clone(repoURL, dir string) error                        { return nil }
+func (g *fakeGit) Pull(dir string) error                                  { return nil }
+func (g *fakeGit) WorktreeAdd(dir, branch string, args ...string) error   { return nil }
+func (g *fakeGit) WorktreeRemove(dir string, args ...string) error        { return nil }
+func (g *fakeGit) Checkout(dir string, args ...string) error              { return nil }
+func (g *fakeGit) ShowRef(dir, ref string, opts ...string) error          { return nil }
+func (g *fakeGit) Branch(dir string, args ...string) error                { return nil }
+func (g *fakeGit) RevParse(dir, rev string, opts ...string) (string, error) {
 	g.dirSeen = dir
 	return g.excludePath, nil
 }
@@ -29,7 +29,7 @@ func TestWriteSessionManifest(t *testing.T) {
 
 	workspace := t.TempDir()
 	excludePath := filepath.Join(workspace, ".git", "info", "exclude")
-	g := &fakeExcludeGit{excludePath: excludePath}
+	g := &fakeGit{excludePath: excludePath}
 
 	manifest := SessionManifest{
 		Agent:          "claude",
@@ -74,7 +74,7 @@ func TestWriteSessionManifestRefusesExisting(t *testing.T) {
 	t.Parallel()
 
 	workspace := t.TempDir()
-	g := &fakeExcludeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
+	g := &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
 
 	if err := WriteSessionManifest(g, workspace, SessionManifest{Agent: "codex"}); err != nil {
 		t.Fatalf("first write: %v", err)
@@ -98,7 +98,7 @@ func TestExcludeFromGitIdempotent(t *testing.T) {
 
 	workspace := t.TempDir()
 	excludePath := filepath.Join(workspace, ".git", "info", "exclude")
-	g := &fakeExcludeGit{excludePath: excludePath}
+	g := &fakeGit{excludePath: excludePath}
 
 	if err := excludeFromGit(g, workspace, SessionManifestFileName); err != nil {
 		t.Fatalf("first call: %v", err)

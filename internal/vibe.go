@@ -2,8 +2,10 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -22,6 +24,26 @@ import (
 // session alive after the agent command exits. This allows inspection of the
 // session buffer when the agent crashes unexpectedly.
 const crashRecoverySleepSeconds = 3600 // 1 hour
+
+// StaleWorktreeError reports a --in target that git no longer recognizes as a
+// worktree, typically a pruned worktree whose checkout folder was left behind.
+type StaleWorktreeError struct {
+	Dir string
+	Err error
+}
+
+func (e StaleWorktreeError) Error() string {
+	// git reports the real cause (dead gitdir, missing path, permissions) on
+	// stderr and leaves the error itself as a bare exit status.
+	cause := e.Err.Error()
+	var exitErr *exec.ExitError
+	if errors.As(e.Err, &exitErr) && len(exitErr.Stderr) > 0 {
+		cause = strings.TrimSpace(string(exitErr.Stderr))
+	}
+	return fmt.Sprintf("%s is not a valid git worktree (stale or pruned); nothing to resume here: %s", e.Dir, cause)
+}
+
+func (e StaleWorktreeError) Unwrap() error { return e.Err }
 
 type VibeCommand struct {
 	// Strings prepended to the prompt in order.
@@ -135,6 +157,10 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 			return pkgerrors.Wrap(err, "failed to expand workspace path")
 		}
 		cmd.ExistingWorkspace = expanded
+
+		if _, err := k.Git.RevParse(cmd.ExistingWorkspace, "--is-inside-work-tree"); err != nil {
+			return StaleWorktreeError{Dir: cmd.ExistingWorkspace, Err: err}
+		}
 
 		workspace = cmd.ExistingWorkspace
 	} else {

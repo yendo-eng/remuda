@@ -58,6 +58,7 @@ func TestVibeBuildsPromptWithJiraCodeBlocks(t *testing.T) {
 
 	sm := &captureSessionManager{}
 	k := Remuda{
+		Git:     &fakeGit{},
 		Session: sm,
 		IO:      DefaultIO(),
 	}
