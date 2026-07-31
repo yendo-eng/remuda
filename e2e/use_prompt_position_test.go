@@ -57,7 +57,7 @@ func runVibeWithUsePromptPosition(t *testing.T, position, prompt string) string 
 
 	base := t.TempDir()
 	workspace := filepath.Join(base, "org", "repo", "vibe")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 	mgr := &testutils.MockSessionManager{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
