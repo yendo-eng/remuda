@@ -13,7 +13,7 @@ func TestVibe_WritesSessionManifestWhenEnabled(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
 	workspace := t.TempDir()
-	g := &fakeExcludeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
+	g := &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
 	k := Remuda{
 		Session: &captureSessionManager{},
 		Docker:  &docker.Mock{Running: true},
@@ -47,6 +47,7 @@ func TestVibe_SkipsSessionManifestWhenDisabled(t *testing.T) {
 		Session: &captureSessionManager{},
 		Docker:  &docker.Mock{Running: true},
 		IO:      DefaultIO(),
+		Git:     &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")},
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{
@@ -66,7 +67,7 @@ func TestVibe_RefusesToOverwriteExistingManifest(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token")
 
 	workspace := t.TempDir()
-	g := &fakeExcludeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
+	g := &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
 	require.NoError(t, WriteSessionManifest(g, workspace, SessionManifest{Agent: "codex"}))
 
 	k := Remuda{

@@ -297,7 +297,7 @@ profiles:
       - make-pr
 `)
 	workspace := filepath.Join(h.ReposBaseDir, "acme", "rocket", "wk")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	resNoProfile := h.RunOK(
 		"vibe",
@@ -344,7 +344,7 @@ per_repo:
     profile: fast
 `)
 	workspace := filepath.Join(h.ReposBaseDir, "acme", "rocket", "wk")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	resPerRepoProfile := h.RunOK(
 		"vibe",

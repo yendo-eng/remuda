@@ -45,6 +45,7 @@ func TestVibe_Detached_TmuxExportsInheritedEnvVars(t *testing.T) {
 
 	sm := &captureSessionManager{}
 	k := Remuda{
+		Git:     &fakeGit{},
 		Session: sm,
 		Docker:  &docker.Mock{Running: true},
 		IO:      DefaultIO(),
@@ -75,6 +76,7 @@ func TestVibe_Detached_TmuxUnsetsMissingInheritedEnvVars(t *testing.T) {
 
 	sm := &captureSessionManager{}
 	k := Remuda{
+		Git:     &fakeGit{},
 		Session: sm,
 		Docker:  &docker.Mock{Running: true},
 		IO:      DefaultIO(),
@@ -105,6 +107,7 @@ func TestVibe_Detached_TmuxPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T)
 
 	sm := &captureSessionManager{}
 	k := Remuda{
+		Git:     &fakeGit{},
 		Session: sm,
 		Docker:  &docker.Mock{Running: true},
 		IO:      DefaultIO(),
@@ -150,6 +153,7 @@ func TestVibe_Detached_TmuxExportsImplicitAnthropicForClaude(t *testing.T) {
 
 	sm := &captureSessionManager{}
 	k := Remuda{
+		Git:     &fakeGit{},
 		Session: sm,
 		Docker:  &docker.Mock{Running: true},
 		IO:      DefaultIO(),
@@ -179,6 +183,7 @@ func TestVibe_Detached_TmuxUnsetsImplicitAnthropicWhenMissingForClaude(t *testin
 
 	sm := &captureSessionManager{}
 	k := Remuda{
+		Git:     &fakeGit{},
 		Session: sm,
 		Docker:  &docker.Mock{Running: true},
 		IO:      DefaultIO(),
@@ -210,6 +215,7 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 
 	sm := &captureSessionManager{}
 	k := Remuda{
+		Git:     &fakeGit{},
 		Session: sm,
 		IO:      DefaultIO(),
 		Env: env.StaticProvider{Values: map[string]string{
@@ -247,6 +253,7 @@ func TestVibe_DetachedTmuxForwardsAllowlistedEnvOnly(t *testing.T) {
 
 	sm := &captureSessionManager{}
 	k := Remuda{
+		Git:     &fakeGit{},
 		Session: sm,
 		IO:      DefaultIO(),
 	}

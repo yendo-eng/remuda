@@ -45,7 +45,7 @@ func TestVibeContainerRequiresExplicitImage(t *testing.T) {
 	t.Parallel()
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	sessionMgr := &testutils.MockSessionManager{}
 	h := testutils.NewHarness(t,
@@ -72,7 +72,7 @@ func TestVibeContainerUsesConfiguredImageWithoutContainerNameFlag(t *testing.T) 
 	t.Parallel()
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -108,7 +108,7 @@ func TestVibeContainerPerRepoBeadsDirOverridesHostEnv(t *testing.T) {
 	t.Parallel()
 	runDir := t.TempDir()
 	workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(`
@@ -769,7 +769,7 @@ func TestVibeLaunchesInExistingWorkspace(t *testing.T) {
 	t.Parallel()
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-existing")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	relPath := "." + string(os.PathSeparator) + filepath.Join("org", "repo", "wk-existing")
 
@@ -810,11 +810,34 @@ func TestVibeLaunchesInExistingWorkspace(t *testing.T) {
 	require.Contains(t, recorded.CommandRan, "; sleep 3600")
 }
 
+func TestVibeRejectsStaleWorktree(t *testing.T) {
+	t.Parallel()
+	workspaceRoot := t.TempDir()
+	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-stale")
+	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	// A pruned worktree: the checkout survives, its gitdir does not.
+	gitdir := filepath.Join(workspaceRoot, "gone", "worktrees", "wk-stale")
+	require.NoError(t, os.WriteFile(filepath.Join(workspace, ".git"), []byte("gitdir: "+gitdir+"\n"), 0o644))
+
+	sessionMgr := &testutils.MockSessionManager{}
+	h := testutils.NewHarness(t,
+		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
+		testutils.WithSessionManager(sessionMgr),
+		testutils.WithDocker(&docker.Mock{Running: true}),
+	)
+
+	res := h.Run("vibe", "--in", workspace, "--no-container", "--agent-cmd", "true", "prompt")
+	var staleErr internal.StaleWorktreeError
+	require.ErrorAs(t, res.Err, &staleErr)
+	require.Equal(t, workspace, staleErr.Dir)
+	require.Nil(t, sessionMgr.FindSession(session.SessionNameFromWorkspaceName(workspace)))
+}
+
 func TestVibeClaudeContainerComposesHermeticDockerCommand(t *testing.T) {
 	t.Parallel()
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-claude-container")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	sessionMgr := &testutils.MockSessionManager{}
 	h := testutils.NewHarness(t,
@@ -885,7 +908,7 @@ func TestVibeOmittedPromptDoesNotAppendEmptyPromptArg(t *testing.T) {
 	t.Parallel()
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-existing")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	relPath := "." + string(os.PathSeparator) + filepath.Join("org", "repo", "wk-existing")
 

@@ -44,7 +44,7 @@ func newContainerLayeringHarness(t *testing.T) (*testutils.Harness, *testutils.M
 	t.Helper()
 	runDir := t.TempDir()
 	workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	testutils.InitWorkspace(t, workspace)
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(containerLayeringConfig), 0o644))
@@ -270,7 +270,7 @@ func TestConfigLayeringOpenAIAPIKeyExplicitness(t *testing.T) {
 		t.Helper()
 		workspaceRoot := t.TempDir()
 		workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-		require.NoError(t, os.MkdirAll(workspace, 0o755))
+		testutils.InitWorkspace(t, workspace)
 
 		sessionMgr := &testutils.MockSessionManager{}
 		h := testutils.NewHarness(t,
