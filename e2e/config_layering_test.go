@@ -40,7 +40,7 @@ profiles:
         - "--profile-opt"
 `
 
-func newContainerLayeringHarness(t *testing.T) (*testutils.Harness, *testutils.MockSessionManager, string) {
+func newContainerLayeringHarness(t *testing.T) (*testutils.Harness, *testutils.MockMultiplexer, string) {
 	t.Helper()
 	runDir := t.TempDir()
 	workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
@@ -49,10 +49,10 @@ func newContainerLayeringHarness(t *testing.T) (*testutils.Harness, *testutils.M
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(containerLayeringConfig), 0o644))
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_CONFIG", configPath)
@@ -201,7 +201,7 @@ profiles:
 func TestConfigLayeringSessionResumeAgentCoercion(t *testing.T) {
 	t.Parallel()
 
-	newHarness := func(t *testing.T, configuredAgent string) (*testutils.Harness, *testutils.MockSessionManager, string) {
+	newHarness := func(t *testing.T, configuredAgent string) (*testutils.Harness, *testutils.MockMultiplexer, string) {
 		t.Helper()
 		runDir := t.TempDir()
 		workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
@@ -211,10 +211,10 @@ func TestConfigLayeringSessionResumeAgentCoercion(t *testing.T) {
 		configPath := filepath.Join(t.TempDir(), "config.yaml")
 		require.NoError(t, os.WriteFile(configPath, []byte(config), 0o644))
 
-		sessionMgr := &testutils.MockSessionManager{}
+		sessionMgr := &testutils.MockMultiplexer{}
 		h := testutils.NewHarness(t,
 			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-			testutils.WithSessionManager(sessionMgr),
+			testutils.WithMultiplexer(sessionMgr),
 			testutils.WithDocker(&docker.Mock{Running: false}),
 		)
 		h.SetEnv("REMUDA_CONFIG", configPath)
@@ -266,16 +266,16 @@ func TestConfigLayeringSessionResumeAgentCoercion(t *testing.T) {
 func TestConfigLayeringOpenAIAPIKeyExplicitness(t *testing.T) {
 	t.Parallel()
 
-	newHarness := func(t *testing.T) (*testutils.Harness, *testutils.MockSessionManager, string) {
+	newHarness := func(t *testing.T) (*testutils.Harness, *testutils.MockMultiplexer, string) {
 		t.Helper()
 		workspaceRoot := t.TempDir()
 		workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
 		testutils.InitWorkspace(t, workspace)
 
-		sessionMgr := &testutils.MockSessionManager{}
+		sessionMgr := &testutils.MockMultiplexer{}
 		h := testutils.NewHarness(t,
 			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-			testutils.WithSessionManager(sessionMgr),
+			testutils.WithMultiplexer(sessionMgr),
 			testutils.WithDocker(&docker.Mock{Running: true}),
 		)
 		// Load-bearing: SanitizeProcessEnv does not allowlist OPENAI_API_KEY, so

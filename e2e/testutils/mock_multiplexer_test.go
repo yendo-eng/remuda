@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMockSessionManager_FindSession_ReturnsPointerToBackingSession(t *testing.T) {
-	var m MockSessionManager
+func TestMockMultiplexer_FindSession_ReturnsPointerToBackingSession(t *testing.T) {
+	var m MockMultiplexer
 	require.NoError(t, m.Start("test-session", "initial-cmd"))
 
 	sess := m.FindSession("test-session")
@@ -26,4 +26,3 @@ func TestMockSessionManager_FindSession_ReturnsPointerToBackingSession(t *testin
 	require.NotNil(t, sess2)
 	require.Equal(t, "mutated-cmd", sess2.CommandRan)
 }
-

@@ -7,7 +7,7 @@ import (
 
 func (k Remuda) SessionAttach(name string) error {
 	k.IO.ErrWrite(terminalTitleSequence(name))
-	return k.Session.Attach(name)
+	return k.Multiplexer.Attach(name)
 }
 
 func terminalTitleSequence(title string) string {

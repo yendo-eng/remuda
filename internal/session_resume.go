@@ -180,7 +180,7 @@ func claudeResumeCommand(model string, yolo bool, reasoningLevel, prompt string)
 }
 
 func (k Remuda) ensureWorkspaceInactive(workspaceAbs string) error {
-	sessions, err := k.Session.List()
+	sessions, err := k.Multiplexer.List()
 	if err != nil {
 		return err
 	}

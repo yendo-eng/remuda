@@ -36,10 +36,10 @@ per_repo:
           - --repo-arg
 `), 0o644))
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_CONFIG", configPath)
@@ -83,10 +83,10 @@ defaults:
       - --from-config
 `), 0o644))
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_CONFIG", configPath)
@@ -123,10 +123,10 @@ defaults:
       - --cfg-check
 `), 0o644))
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 	)

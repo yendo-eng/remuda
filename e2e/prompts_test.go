@@ -23,7 +23,7 @@ func getRemuda(t *testing.T) (internal.Remuda, *bytes.Buffer, *bytes.Buffer, cli
 			ReposBaseDir: reposDir,
 		},
 		git.NewShellGit(),
-		&testutils.MockSessionManager{},
+		&testutils.MockMultiplexer{},
 		jira.Mock{},
 		nil,
 		nil,

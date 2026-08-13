@@ -100,10 +100,10 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	// When --force is supplied, also delete any existing session with the same
 	// name so the relaunched workspace starts cleanly.
 	if cmd.ReplaceExisting {
-		if _, err := k.Session.Find(sessionName); err == nil {
+		if _, err := k.Multiplexer.Find(sessionName); err == nil {
 			logger := k.logger()
 			logger.Debug().Str("session", sessionName).Msg("existing session found; killing due to --force")
-			if err := k.Session.Kill(sessionName); err != nil {
+			if err := k.Multiplexer.Kill(sessionName); err != nil {
 				return agentLaunchResult{}, pkgerrors.Wrapf(err, "killing existing session %q", sessionName)
 			}
 		} else if !errors.Is(err, session.ErrSessionNotFound) {
@@ -120,8 +120,8 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	for key := range cmd.EnvOverrides {
 		overrideEnvNames = append(overrideEnvNames, key)
 	}
-	if err := startSessionWithEnv(k.Session, sessionName, startCmd, envProvider, cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
-		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Session.Name(), sessionName)
+	if err := startSessionWithEnv(k.Multiplexer, sessionName, startCmd, envProvider, cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
+		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
 
 	if cmd.Attach {

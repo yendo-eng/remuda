@@ -77,7 +77,7 @@ func (c *SessionReapCmd) Run(ctx Context) error {
 	}
 
 	if c.Pick {
-		selected, err := pickSessionNamesWithFZF(logging.FromContext(ctx.ctx), names, ctx.Remuda.Session, true)
+		selected, err := pickSessionNamesWithFZF(logging.FromContext(ctx.ctx), names, ctx.Remuda.Multiplexer, true)
 		if err != nil {
 			return pkgerrors.Wrap(err, "pick sessions")
 		}
@@ -150,7 +150,7 @@ func writeReapSummary(ctx Context, results []internal.ReapedSession) {
 func pickSessionNamesWithFZF(
 	logger zerolog.Logger,
 	candidates []string,
-	mgr session.SessionManager,
+	mgr session.Multiplexer,
 	multi bool,
 ) ([]string, error) {
 	if _, err := exec.LookPath("fzf"); err != nil {

@@ -42,7 +42,7 @@ func TestTmuxAttach_ResolvesDotsToUnderscores(t *testing.T) {
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+old)
 	t.Setenv("TMUX_ARGS_FILE", argsFile)
 
-	mgr := session.NewTmuxManager()
+	mgr := session.NewTmux()
 	require.NoError(t, mgr.Attach("acme/remuda/session-123.6-code-review"))
 
 	got, err := os.ReadFile(argsFile)

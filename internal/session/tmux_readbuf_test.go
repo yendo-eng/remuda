@@ -35,7 +35,7 @@ exit 1
 	oldPath := os.Getenv("PATH")
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+oldPath)
 
-	mgr := session.NewTmuxManager()
+	mgr := session.NewTmux()
 
 	got, err := mgr.ReadBuffer("org/repo/feat", 1)
 	require.NoError(t, err)

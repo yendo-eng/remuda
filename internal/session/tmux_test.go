@@ -51,7 +51,7 @@ func TestTmuxListHandlesNoServerMessage(t *testing.T) {
 	old := os.Getenv("PATH")
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+old)
 
-	got, err := session.NewTmuxManager().List()
+	got, err := session.NewTmux().List()
 	require.NoError(t, err)
 	require.Empty(t, got)
 }
@@ -63,7 +63,7 @@ func TestTmuxListHandlesExitCode1WithoutCanonicalMessage(t *testing.T) {
 	old := os.Getenv("PATH")
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+old)
 
-	got, err := session.NewTmuxManager().List()
+	got, err := session.NewTmux().List()
 	// We expect no error and an empty list even if the wording differs.
 	require.NoError(t, err)
 	require.Empty(t, got)
@@ -92,7 +92,7 @@ func TestTmuxListParsesSpaceDelimitedFormat(t *testing.T) {
 	old := os.Getenv("PATH")
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+old)
 
-	got, err := session.NewTmuxManager().List()
+	got, err := session.NewTmux().List()
 	require.NoError(t, err)
 	require.Equal(t, []session.SessionInfo{
 		{Name: "org/repo/work", Attached: true, CreatedAt: time.Unix(1710000000, 0).UTC()},
@@ -122,7 +122,7 @@ func TestTmuxListParsesMissingOrMalformedCreated(t *testing.T) {
 	old := os.Getenv("PATH")
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+old)
 
-	got, err := session.NewTmuxManager().List()
+	got, err := session.NewTmux().List()
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	require.Equal(t, "org/repo/work", got[0].Name)
@@ -180,7 +180,7 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	startEnv := append([]string{}, baseEnv...)
 	startEnv = append(startEnv, "REMUDA_TEST_PANE_ENV=tmux-secret value")
 
-	mgr := session.NewTmuxManager()
+	mgr := session.NewTmux()
 	starter, ok := mgr.(session.EnvStarter)
 	require.True(t, ok)
 	err = starter.StartWithEnv(
@@ -228,7 +228,7 @@ func TestTmuxStartWithEnvSurfacesStderrOnDuplicateSession(t *testing.T) {
 		_ = cmd.Run()
 	}()
 
-	mgr := session.NewTmuxManager()
+	mgr := session.NewTmux()
 	starter, ok := mgr.(session.EnvStarter)
 	require.True(t, ok)
 
@@ -261,7 +261,7 @@ func TestTmuxStartWithEnvKeepsValuesOffArgv(t *testing.T) {
 		"OPENAI_API_KEY=" + secret,
 	}
 
-	starter, ok := session.NewTmuxManager().(session.EnvStarter)
+	starter, ok := session.NewTmux().(session.EnvStarter)
 	require.True(t, ok)
 	require.NoError(t, starter.StartWithEnv("argv-check", "true", env))
 
@@ -292,7 +292,7 @@ func TestTmuxStartWithEnvBoundsArgvForLargeEnvironment(t *testing.T) {
 		env = append(env, fmt.Sprintf("SYNTHETIC_%03d=%s", i, strings.Repeat("x", 1024)))
 	}
 
-	starter, ok := session.NewTmuxManager().(session.EnvStarter)
+	starter, ok := session.NewTmux().(session.EnvStarter)
 	require.True(t, ok)
 	require.NoError(t, starter.StartWithEnv("large-env", "true", env))
 

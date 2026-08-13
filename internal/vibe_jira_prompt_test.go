@@ -56,11 +56,11 @@ func TestVibeBuildsPromptWithJiraCodeBlocks(t *testing.T) {
 	}, []string{"RBL-3027"})
 	require.NoError(t, err)
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Git:     &fakeGit{},
-		Session: sm,
-		IO:      DefaultIO(),
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		IO:          DefaultIO(),
 	}
 
 	err = k.Vibe(context.Background(), VibeCommand{

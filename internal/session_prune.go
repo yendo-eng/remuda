@@ -66,7 +66,7 @@ func (k Remuda) inactiveWorkspaces(ignore []string) ([]string, error) {
 
 func (k Remuda) activeWorkspaceSet() (map[string]struct{}, error) {
 	// Build a set of active workspace paths (absolute) from sessions.
-	sessions, err := k.Session.List()
+	sessions, err := k.Multiplexer.List()
 	if err != nil {
 		return nil, err
 	}

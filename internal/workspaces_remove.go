@@ -86,7 +86,7 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) (
 }
 
 func (k Remuda) activeWorkspaceSessions() (map[string]string, error) {
-	sessions, err := k.Session.List()
+	sessions, err := k.Multiplexer.List()
 	if err != nil {
 		return nil, err
 	}

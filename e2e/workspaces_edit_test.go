@@ -51,7 +51,7 @@ func TestWorkspacesEdit(t *testing.T) {
 		sessionName := "org/repo/active"
 		workspace := filepath.Join(h.RemudaConfig.ReposBaseDir, "org", "repo", "active")
 		require.NoError(t, os.MkdirAll(workspace, 0o755))
-		sessionMgr, ok := h.Session.(*testutils.MockSessionManager)
+		sessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 		require.True(t, ok)
 		require.NoError(t, sessionMgr.Start(sessionName, "echo"))
 		editorScript(t, h)

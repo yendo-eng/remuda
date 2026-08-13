@@ -541,7 +541,7 @@ func pickSessionNames(ctx Context, multi bool) ([]string, error) {
 		return nil, pkgerrors.New("--pick requires an interactive TTY")
 	}
 
-	selected, err := pickSessionsWithFZF(logging.FromContext(ctx.ctx), ctx.Remuda.Session, multi)
+	selected, err := pickSessionsWithFZF(logging.FromContext(ctx.ctx), ctx.Remuda.Multiplexer, multi)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +605,7 @@ func openTTY() (*os.File, error) {
 
 func pickSessionsWithFZF(
 	logger zerolog.Logger,
-	mgr session.SessionManager,
+	mgr session.Multiplexer,
 	multi bool,
 ) ([]string, error) {
 	if _, err := exec.LookPath("fzf"); err != nil {

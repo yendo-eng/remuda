@@ -46,7 +46,7 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 		k := internal.NewRemuda(
 			internal.Config{ReposBaseDir: runDir},
 			git.NewShellGit(),
-			&testutils.MockSessionManager{},
+			&testutils.MockMultiplexer{},
 			jira.Mock{},
 			nil,
 			nil,
@@ -66,7 +66,7 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 		k := internal.NewRemuda(
 			internal.Config{ReposBaseDir: runDir},
 			git.NewShellGit(),
-			&testutils.MockSessionManager{},
+			&testutils.MockMultiplexer{},
 			jira.Mock{},
 			nil,
 			nil,

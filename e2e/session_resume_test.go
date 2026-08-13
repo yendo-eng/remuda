@@ -20,9 +20,9 @@ func TestSessionResume(t *testing.T) {
 	env := cli.EnvMap(testutils.ProcessEnvMap())
 	env["REMUDA_CONTAINER"] = "false"
 
-	setup := func(t *testing.T) (string, *testutils.MockSessionManager, internal.Remuda) {
+	setup := func(t *testing.T) (string, *testutils.MockMultiplexer, internal.Remuda) {
 		baseDir := t.TempDir()
-		mgr := &testutils.MockSessionManager{}
+		mgr := &testutils.MockMultiplexer{}
 		k := internal.NewRemuda(
 			internal.Config{ReposBaseDir: baseDir},
 			git.NewShellGit(),

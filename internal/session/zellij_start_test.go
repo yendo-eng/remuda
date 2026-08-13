@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestZellijManagerStart_UnsupportedCreateBackground(t *testing.T) {
+func TestZellijStart_UnsupportedCreateBackground(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires shell script stub")
 	}
@@ -28,14 +28,14 @@ exit 1
 
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	mgr := NewZellijManager()
+	mgr := NewZellij()
 	err := mgr.Start("org/repo/feature", "echo hi")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "create-background")
 	require.Contains(t, err.Error(), "upgrade")
 }
 
-func TestZellijManagerStart_RetriesUntilSessionReady(t *testing.T) {
+func TestZellijStart_RetriesUntilSessionReady(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires shell script stub")
 	}
@@ -84,7 +84,7 @@ exit 1
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("ZELLIJ_STUB_STATE_DIR", tmp)
 
-	mgr := NewZellijManager()
+	mgr := NewZellij()
 	err := mgr.Start("org/repo/feature", "echo hi")
 	require.NoError(t, err)
 

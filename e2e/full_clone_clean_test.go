@@ -24,7 +24,7 @@ func TestFullCloneProducesCleanWorkingTree(t *testing.T) {
 	k := internal.NewRemuda(
 		internal.Config{ReposBaseDir: baseRoot},
 		git.NewShellGit(),
-		&testutils.MockSessionManager{},
+		&testutils.MockMultiplexer{},
 		nil,
 		nil,
 		nil,

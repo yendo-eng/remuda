@@ -355,7 +355,7 @@ func TestParseV1_InvalidSlugifyReasoningLevel(t *testing.T) {
 	require.Contains(t, err.Error(), strings.Join(enums.ValidSlugifyReasoningLevels, ", "))
 }
 
-func TestParseV1_InvalidSessionManager(t *testing.T) {
+func TestParseV1_InvalidMultiplexer(t *testing.T) {
 	_, err := ParseV1([]byte("version: 1\nsession:\n  manager: screen\n"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "session.manager")
@@ -448,7 +448,7 @@ per_repo:
 	require.Contains(t, err.Error(), "fake_agent")
 }
 
-func TestParseV1_InvalidSessionManagerInPerRepo(t *testing.T) {
+func TestParseV1_InvalidMultiplexerInPerRepo(t *testing.T) {
 	yaml := `version: 1
 per_repo:
   "owner/repo":
@@ -593,8 +593,8 @@ per_repo:
 	require.Equal(t, "claude", *overlay.Defaults.Agent)
 }
 
-func TestParseV1_ValidSessionManagers(t *testing.T) {
-	for _, manager := range enums.ValidSessionManagers {
+func TestParseV1_ValidMultiplexers(t *testing.T) {
+	for _, manager := range enums.ValidMultiplexers {
 		yaml := "version: 1\nsession:\n  manager: " + manager + "\n"
 		cfg, err := ParseV1([]byte(yaml))
 		require.NoError(t, err, "session manager %q should be valid", manager)

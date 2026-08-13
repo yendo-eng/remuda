@@ -285,9 +285,9 @@ func (c V1) Validate() error {
 
 func (s SessionV1) validate(path string) error {
 	if s.Manager != nil {
-		if !slices.Contains(enums.ValidSessionManagers, *s.Manager) {
+		if !slices.Contains(enums.ValidMultiplexers, *s.Manager) {
 			return pkgerrors.Errorf("%s.manager: invalid value %q (valid: %s)",
-				path, *s.Manager, strings.Join(enums.ValidSessionManagers, ", "))
+				path, *s.Manager, strings.Join(enums.ValidMultiplexers, ", "))
 		}
 	}
 	if s.Prune != nil {

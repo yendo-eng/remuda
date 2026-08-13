@@ -17,32 +17,32 @@ import (
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
-func NewTmuxManager() SessionManager {
-	return NewTmuxManagerWithLogger(logging.DefaultLogger())
+func NewTmux() Multiplexer {
+	return NewTmuxWithLogger(logging.DefaultLogger())
 }
 
-// defaultTmuxManager is the production implementation backed by the `tmux` CLI.
-type defaultTmuxManager struct {
+// tmux is the production implementation backed by the `tmux` CLI.
+type tmux struct {
 	logger zerolog.Logger
 }
 
-func NewTmuxManagerWithLogger(logger zerolog.Logger) SessionManager {
-	return &defaultTmuxManager{logger: logger}
+func NewTmuxWithLogger(logger zerolog.Logger) Multiplexer {
+	return &tmux{logger: logger}
 }
 
-func (m *defaultTmuxManager) SetLogger(logger zerolog.Logger) {
+func (m *tmux) SetLogger(logger zerolog.Logger) {
 	m.logger = logger
 }
 
-func (m *defaultTmuxManager) Name() string {
-	return string(SessionManagerTmux)
+func (m *tmux) Name() string {
+	return string(MultiplexerTmux)
 }
 
-func (m *defaultTmuxManager) Start(sessionName, command string) error {
+func (m *tmux) Start(sessionName, command string) error {
 	return m.StartWithEnv(sessionName, command, nil)
 }
 
-func (m *defaultTmuxManager) StartWithEnv(sessionName, command string, env []string) error {
+func (m *tmux) StartWithEnv(sessionName, command string, env []string) error {
 	envFile, err := writeTmuxEnvFile(env)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func tmuxCommandWithEnvFile(envFile, command string) string {
 	return "exec env -i TERM=\"$TERM\" TMUX=\"$TMUX\" TMUX_PANE=\"$TMUX_PANE\" USER=\"$USER\" LOGNAME=\"$LOGNAME\" bash -lc " + shellutil.SingleQuote(inner)
 }
 
-func (m *defaultTmuxManager) resolveSessionName(name string) (string, error) {
+func (m *tmux) resolveSessionName(name string) (string, error) {
 	target := strings.TrimSpace(name)
 	if target == "" {
 		return "", ErrSessionNotFound
@@ -151,7 +151,7 @@ func (m *defaultTmuxManager) resolveSessionName(name string) (string, error) {
 	return "", ErrSessionNotFound
 }
 
-func (m *defaultTmuxManager) List() ([]SessionInfo, error) {
+func (m *tmux) List() ([]SessionInfo, error) {
 	// -F format: name SPACE attached(1/0) SPACE created(epoch seconds)
 	// We assume tmux always expands #{session_created} to a non-empty token.
 	// If that token were missing, names with spaces could be mis-parsed.
@@ -180,7 +180,7 @@ func (m *defaultTmuxManager) List() ([]SessionInfo, error) {
 	return parseTmuxListOutput(string(out)), nil
 }
 
-func (m *defaultTmuxManager) Find(name string) (SessionInfo, error) {
+func (m *tmux) Find(name string) (SessionInfo, error) {
 	sessions, err := m.List()
 	if err != nil {
 		return SessionInfo{}, err
@@ -243,7 +243,7 @@ func parseTmuxListOutput(s string) []SessionInfo {
 	return res
 }
 
-func (m *defaultTmuxManager) Attach(name string) error {
+func (m *tmux) Attach(name string) error {
 	resolved, err := m.resolveSessionName(name)
 	if err != nil {
 		return err
@@ -258,7 +258,7 @@ func (m *defaultTmuxManager) Attach(name string) error {
 	return cmd.Run()
 }
 
-func (m *defaultTmuxManager) ReadBuffer(name string, lines int) (string, error) {
+func (m *tmux) ReadBuffer(name string, lines int) (string, error) {
 	resolved, err := m.resolveSessionName(name)
 	if err != nil {
 		return "", err
@@ -288,7 +288,7 @@ func (m *defaultTmuxManager) ReadBuffer(name string, lines int) (string, error) 
 	return strings.Join(linesSlice, "\n"), nil
 }
 
-func (m *defaultTmuxManager) Send(name string, payload string, appendNewline bool) error {
+func (m *tmux) Send(name string, payload string, appendNewline bool) error {
 	resolved, err := m.resolveSessionName(name)
 	if err != nil {
 		return err
@@ -313,7 +313,7 @@ func (m *defaultTmuxManager) Send(name string, payload string, appendNewline boo
 	return nil
 }
 
-func (m *defaultTmuxManager) Kill(name string) error {
+func (m *tmux) Kill(name string) error {
 	resolved, err := m.resolveSessionName(name)
 	if err != nil {
 		return err

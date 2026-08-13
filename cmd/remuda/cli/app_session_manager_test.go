@@ -44,8 +44,8 @@ func TestRun_WiresSessionManagerFlag(t *testing.T) {
 		WithEnv(EnvMap{}),
 		WithHomeDir(homeDir),
 		WithWorkingDir(workDir),
-		WithSessionManagerFactory(func(name session.SupportedSessionManager, _ zerolog.Logger) session.SessionManager {
-			return stubNamedSessionManager{name: string(name)}
+		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
+			return stubNamedMultiplexer{name: string(name)}
 		}),
 	)
 
@@ -53,25 +53,25 @@ func TestRun_WiresSessionManagerFlag(t *testing.T) {
 	require.Contains(t, out.String(), "(zellij)")
 }
 
-type stubNamedSessionManager struct {
+type stubNamedMultiplexer struct {
 	name string
 }
 
-func (m stubNamedSessionManager) Name() string { return m.name }
-func (m stubNamedSessionManager) Start(sessionName, command string) error {
+func (m stubNamedMultiplexer) Name() string { return m.name }
+func (m stubNamedMultiplexer) Start(sessionName, command string) error {
 	return nil
 }
-func (m stubNamedSessionManager) List() ([]session.SessionInfo, error) {
+func (m stubNamedMultiplexer) List() ([]session.SessionInfo, error) {
 	return nil, nil
 }
-func (m stubNamedSessionManager) Find(name string) (session.SessionInfo, error) {
+func (m stubNamedMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
-func (m stubNamedSessionManager) Attach(name string) error { return nil }
-func (m stubNamedSessionManager) ReadBuffer(name string, lines int) (string, error) {
+func (m stubNamedMultiplexer) Attach(name string) error { return nil }
+func (m stubNamedMultiplexer) ReadBuffer(name string, lines int) (string, error) {
 	return "", nil
 }
-func (m stubNamedSessionManager) Send(name string, payload string, appendNewline bool) error {
+func (m stubNamedMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	return nil
 }
-func (m stubNamedSessionManager) Kill(name string) error { return nil }
+func (m stubNamedMultiplexer) Kill(name string) error { return nil }

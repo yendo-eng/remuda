@@ -11,7 +11,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-type fakeResumeSessionManager struct {
+type fakeResumeMultiplexer struct {
 	name     string
 	sessions []session.SessionInfo
 
@@ -21,9 +21,9 @@ type fakeResumeSessionManager struct {
 	killed   []string
 }
 
-func (f *fakeResumeSessionManager) Name() string { return f.name }
+func (f *fakeResumeMultiplexer) Name() string { return f.name }
 
-func (f *fakeResumeSessionManager) Start(sessionName, command string) error {
+func (f *fakeResumeMultiplexer) Start(sessionName, command string) error {
 	if f.started == nil {
 		f.started = map[string]string{}
 	}
@@ -31,7 +31,7 @@ func (f *fakeResumeSessionManager) Start(sessionName, command string) error {
 	return nil
 }
 
-func (f *fakeResumeSessionManager) StartWithEnv(sessionName, command string, envValues []string) error {
+func (f *fakeResumeMultiplexer) StartWithEnv(sessionName, command string, envValues []string) error {
 	if err := f.Start(sessionName, command); err != nil {
 		return err
 	}
@@ -42,9 +42,9 @@ func (f *fakeResumeSessionManager) StartWithEnv(sessionName, command string, env
 	return nil
 }
 
-func (f *fakeResumeSessionManager) List() ([]session.SessionInfo, error) { return f.sessions, nil }
+func (f *fakeResumeMultiplexer) List() ([]session.SessionInfo, error) { return f.sessions, nil }
 
-func (f *fakeResumeSessionManager) Find(name string) (session.SessionInfo, error) {
+func (f *fakeResumeMultiplexer) Find(name string) (session.SessionInfo, error) {
 	for _, s := range f.sessions {
 		if s.Name == name {
 			return s, nil
@@ -53,18 +53,18 @@ func (f *fakeResumeSessionManager) Find(name string) (session.SessionInfo, error
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
 
-func (f *fakeResumeSessionManager) Attach(name string) error {
+func (f *fakeResumeMultiplexer) Attach(name string) error {
 	f.attached = append(f.attached, name)
 	return nil
 }
 
-func (f *fakeResumeSessionManager) ReadBuffer(name string, lines int) (string, error) { return "", nil }
+func (f *fakeResumeMultiplexer) ReadBuffer(name string, lines int) (string, error) { return "", nil }
 
-func (f *fakeResumeSessionManager) Send(name string, payload string, appendNewline bool) error {
+func (f *fakeResumeMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	return nil
 }
 
-func (f *fakeResumeSessionManager) Kill(name string) error {
+func (f *fakeResumeMultiplexer) Kill(name string) error {
 	f.killed = append(f.killed, name)
 	return nil
 }
@@ -77,11 +77,11 @@ func TestSessionResume_StartsCodexDetachedSession(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -113,11 +113,11 @@ func TestSessionResume_ClaudeStartsDetachedSession(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -145,11 +145,11 @@ func TestSessionResume_ClaudeYoloAndReasoningFlags(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -176,11 +176,11 @@ func TestSessionResume_ClaudeModelAndPromptFlags(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -214,12 +214,12 @@ func TestSessionResume_DetachedTmuxExportsImplicitAnthropicForClaudeContainer(t 
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -248,12 +248,12 @@ func TestSessionResume_ContainerRequiresExplicitImage(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -274,11 +274,11 @@ func TestSessionResume_UnsupportedAgentErrors(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -296,14 +296,14 @@ func TestSessionResume_RefusesActiveWorkspace(t *testing.T) {
 	workspace := filepath.Join(base, "org", "repo", "folder")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-	mgr := &fakeResumeSessionManager{
+	mgr := &fakeResumeMultiplexer{
 		name:     "tmux",
 		sessions: []session.SessionInfo{{Name: "org/repo/folder"}},
 	}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -321,11 +321,11 @@ func TestSessionResume_ValidatesWorkspaceEligibility(t *testing.T) {
 	workspace := filepath.Join(base, "org", "repo")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -345,11 +345,11 @@ func TestSessionResume_YoloAddsBypassFlags(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -375,11 +375,11 @@ func TestSessionResume_ReasoningLevelAddsConfigFlag(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -402,11 +402,11 @@ func TestSessionResume_CustomAgentCommandAppendsPrompt(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
@@ -437,11 +437,11 @@ func TestSessionResume_OpenAIKeyOverridesEnvironment(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeSessionManager{name: "tmux"}
+	mgr := &fakeResumeMultiplexer{name: "tmux"}
 	k := Remuda{
-		Config:  Config{ReposBaseDir: base},
-		Session: mgr,
-		IO:      DefaultIO(),
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
 	}
 
 	err := k.SessionResume(context.Background(), SessionResumeCommand{

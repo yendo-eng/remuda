@@ -38,7 +38,7 @@ func (c *SessionListCmd) Run(ctx Context) error {
 	}
 
 	if len(sessions) == 0 {
-		ctx.Remuda.IO.Outf("No Remuda sessions found. (%s)\n", ctx.Remuda.Session.Name())
+		ctx.Remuda.IO.Outf("No Remuda sessions found. (%s)\n", ctx.Remuda.Multiplexer.Name())
 		return nil
 	}
 

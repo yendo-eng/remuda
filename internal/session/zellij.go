@@ -17,31 +17,31 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-func NewZellijManager() SessionManager {
-	return NewZellijManagerWithLogger(logging.DefaultLogger())
+func NewZellij() Multiplexer {
+	return NewZellijWithLogger(logging.DefaultLogger())
 }
 
-func NewZellijManagerWithLogger(logger zerolog.Logger) SessionManager {
-	return &zellijManager{logger: logger}
+func NewZellijWithLogger(logger zerolog.Logger) Multiplexer {
+	return &zellij{logger: logger}
 }
 
-type zellijManager struct {
+type zellij struct {
 	logger zerolog.Logger
 }
 
-func (z *zellijManager) SetLogger(logger zerolog.Logger) {
+func (z *zellij) SetLogger(logger zerolog.Logger) {
 	z.logger = logger
 }
 
-func (z *zellijManager) Name() string {
-	return string(SessionManagerZellij)
+func (z *zellij) Name() string {
+	return string(MultiplexerZellij)
 }
 
-func (z *zellijManager) Start(sessionName, command string) error {
+func (z *zellij) Start(sessionName, command string) error {
 	return z.StartWithEnv(sessionName, command, nil)
 }
 
-func (z *zellijManager) StartWithEnv(sessionName, command string, env []string) error {
+func (z *zellij) StartWithEnv(sessionName, command string, env []string) error {
 	zellijName := encodeZellijSessionName(sessionName)
 	out, err := runZellijCmdCombinedOutput(z.logger, env, "attach", "--create-background", zellijName)
 	if err != nil {
@@ -84,7 +84,7 @@ func runZellijCmdCombinedOutput(logger zerolog.Logger, env []string, args ...str
 	return string(out), nil
 }
 
-func (z *zellijManager) List() ([]SessionInfo, error) {
+func (z *zellij) List() ([]SessionInfo, error) {
 	out, err := util.RunCmdCombinedOutputWithLogger(z.logger, "zellij", "list-sessions", "--no-formatting")
 	if err != nil {
 		// When no server is running, treat as zero sessions.
@@ -100,7 +100,7 @@ func (z *zellijManager) List() ([]SessionInfo, error) {
 	return parseZellijListOutput(out), nil
 }
 
-func (z *zellijManager) Find(name string) (SessionInfo, error) {
+func (z *zellij) Find(name string) (SessionInfo, error) {
 	sessions, err := z.List()
 	if err != nil {
 		return SessionInfo{}, err
@@ -221,13 +221,13 @@ func parseZellijDurationToken(token string) (time.Duration, bool) {
 	}
 }
 
-func (z *zellijManager) Attach(name string) error {
+func (z *zellij) Attach(name string) error {
 	cmd := util.CmdWithLogger(z.logger, "zellij", "attach", encodeZellijSessionName(name))
 	cmd.Stdout, cmd.Stdin, cmd.Stderr = os.Stderr, os.Stdin, os.Stderr
 	return cmd.Run()
 }
 
-func (z *zellijManager) ReadBuffer(name string, lines int) (string, error) {
+func (z *zellij) ReadBuffer(name string, lines int) (string, error) {
 	if lines < 0 {
 		lines = 200
 	}
@@ -268,7 +268,7 @@ func (z *zellijManager) ReadBuffer(name string, lines int) (string, error) {
 	return strings.Join(linesSlice, "\n"), nil
 }
 
-func (z *zellijManager) Send(name string, payload string, appendNewline bool) error {
+func (z *zellij) Send(name string, payload string, appendNewline bool) error {
 	out, err := util.RunCmdCombinedOutputWithLogger(z.logger, "zellij", "--session", encodeZellijSessionName(name), "action", "write-chars", payload)
 	if err != nil {
 		msg := strings.TrimSpace(out)
@@ -294,7 +294,7 @@ func (z *zellijManager) Send(name string, payload string, appendNewline bool) er
 	return nil
 }
 
-func (z *zellijManager) Kill(name string) error {
+func (z *zellij) Kill(name string) error {
 	return util.RunCmdWithLogger(z.logger, "zellij", "delete-session", "--force", encodeZellijSessionName(name))
 }
 

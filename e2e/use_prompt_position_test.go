@@ -58,10 +58,10 @@ func runVibeWithUsePromptPosition(t *testing.T, position, prompt string) string 
 	base := t.TempDir()
 	workspace := filepath.Join(base, "org", "repo", "vibe")
 	testutils.InitWorkspace(t, workspace)
-	mgr := &testutils.MockSessionManager{}
+	mgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
-		testutils.WithSessionManager(mgr),
+		testutils.WithMultiplexer(mgr),
 		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
@@ -84,10 +84,10 @@ func runVibeCheckWithUsePromptPosition(t *testing.T, position, prompt string) st
 	remoteURL := testutils.InitTestRemote(t)
 	base := filepath.Join(t.TempDir(), "repos")
 	branch := "branch-under-review"
-	mgr := &testutils.MockSessionManager{}
+	mgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
-		testutils.WithSessionManager(mgr),
+		testutils.WithMultiplexer(mgr),
 		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
@@ -116,10 +116,10 @@ func runSessionResumeWithUsePromptPosition(t *testing.T, position, prompt string
 	base := t.TempDir()
 	workspace := filepath.Join(base, "org", "repo", "resume")
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
-	mgr := &testutils.MockSessionManager{}
+	mgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
-		testutils.WithSessionManager(mgr),
+		testutils.WithMultiplexer(mgr),
 		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
@@ -142,10 +142,10 @@ func runSessionResumeWithExperiments(t *testing.T, prompt string, experiments ..
 	base := t.TempDir()
 	workspace := filepath.Join(base, "org", "repo", "resume")
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
-	mgr := &testutils.MockSessionManager{}
+	mgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
-		testutils.WithSessionManager(mgr),
+		testutils.WithMultiplexer(mgr),
 		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)

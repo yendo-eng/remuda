@@ -14,7 +14,7 @@ import (
 func TestSessionReapNoCandidates(t *testing.T) {
 	t.Parallel()
 	h := testutils.NewHarness(t)
-	mgr := requireMockSessionManager(t, h)
+	mgr := requireMockMultiplexer(t, h)
 
 	addSession(t, mgr, "org/repo/new", time.Now())
 
@@ -28,7 +28,7 @@ func TestSessionReapNoCandidates(t *testing.T) {
 func TestSessionReapDryRun(t *testing.T) {
 	t.Parallel()
 	h := testutils.NewHarness(t)
-	mgr := requireMockSessionManager(t, h)
+	mgr := requireMockMultiplexer(t, h)
 	now := time.Now()
 
 	addSession(t, mgr, "org/repo/old", now.Add(-48*time.Hour))
@@ -48,7 +48,7 @@ func TestSessionReapDryRun(t *testing.T) {
 func TestSessionReapKillsWhenDryRunFalse(t *testing.T) {
 	t.Parallel()
 	h := testutils.NewHarness(t)
-	mgr := requireMockSessionManager(t, h)
+	mgr := requireMockMultiplexer(t, h)
 	now := time.Now()
 
 	addSession(t, mgr, "org/repo/old", now.Add(-48*time.Hour))
@@ -66,7 +66,7 @@ func TestSessionReapKillsWhenDryRunFalse(t *testing.T) {
 func TestSessionReapCleanupRemovesWorkspace(t *testing.T) {
 	t.Parallel()
 	h := testutils.NewHarness(t)
-	mgr := requireMockSessionManager(t, h)
+	mgr := requireMockMultiplexer(t, h)
 	h.SetEnv("REMUDA_CONTAINER", "false")
 
 	remoteURL := testutils.InitTestRemote(t)
@@ -94,7 +94,7 @@ func TestSessionReapCleanupRemovesWorkspace(t *testing.T) {
 func TestSessionReapSkipsUnknownAge(t *testing.T) {
 	t.Parallel()
 	h := testutils.NewHarness(t)
-	mgr := requireMockSessionManager(t, h)
+	mgr := requireMockMultiplexer(t, h)
 
 	addSession(t, mgr, "org/repo/unknown", time.Time{})
 
@@ -104,22 +104,22 @@ func TestSessionReapSkipsUnknownAge(t *testing.T) {
 	requireSessionExists(t, mgr, "org/repo/unknown")
 }
 
-func requireMockSessionManager(t *testing.T, h *testutils.Harness) *testutils.MockSessionManager {
+func requireMockMultiplexer(t *testing.T, h *testutils.Harness) *testutils.MockMultiplexer {
 	t.Helper()
 
-	mgr, ok := h.Session.(*testutils.MockSessionManager)
+	mgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 	require.True(t, ok)
 	return mgr
 }
 
-func addSession(t *testing.T, mgr *testutils.MockSessionManager, name string, createdAt time.Time) {
+func addSession(t *testing.T, mgr *testutils.MockMultiplexer, name string, createdAt time.Time) {
 	t.Helper()
 
 	require.NoError(t, mgr.Start(name, "cmd"))
 	setSessionCreatedAt(t, mgr, name, createdAt)
 }
 
-func setSessionCreatedAt(t *testing.T, mgr *testutils.MockSessionManager, name string, createdAt time.Time) {
+func setSessionCreatedAt(t *testing.T, mgr *testutils.MockMultiplexer, name string, createdAt time.Time) {
 	t.Helper()
 
 	sess := mgr.FindSession(name)
@@ -127,14 +127,14 @@ func setSessionCreatedAt(t *testing.T, mgr *testutils.MockSessionManager, name s
 	sess.CreatedAt = createdAt
 }
 
-func requireSessionExists(t *testing.T, mgr *testutils.MockSessionManager, name string) {
+func requireSessionExists(t *testing.T, mgr *testutils.MockMultiplexer, name string) {
 	t.Helper()
 
 	_, err := mgr.Find(name)
 	require.NoError(t, err)
 }
 
-func requireSessionMissing(t *testing.T, mgr *testutils.MockSessionManager, name string) {
+func requireSessionMissing(t *testing.T, mgr *testutils.MockMultiplexer, name string) {
 	t.Helper()
 
 	_, err := mgr.Find(name)

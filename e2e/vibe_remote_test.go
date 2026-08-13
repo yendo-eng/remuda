@@ -15,11 +15,11 @@ func TestVibeRemoteControl_ClaudeUsesSessionName(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
 	runDir := t.TempDir()
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 	)
 
 	h.RunOK(
@@ -47,11 +47,11 @@ func TestVibeRemoteControl_NonClaudeWarnsAndDoesNotChangeLauncher(t *testing.T) 
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
 	runDir := t.TempDir()
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 	)
 
 	res := h.RunOK(

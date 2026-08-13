@@ -13,42 +13,42 @@ import (
 	"github.com/yendo-eng/remuda/internal/logging"
 )
 
-type SupportedSessionManager string
+type SupportedMultiplexer string
 
 const (
-	SessionManagerTmux   SupportedSessionManager = "tmux"
-	SessionManagerZellij SupportedSessionManager = "zellij"
+	MultiplexerTmux   SupportedMultiplexer = "tmux"
+	MultiplexerZellij SupportedMultiplexer = "zellij"
 )
 
 var ErrSessionNotFound = pkgerrors.New("session not found")
 
-func (s *SupportedSessionManager) UnmarshalText(text []byte) error {
+func (s *SupportedMultiplexer) UnmarshalText(text []byte) error {
 	val := strings.ToLower(strings.TrimSpace(string(text)))
-	if !slices.Contains(enums.ValidSessionManagers, val) {
+	if !slices.Contains(enums.ValidMultiplexers, val) {
 		return pkgerrors.Errorf("unknown session manager %q (valid: %s)",
-			string(text), strings.Join(enums.ValidSessionManagers, ", "))
+			string(text), strings.Join(enums.ValidMultiplexers, ", "))
 	}
-	*s = SupportedSessionManager(val)
+	*s = SupportedMultiplexer(val)
 	return nil
 }
 
-func NewSessionManager(name SupportedSessionManager) SessionManager {
-	return NewSessionManagerWithLogger(name, logging.DefaultLogger())
+func NewMultiplexer(name SupportedMultiplexer) Multiplexer {
+	return NewMultiplexerWithLogger(name, logging.DefaultLogger())
 }
 
-func NewSessionManagerWithLogger(name SupportedSessionManager, logger zerolog.Logger) SessionManager {
+func NewMultiplexerWithLogger(name SupportedMultiplexer, logger zerolog.Logger) Multiplexer {
 	switch name {
-	case SessionManagerTmux:
-		return NewTmuxManagerWithLogger(logger)
-	case SessionManagerZellij:
-		return NewZellijManagerWithLogger(logger)
+	case MultiplexerTmux:
+		return NewTmuxWithLogger(logger)
+	case MultiplexerZellij:
+		return NewZellijWithLogger(logger)
 	default:
 		panic("unsupported session manager: " + string(name))
 	}
 }
 
-type SessionManager interface {
-	// Name of the session manager
+type Multiplexer interface {
+	// Name of the multiplexer.
 	Name() string
 	// Start starts a detached session that runs the given shell command.
 	Start(sessionName, command string) error
@@ -73,7 +73,7 @@ type EnvStarter interface {
 	StartWithEnv(sessionName, command string, env []string) error
 }
 
-// LoggerSetter allows wiring a per-invocation logger into session managers.
+// LoggerSetter allows wiring a per-invocation logger into multiplexers.
 type LoggerSetter interface {
 	SetLogger(logger zerolog.Logger)
 }
