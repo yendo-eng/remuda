@@ -18,6 +18,7 @@ type SupportedMultiplexer string
 const (
 	MultiplexerTmux   SupportedMultiplexer = "tmux"
 	MultiplexerZellij SupportedMultiplexer = "zellij"
+	MultiplexerHerdr  SupportedMultiplexer = "herdr"
 )
 
 var ErrSessionNotFound = pkgerrors.New("session not found")
@@ -42,6 +43,8 @@ func NewMultiplexerWithLogger(name SupportedMultiplexer, logger zerolog.Logger) 
 		return NewTmuxWithLogger(logger)
 	case MultiplexerZellij:
 		return NewZellijWithLogger(logger)
+	case MultiplexerHerdr:
+		return NewHerdrWithLogger(logger)
 	default:
 		panic("unsupported session manager: " + string(name))
 	}
@@ -71,6 +74,20 @@ type Multiplexer interface {
 // EnvStarter allows callers to supply an explicit environment when starting sessions.
 type EnvStarter interface {
 	StartWithEnv(sessionName, command string, env []string) error
+}
+
+type AgentStart struct {
+	SessionName string
+	Workspace   string
+	Agent       string
+	Args        []string
+	Prompt      string
+	Env         []string
+}
+
+// AgentStarter starts a known agent without routing its argv through a shell.
+type AgentStarter interface {
+	StartAgent(start AgentStart) error
 }
 
 // LoggerSetter allows wiring a per-invocation logger into multiplexers.

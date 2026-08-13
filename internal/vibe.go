@@ -124,6 +124,9 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	logger := logging.FromContext(ctx)
 	k.SetLogger(logger)
 	logger.Debug().Str("agent", cmd.Agent).Msg("starting vibe command")
+	if err := validateMultiplexerLaunch(k.Multiplexer, cmd.AgentCmd, cmd.Container); err != nil {
+		return err
+	}
 
 	// figure out agent configuration
 	cmd.Model = strings.TrimSpace(cmd.Model)
@@ -247,8 +250,10 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	logLaunchingAgent(logger, logctx)
 
 	agentCommand := agent.Command(prompt)
+	var agentArgs []string
 	if cmd.AgentCmd == "" {
 		agentCommand = agent.Command(prompt, cmd.AgentArgs...)
+		agentArgs = agent.Arguments("", cmd.AgentArgs...)
 	}
 
 	_, err = k.launchAgentSession(agentLaunchCommand{
@@ -257,6 +262,8 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		AgentName:           agentName,
 		Model:               cmd.Model,
 		Command:             agentCommand,
+		Args:                agentArgs,
+		Prompt:              prompt,
 		Detached:            cmd.Detached,
 		Attach:              cmd.Attach,
 		ReplaceExisting:     cmd.Clone.Force,

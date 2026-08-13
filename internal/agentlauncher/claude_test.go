@@ -99,3 +99,14 @@ func TestClaudeLauncher_Command_ExtraArgsBeforePrompt(t *testing.T) {
 	cmd := l.Command("do stuff", "--foo")
 	require.Contains(t, cmd, "--model 'claude-sonnet-4' '--foo' 'do stuff'")
 }
+
+func TestClaudeLauncher_Arguments(t *testing.T) {
+	l := Claude("opus", true, "high")
+	require.Equal(t, []string{
+		"--model", "opus",
+		"--dangerously-skip-permissions",
+		"--effort", "high",
+		"--foo",
+		"fix it",
+	}, l.Arguments("fix it", "--foo"))
+}

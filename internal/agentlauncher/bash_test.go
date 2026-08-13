@@ -16,6 +16,11 @@ func TestBashLauncher_Command_AppendsExtraArgs(t *testing.T) {
 	require.Equal(t, "bash -l '--noprofile'", b.Command("ignored", "--noprofile"))
 }
 
+func TestBashLauncher_Arguments(t *testing.T) {
+	b := Bash()
+	require.Equal(t, []string{"-l", "--noprofile"}, b.Arguments("ignored", "--noprofile"))
+}
+
 func TestParse_Bash_PropagatesModel(t *testing.T) {
 	_, model, err := Parse(string(AgentBash), "whatever", false)
 	require.NoError(t, err)

@@ -7,7 +7,32 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/env"
+	"github.com/yendo-eng/remuda/internal/session"
 )
+
+func TestValidateMultiplexerLaunchRejectsUnsupportedHerdrModes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		agentCmd  string
+		container bool
+		want      error
+	}{
+		{name: "agent command", agentCmd: "custom-agent", want: session.UnsupportedAgentCommandError{}},
+		{name: "container", container: true, want: session.UnsupportedContainerModeError{}},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validateMultiplexerLaunch(session.NewHerdr(), tt.agentCmd, tt.container)
+			require.Error(t, err)
+			require.IsType(t, tt.want, err)
+		})
+	}
+}
 
 func TestLaunchAgentSessionDoesNotInferSharedBeadsDir(t *testing.T) {
 	t.Parallel()

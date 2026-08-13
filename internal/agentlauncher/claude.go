@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/yendo-eng/remuda/internal/util"
-	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 var claudeSupportedModels = []string{
@@ -36,37 +35,41 @@ func Claude(model string, yolo bool, reasoningLevel string) AgentLauncher {
 
 func (c claudeLauncher) Name() string { return "claude" }
 
+func (c claudeLauncher) Arguments(prompt string, extraArgs ...string) []string {
+	return c.launch(prompt, extraArgs...).argv()
+}
+
 func (c claudeLauncher) Command(prompt string, extraArgs ...string) string {
-	var b strings.Builder
-	b.WriteString("claude")
+	return c.launch(prompt, extraArgs...).command()
+}
+
+func (c claudeLauncher) launch(prompt string, extraArgs ...string) launch {
+	command := launch{executable: "claude"}
 	if c.Model != "" && c.Model != ModelAgentDefault {
-		b.WriteString(" --model ")
-		b.WriteString(shellutil.SingleQuote(c.Model))
+		command.raw("--model")
+		command.quoted(c.Model)
 	}
 	if c.Yolo {
-		b.WriteString(" --dangerously-skip-permissions")
+		command.raw("--dangerously-skip-permissions")
 	}
 	if strings.TrimSpace(c.ReasoningLevel) != "" {
-		b.WriteString(" --effort ")
-		b.WriteString(shellutil.SingleQuote(c.ReasoningLevel))
+		command.raw("--effort")
+		command.quoted(c.ReasoningLevel)
 	}
 	if c.RemoteControl {
-		b.WriteString(" --remote-control")
+		command.raw("--remote-control")
 		if strings.TrimSpace(c.RemoteSession) != "" {
-			b.WriteString(" ")
-			b.WriteString(shellutil.SingleQuote(c.RemoteSession))
+			command.quoted(c.RemoteSession)
 		}
 	}
-	appendExtraArgs(&b, extraArgs)
+	command.quoted(extraArgs...)
 	if strings.TrimSpace(prompt) != "" {
 		if c.RemoteControl && strings.TrimSpace(c.RemoteSession) == "" {
-			b.WriteString(" --")
+			command.raw("--")
 		}
-		b.WriteString(" '")
-		b.WriteString(shellutil.EscapeSingleQuotes(prompt))
-		b.WriteString("'")
+		command.quoted(prompt)
 	}
-	return b.String()
+	return command
 }
 
 func (c claudeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool) {

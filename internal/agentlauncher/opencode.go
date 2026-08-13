@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/yendo-eng/remuda/internal/util"
-	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 // If you have more configured, dump them with `opencode models` and add them
@@ -132,20 +131,26 @@ func OpenCode(model string) AgentLauncher {
 
 func (o opencodeLauncher) Name() string { return "opencode" }
 
+func (o opencodeLauncher) Arguments(prompt string, extraArgs ...string) []string {
+	return o.launch(prompt, extraArgs...).argv()
+}
+
 func (o opencodeLauncher) Command(prompt string, extraArgs ...string) string {
-	var b strings.Builder
-	b.WriteString("opencode")
+	return o.launch(prompt, extraArgs...).command()
+}
+
+func (o opencodeLauncher) launch(prompt string, extraArgs ...string) launch {
+	command := launch{executable: "opencode"}
 	if o.Model != "" && o.Model != ModelAgentDefault {
-		b.WriteString(" --model ")
-		b.WriteString(shellutil.SingleQuote(o.Model))
+		command.raw("--model")
+		command.quoted(o.Model)
 	}
-	appendExtraArgs(&b, extraArgs)
+	command.quoted(extraArgs...)
 	if strings.TrimSpace(prompt) != "" {
-		b.WriteString(" --prompt '")
-		b.WriteString(shellutil.EscapeSingleQuotes(prompt))
-		b.WriteString("'")
+		command.raw("--prompt")
+		command.quoted(prompt)
 	}
-	return b.String()
+	return command
 }
 
 func (o opencodeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool) {

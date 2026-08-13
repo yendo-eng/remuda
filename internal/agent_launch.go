@@ -23,6 +23,8 @@ type agentLaunchCommand struct {
 	AgentName string
 	Model     string
 	Command   string
+	Args      []string
+	Prompt    string
 
 	Detached bool
 	Attach   bool
@@ -120,7 +122,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	for key := range cmd.EnvOverrides {
 		overrideEnvNames = append(overrideEnvNames, key)
 	}
-	if err := startSessionWithEnv(k.Multiplexer, sessionName, startCmd, envProvider, cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
+	if err := startSessionWithEnv(k.Multiplexer, sessionName, workspaceAbs, startCmd, cmd.AgentName, cmd.Args, cmd.Prompt, envProvider, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
 
@@ -129,6 +131,19 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	}
 
 	return result, nil
+}
+
+func validateMultiplexerLaunch(manager session.Multiplexer, agentCmd string, container bool) error {
+	if manager.Name() != string(session.MultiplexerHerdr) {
+		return nil
+	}
+	if strings.TrimSpace(agentCmd) != "" {
+		return session.UnsupportedAgentCommandError{}
+	}
+	if container {
+		return session.UnsupportedContainerModeError{}
+	}
+	return nil
 }
 
 func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName string) env.Provider {

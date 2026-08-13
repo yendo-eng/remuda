@@ -47,6 +47,9 @@ type SessionResumeCommand struct {
 
 func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) error {
 	k.SetLogger(logging.FromContext(ctx))
+	if err := validateMultiplexerLaunch(k.Multiplexer, cmd.AgentCmd, cmd.Container); err != nil {
+		return err
+	}
 
 	workspace := strings.TrimSpace(cmd.Workspace)
 	if workspace == "" {
@@ -69,10 +72,15 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	model := strings.TrimSpace(cmd.Model)
 
 	agentCmd := strings.TrimSpace(cmd.AgentCmd)
+	var agentArgs []string
 	prompt := assemblePrompt(cmd.BeforePrompt, cmd.Prompt, cmd.AfterPrompt)
 	if agentCmd == "" {
 		var err error
 		agentCmd, err = sessionResumeCommandForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, prompt)
+		if err != nil {
+			return err
+		}
+		agentArgs, err = sessionResumeArgumentsForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, "")
 		if err != nil {
 			return err
 		}
@@ -97,6 +105,8 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		AgentName:           agentName,
 		Model:               model,
 		Command:             agentCmd,
+		Args:                agentArgs,
+		Prompt:              prompt,
 		Detached:            cmd.Detached,
 		Attach:              cmd.Attach,
 		Container:           cmd.Container,
@@ -107,6 +117,23 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		EnvOverrides:        envOverrides,
 	})
 	return err
+}
+
+func sessionResumeArgumentsForAgent(agent, model string, yolo bool, reasoningLevel, prompt string) ([]string, error) {
+	var launcher agentlauncher.AgentLauncher
+	var prefix []string
+	switch normalizeSessionResumeAgent(agent) {
+	case "codex":
+		launcher = agentlauncher.Codex(model, yolo, reasoningLevel)
+		prefix = []string{"resume", "--last"}
+	case "claude":
+		launcher = agentlauncher.Claude(model, yolo, reasoningLevel)
+		prefix = []string{"--continue"}
+	default:
+		return nil, pkgerrors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
+	}
+	args := launcher.Arguments(prompt)
+	return append(prefix, args...), nil
 }
 
 func sessionResumeCommandForAgent(agent, model string, yolo bool, reasoningLevel, prompt string) (string, error) {

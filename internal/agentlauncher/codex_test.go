@@ -61,3 +61,16 @@ func TestCodexLauncher_Command_ExtraArgsAreShellQuoted(t *testing.T) {
 		require.Contains(t, cmd, shellutil.SingleQuote(arg))
 	}
 }
+
+func TestCodexLauncher_Arguments(t *testing.T) {
+	l := Codex("gpt-5.5", true, "high")
+	require.Equal(t, []string{
+		"--dangerously-bypass-approvals-and-sandbox",
+		"--dangerously-bypass-hook-trust",
+		"--config", "shell_environment_policy.ignore_default_excludes=true",
+		"--model", "gpt-5.5",
+		"--config", "model_reasoning_effort=high",
+		"--foo",
+		"--", "fix it",
+	}, l.Arguments("fix it", "--foo"))
+}
