@@ -19,7 +19,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-type SessionManagerFactory func(session.SupportedSessionManager, zerolog.Logger) session.SessionManager
+type MultiplexerFactory func(session.SupportedMultiplexer, zerolog.Logger) session.Multiplexer
 
 const defaultCLIName = "remuda"
 const defaultCLIVersion = "unknown"
@@ -38,11 +38,11 @@ func normalizeCLIName(raw string) string {
 
 // app wires the cobra command tree to a single CLI invocation.
 type app struct {
-	kctx           *Context
-	cliName        string
-	version        string
-	cfg            *configfile.V1
-	sessionFactory SessionManagerFactory
+	kctx               *Context
+	cliName            string
+	version            string
+	cfg                *configfile.V1
+	multiplexerFactory MultiplexerFactory
 
 	rootFlags                *flagSet
 	experiments              ExperimentsOption
@@ -224,10 +224,10 @@ func (a *app) finishSetup() {
 	// and config-file defaults take effect for this invocation. Preserve
 	// injected session managers (eg. e2e mocks) unless we're using the
 	// built-in managers.
-	if kctx.Remuda.Session == nil ||
-		kctx.Remuda.Session.Name() == string(session.SessionManagerTmux) ||
-		kctx.Remuda.Session.Name() == string(session.SessionManagerZellij) {
-		kctx.Remuda.Session = a.sessionFactory(session.SupportedSessionManager(a.sessionManager), logger)
+	if kctx.Remuda.Multiplexer == nil ||
+		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerTmux) ||
+		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerZellij) {
+		kctx.Remuda.Multiplexer = a.multiplexerFactory(session.SupportedMultiplexer(a.sessionManager), logger)
 	}
 }
 
@@ -256,13 +256,14 @@ func (a *app) buildRoot() *cobra.Command {
 
 	pf := root.PersistentFlags()
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "Enable verbose logging.")
-	pf.StringVar(&a.sessionManager, "session-manager", string(session.SessionManagerTmux), "Session manager to use.")
+	// The user-facing flag, environment variable, and config key deliberately retain "session manager" vocabulary.
+	pf.StringVar(&a.sessionManager, "session-manager", string(session.MultiplexerTmux), "Session manager to use.")
 	a.rootFlags = newFlagSet(pf)
 	a.experiments.registerPersistent(root, a.rootFlags)
 	a.rootFlags.bind("session-manager",
 		bindEnvs("REMUDA_SESSION_MANAGER"),
 		bindKey("session.manager"),
-		bindEnum(enums.ValidSessionManagers...),
+		bindEnum(enums.ValidMultiplexers...),
 	)
 
 	root.AddCommand(
@@ -320,9 +321,9 @@ func RunWithName(kctx Context, cliName string, args []string) error {
 	cliName = normalizeCLIName(cliName)
 
 	env := envFromContext(kctx)
-	sessionFactory := kctx.SessionManagerFactory
-	if sessionFactory == nil {
-		sessionFactory = session.NewSessionManagerWithLogger
+	multiplexerFactory := kctx.MultiplexerFactory
+	if multiplexerFactory == nil {
+		multiplexerFactory = session.NewMultiplexerWithLogger
 	}
 	logger := logging.NewConsoleLogger(kctx.Remuda.IO.Err, zerolog.InfoLevel)
 	kctx.Remuda.SetLogger(logger)
@@ -330,12 +331,12 @@ func RunWithName(kctx Context, cliName string, args []string) error {
 
 	// Completion functions may need a session manager before command flags
 	// resolve, so wire one from the environment up front.
-	if kctx.Remuda.Session == nil {
-		managerName := session.SessionManagerTmux
+	if kctx.Remuda.Multiplexer == nil {
+		managerName := session.MultiplexerTmux
 		if sessionMgr := env.Getenv("REMUDA_SESSION_MANAGER"); sessionMgr != "" {
-			managerName = session.SupportedSessionManager(sessionMgr)
+			managerName = session.SupportedMultiplexer(sessionMgr)
 		}
-		kctx.Remuda.Session = sessionFactory(managerName, logger)
+		kctx.Remuda.Multiplexer = multiplexerFactory(managerName, logger)
 	}
 
 	cfg, discovery, err := loadConfigV1(kctx)
@@ -377,11 +378,11 @@ func RunWithName(kctx Context, cliName string, args []string) error {
 	}
 
 	a := &app{
-		kctx:           &kctx,
-		cliName:        cliName,
-		version:        version,
-		cfg:            cfg,
-		sessionFactory: sessionFactory,
+		kctx:               &kctx,
+		cliName:            cliName,
+		version:            version,
+		cfg:                cfg,
+		multiplexerFactory: multiplexerFactory,
 	}
 	root := a.buildRoot()
 	root.SetArgs(args)

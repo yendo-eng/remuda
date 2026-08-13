@@ -18,10 +18,10 @@ func TestLaunchAgentSessionDoesNotInferSharedBeadsDir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(beadsDir, 0o755))
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Session: sm,
-		IO:      DefaultIO(),
+		Multiplexer: sm,
+		IO:          DefaultIO(),
 		Env: env.StaticProvider{Values: map[string]string{
 			"PATH": "/usr/bin:/bin",
 		}},
@@ -49,10 +49,10 @@ func TestLaunchAgentSessionPreservesExplicitBeadsDir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(beadsDir, 0o755))
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Session: sm,
-		IO:      DefaultIO(),
+		Multiplexer: sm,
+		IO:          DefaultIO(),
 		Env: env.StaticProvider{Values: map[string]string{
 			"PATH":      "/usr/bin:/bin",
 			"BEADS_DIR": "/tmp/explicit-beads",

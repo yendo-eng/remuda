@@ -13,7 +13,7 @@ type captureEnvSession struct {
 	env []string
 }
 
-func (c *captureEnvSession) Name() string                            { return string(session.SessionManagerTmux) }
+func (c *captureEnvSession) Name() string                            { return string(session.MultiplexerTmux) }
 func (c *captureEnvSession) Start(sessionName, command string) error { return nil }
 func (c *captureEnvSession) StartWithEnv(sessionName, command string, envValues []string) error {
 	c.env = append([]string{}, envValues...)

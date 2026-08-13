@@ -17,7 +17,7 @@ func (k Remuda) SessionWorkspacePath(sessionName string) (string, error) {
 		return "", pkgerrors.New("session name is required")
 	}
 
-	sess, err := k.Session.Find(name)
+	sess, err := k.Multiplexer.Find(name)
 	if err != nil {
 		if errors.Is(err, session.ErrSessionNotFound) {
 			return "", pkgerrors.Errorf("session %q not found", name)

@@ -47,10 +47,10 @@ func TestVibeContainerRequiresExplicitImage(t *testing.T) {
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
 	testutils.InitWorkspace(t, workspace)
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 
@@ -82,10 +82,10 @@ defaults:
     image: ghcr.io/acme/vibe-dev:latest
 `), 0o644))
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_CONFIG", configPath)
@@ -122,10 +122,10 @@ per_repo:
           - "-e BEADS_DIR=/workspaces/.beads-issues/.beads"
 `), 0o644))
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_CONFIG", configPath)
@@ -727,11 +727,11 @@ func TestVibeForceKillsExistingSession(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
 	runDir := t.TempDir()
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 	)
 	h.SetEnv("REMUDA_CONTAINER", "false")
 
@@ -773,10 +773,10 @@ func TestVibeLaunchesInExistingWorkspace(t *testing.T) {
 
 	relPath := "." + string(os.PathSeparator) + filepath.Join("org", "repo", "wk-existing")
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetWorkingDir(workspaceRoot)
@@ -819,10 +819,10 @@ func TestVibeRejectsStaleWorktree(t *testing.T) {
 	gitdir := filepath.Join(workspaceRoot, "gone", "worktrees", "wk-stale")
 	require.NoError(t, os.WriteFile(filepath.Join(workspace, ".git"), []byte("gitdir: "+gitdir+"\n"), 0o644))
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 
@@ -839,10 +839,10 @@ func TestVibeClaudeContainerComposesHermeticDockerCommand(t *testing.T) {
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-claude-container")
 	testutils.InitWorkspace(t, workspace)
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetWorkingDir(workspaceRoot)
@@ -912,10 +912,10 @@ func TestVibeOmittedPromptDoesNotAppendEmptyPromptArg(t *testing.T) {
 
 	relPath := "." + string(os.PathSeparator) + filepath.Join("org", "repo", "wk-existing")
 
-	sessionMgr := &testutils.MockSessionManager{}
+	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithSessionManager(sessionMgr),
+		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetWorkingDir(workspaceRoot)

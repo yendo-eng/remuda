@@ -156,7 +156,7 @@ func TestSessionKill(t *testing.T) {
 		require.Empty(t, mockGitHub.ClosedWorkspaces)
 		require.DirExists(t, workspacePath)
 
-		mockSessionMgr, ok := h.Session.(*testutils.MockSessionManager)
+		mockSessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 		require.True(t, ok)
 		_, findErr := mockSessionMgr.Find(sessionName)
 		require.ErrorIs(t, findErr, session.ErrSessionNotFound)
@@ -184,7 +184,7 @@ func TestSessionKill(t *testing.T) {
 
 		require.DirExists(t, workspacePath)
 
-		mockSessionMgr, ok := h.Session.(*testutils.MockSessionManager)
+		mockSessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 		require.True(t, ok)
 		_, findErr := mockSessionMgr.Find(sessionName)
 		require.ErrorIs(t, findErr, session.ErrSessionNotFound)
@@ -206,7 +206,7 @@ func TestSessionKill(t *testing.T) {
 		res := h.Run("session", "kill", "--name", sessionName, "--merge")
 		require.ErrorContains(t, res.Err, "merge failed")
 
-		mockSessionMgr, ok := h.Session.(*testutils.MockSessionManager)
+		mockSessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 		require.True(t, ok)
 		_, findErr := mockSessionMgr.Find(sessionName)
 		require.NoError(t, findErr)

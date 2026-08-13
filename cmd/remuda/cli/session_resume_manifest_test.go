@@ -24,7 +24,7 @@ func runSessionResume(t *testing.T, workspace string, args ...string) string {
 	t.Helper()
 
 	base := filepath.Dir(filepath.Dir(filepath.Dir(workspace)))
-	mgr := &captureStartSessionManager{}
+	mgr := &captureStartMultiplexer{}
 	remuda := internal.NewRemuda(
 		internal.Config{ReposBaseDir: base},
 		noopGit{},
@@ -39,7 +39,7 @@ func runSessionResume(t *testing.T, workspace string, args ...string) string {
 		remuda,
 		WithHomeDir(t.TempDir()),
 		WithWorkingDir(t.TempDir()),
-		WithSessionManagerFactory(func(name session.SupportedSessionManager, _ zerolog.Logger) session.SessionManager {
+		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
 			return mgr
 		}),
 	)

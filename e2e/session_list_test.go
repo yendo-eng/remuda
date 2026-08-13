@@ -30,7 +30,7 @@ func TestSessionList_PrintsNamesOnly(t *testing.T) {
 	workspacePath := filepath.Join(h.RemudaConfig.ReposBaseDir, org, repo, "wk")
 	sessionName := session.SessionNameFromWorkspaceName(workspacePath)
 
-	sessionMgr, ok := h.Session.(*testutils.MockSessionManager)
+	sessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 	require.True(t, ok)
 	require.NotNil(t, sessionMgr.FindSession(sessionName), "expected session to be registered")
 

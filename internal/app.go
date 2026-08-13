@@ -18,17 +18,17 @@ import (
 )
 
 type Remuda struct {
-	Config     Config
-	Git        git.Git
-	Session    session.SessionManager
-	Jira       jira.Jira
-	Docker     docker.Docker
-	GitHub     github.GitHub
-	Slack      slack.Slack
-	CloneHooks *CloneHookRegistry
-	IO         IO
-	Env        env.Provider
-	Logger     *zerolog.Logger
+	Config      Config
+	Git         git.Git
+	Multiplexer session.Multiplexer
+	Jira        jira.Jira
+	Docker      docker.Docker
+	GitHub      github.GitHub
+	Slack       slack.Slack
+	CloneHooks  *CloneHookRegistry
+	IO          IO
+	Env         env.Provider
+	Logger      *zerolog.Logger
 }
 
 func WithCloneHooks(r *CloneHookRegistry) func(*Remuda) {
@@ -64,22 +64,22 @@ func WithLogger(logger zerolog.Logger) func(*Remuda) {
 func NewRemuda(
 	cfg Config,
 	git git.Git,
-	sessionManager session.SessionManager,
+	multiplexer session.Multiplexer,
 	jira jira.Jira,
 	docker docker.Docker,
 	gitHub github.GitHub,
 	opts ...func(*Remuda),
 ) Remuda {
 	k := Remuda{
-		Config:     cfg,
-		Git:        git,
-		Session:    sessionManager,
-		Jira:       jira,
-		Docker:     docker,
-		GitHub:     gitHub,
-		CloneHooks: NewCloneHookRegistry(),
-		IO:         DefaultIO(),
-		Env:        env.Default(),
+		Config:      cfg,
+		Git:         git,
+		Multiplexer: multiplexer,
+		Jira:        jira,
+		Docker:      docker,
+		GitHub:      gitHub,
+		CloneHooks:  NewCloneHookRegistry(),
+		IO:          DefaultIO(),
+		Env:         env.Default(),
 	}
 
 	for _, opt := range opts {
@@ -106,7 +106,7 @@ func (k *Remuda) SetLogger(logger zerolog.Logger) {
 	if setter, ok := k.Git.(git.LoggerSetter); ok {
 		setter.SetLogger(logger)
 	}
-	if setter, ok := k.Session.(session.LoggerSetter); ok {
+	if setter, ok := k.Multiplexer.(session.LoggerSetter); ok {
 		setter.SetLogger(logger)
 	}
 	if setter, ok := k.Docker.(docker.LoggerSetter); ok {

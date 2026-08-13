@@ -10,9 +10,9 @@ import (
 
 func TestSessionSendUsesPromptArg(t *testing.T) {
 	t.Parallel()
-	sess := &testutils.MockSessionManager{}
+	sess := &testutils.MockMultiplexer{}
 	sess.AddSessionWithBuffer("org/repo/feat", "")
-	h := testutils.NewHarness(t, testutils.WithSessionManager(sess))
+	h := testutils.NewHarness(t, testutils.WithMultiplexer(sess))
 
 	h.RunOK("session", "send", "--name", "org/repo/feat", "hello")
 	require.Equal(t, "org/repo/feat", sess.LastSendName)
@@ -22,10 +22,10 @@ func TestSessionSendUsesPromptArg(t *testing.T) {
 
 func TestSessionSendReadsPromptFromStdin(t *testing.T) {
 	t.Parallel()
-	sess := &testutils.MockSessionManager{}
+	sess := &testutils.MockMultiplexer{}
 	sess.AddSessionWithBuffer("org/repo/feat", "")
 	h := testutils.NewHarness(t,
-		testutils.WithSessionManager(sess),
+		testutils.WithMultiplexer(sess),
 		testutils.WithStdin(strings.NewReader("from-stdin\n")),
 	)
 
@@ -36,9 +36,9 @@ func TestSessionSendReadsPromptFromStdin(t *testing.T) {
 
 func TestSessionSendNoNewline(t *testing.T) {
 	t.Parallel()
-	sess := &testutils.MockSessionManager{}
+	sess := &testutils.MockMultiplexer{}
 	sess.AddSessionWithBuffer("org/repo/feat", "")
-	h := testutils.NewHarness(t, testutils.WithSessionManager(sess))
+	h := testutils.NewHarness(t, testutils.WithMultiplexer(sess))
 
 	h.RunOK("session", "send", "--name", "org/repo/feat", "--no-newline", "noop")
 	require.False(t, sess.LastSendEnter)

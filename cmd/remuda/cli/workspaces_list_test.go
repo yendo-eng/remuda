@@ -194,7 +194,7 @@ func newWorkspacesListContext(base string, sessions []session.SessionInfo, cfg *
 	k := internal.NewRemuda(
 		internal.Config{ReposBaseDir: base},
 		stubGit{},
-		stubSessionManager{sessions: sessions},
+		stubMultiplexer{sessions: sessions},
 		nil,
 		nil,
 		nil,
@@ -235,19 +235,19 @@ func (g stubGit) Branch(dir string, args ...string) error                  { ret
 
 var _ git.Git = stubGit{}
 
-type stubSessionManager struct {
+type stubMultiplexer struct {
 	sessions []session.SessionInfo
 }
 
-func (m stubSessionManager) Name() string                            { return "stub" }
-func (m stubSessionManager) Start(sessionName, command string) error { return nil }
-func (m stubSessionManager) List() ([]session.SessionInfo, error)    { return m.sessions, nil }
-func (m stubSessionManager) Find(name string) (session.SessionInfo, error) {
+func (m stubMultiplexer) Name() string                            { return "stub" }
+func (m stubMultiplexer) Start(sessionName, command string) error { return nil }
+func (m stubMultiplexer) List() ([]session.SessionInfo, error)    { return m.sessions, nil }
+func (m stubMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
-func (m stubSessionManager) Attach(name string) error                          { return nil }
-func (m stubSessionManager) ReadBuffer(name string, lines int) (string, error) { return "", nil }
-func (m stubSessionManager) Send(name string, payload string, appendNewline bool) error {
+func (m stubMultiplexer) Attach(name string) error                          { return nil }
+func (m stubMultiplexer) ReadBuffer(name string, lines int) (string, error) { return "", nil }
+func (m stubMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	return nil
 }
-func (m stubSessionManager) Kill(name string) error { return nil }
+func (m stubMultiplexer) Kill(name string) error { return nil }

@@ -26,7 +26,7 @@ func (sendStubGit) Branch(dir string, args ...string) error                  { r
 
 var _ git.Git = sendStubGit{}
 
-type captureSendManager struct {
+type captureSendMultiplexer struct {
 	name          string
 	payload       string
 	appendNewline bool
@@ -39,28 +39,28 @@ type sendCall struct {
 	appendNewline bool
 }
 
-func (c *captureSendManager) Name() string                            { return "capture" }
-func (c *captureSendManager) Start(sessionName, command string) error { return nil }
-func (c *captureSendManager) List() ([]session.SessionInfo, error)    { return nil, nil }
-func (c *captureSendManager) Find(name string) (session.SessionInfo, error) {
+func (c *captureSendMultiplexer) Name() string                            { return "capture" }
+func (c *captureSendMultiplexer) Start(sessionName, command string) error { return nil }
+func (c *captureSendMultiplexer) List() ([]session.SessionInfo, error)    { return nil, nil }
+func (c *captureSendMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
-func (c *captureSendManager) Attach(name string) error { return nil }
-func (c *captureSendManager) ReadBuffer(name string, lines int) (string, error) {
+func (c *captureSendMultiplexer) Attach(name string) error { return nil }
+func (c *captureSendMultiplexer) ReadBuffer(name string, lines int) (string, error) {
 	return "", nil
 }
-func (c *captureSendManager) Send(name string, payload string, appendNewline bool) error {
+func (c *captureSendMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	c.name = name
 	c.payload = payload
 	c.appendNewline = appendNewline
 	c.calls = append(c.calls, sendCall{name: name, payload: payload, appendNewline: appendNewline})
 	return nil
 }
-func (c *captureSendManager) Kill(name string) error { return nil }
+func (c *captureSendMultiplexer) Kill(name string) error { return nil }
 
 func TestSessionSend_UsesPromptArg(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendManager{}
+	mgr := &captureSendMultiplexer{}
 	k := internal.NewRemuda(
 		internal.Config{},
 		sendStubGit{},
@@ -84,7 +84,7 @@ func TestSessionSend_UsesPromptArg(t *testing.T) {
 
 func TestSessionSend_UsesPromptFromStdin(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendManager{}
+	mgr := &captureSendMultiplexer{}
 	k := internal.NewRemuda(
 		internal.Config{},
 		sendStubGit{},
@@ -107,7 +107,7 @@ func TestSessionSend_UsesPromptFromStdin(t *testing.T) {
 
 func TestSessionSend_NoNewline(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendManager{}
+	mgr := &captureSendMultiplexer{}
 	k := internal.NewRemuda(
 		internal.Config{},
 		sendStubGit{},
@@ -130,7 +130,7 @@ func TestSessionSend_NoNewline(t *testing.T) {
 
 func TestSessionSend_RejectsEmptyPrompt(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendManager{}
+	mgr := &captureSendMultiplexer{}
 	k := internal.NewRemuda(
 		internal.Config{},
 		sendStubGit{},
@@ -152,7 +152,7 @@ func TestSessionSend_RejectsEmptyPrompt(t *testing.T) {
 
 func TestSessionSend_MultipleNames(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendManager{}
+	mgr := &captureSendMultiplexer{}
 	k := internal.NewRemuda(
 		internal.Config{},
 		sendStubGit{},

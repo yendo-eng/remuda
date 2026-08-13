@@ -25,7 +25,7 @@ func TestVibeCheck(t *testing.T) {
 		org, repo, err := github.ParseRepo(remoteURL)
 		require.NoError(t, err)
 
-		sess := &testutils.MockSessionManager{}
+		sess := &testutils.MockMultiplexer{}
 		mockGitHub := &testutils.MockGitHub{
 			RepoURL: remoteURL,
 			FakePRData: `{
@@ -46,7 +46,7 @@ func TestVibeCheck(t *testing.T) {
 		}
 		h := testutils.NewHarness(t,
 			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-			testutils.WithSessionManager(sess),
+			testutils.WithMultiplexer(sess),
 			testutils.WithJira(jira.Mock{}),
 			testutils.WithDocker(&docker.Mock{}),
 			testutils.WithGitHub(mockGitHub),
@@ -92,10 +92,10 @@ func TestVibeCheck(t *testing.T) {
 		org, repo, err := github.ParseRepo(remoteURL)
 		require.NoError(t, err)
 
-		sess := &testutils.MockSessionManager{}
+		sess := &testutils.MockMultiplexer{}
 		h := testutils.NewHarness(t,
 			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-			testutils.WithSessionManager(sess),
+			testutils.WithMultiplexer(sess),
 			testutils.WithJira(jira.Mock{}),
 			testutils.WithDocker(&docker.Mock{}),
 			testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
@@ -140,7 +140,7 @@ func TestVibeCheck(t *testing.T) {
 		org, repo, err := github.ParseRepo(remoteURL)
 		require.NoError(t, err)
 
-		sess := &testutils.MockSessionManager{}
+		sess := &testutils.MockMultiplexer{}
 		mockGitHub := &testutils.MockGitHub{
 			RepoURL: remoteURL,
 			FakePRData: `{
@@ -161,7 +161,7 @@ func TestVibeCheck(t *testing.T) {
 		}
 		h := testutils.NewHarness(t,
 			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-			testutils.WithSessionManager(sess),
+			testutils.WithMultiplexer(sess),
 			testutils.WithJira(jira.Mock{}),
 			testutils.WithDocker(&docker.Mock{}),
 			testutils.WithGitHub(mockGitHub),
@@ -202,7 +202,7 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 		issueURL       = "https://github.com/" + issueSlug + "/issues/" + issueNumber
 	)
 
-	sess := &testutils.MockSessionManager{}
+	sess := &testutils.MockMultiplexer{}
 	mockGitHub := &testutils.MockGitHub{
 		RepoURL: remoteURL,
 		FakePRData: fmt.Sprintf(`{
@@ -234,7 +234,7 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 	}
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-		testutils.WithSessionManager(sess),
+		testutils.WithMultiplexer(sess),
 		testutils.WithJira(jira.Mock{Tickets: map[string]string{jiraID: jiraBody}}),
 		testutils.WithDocker(&docker.Mock{}),
 		testutils.WithGitHub(mockGitHub),

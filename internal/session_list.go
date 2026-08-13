@@ -6,7 +6,7 @@ import (
 )
 
 func (k Remuda) SessionList() ([]session.SessionInfo, error) {
-	sessions, err := k.Session.List()
+	sessions, err := k.Multiplexer.List()
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "list sessions")
 	}

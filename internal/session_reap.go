@@ -24,7 +24,7 @@ func (k Remuda) SessionReapCandidates(
 		return nil, nil, pkgerrors.New("olderThan must be positive")
 	}
 
-	sessions, err := k.Session.List()
+	sessions, err := k.Multiplexer.List()
 	if err != nil {
 		return nil, nil, err
 	}

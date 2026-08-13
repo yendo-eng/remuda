@@ -60,7 +60,7 @@ func TestSessionPathHandlesDotUnderscore(t *testing.T) {
 	sessionFolder := "remuda-5_5-config-validation"
 	sessionName := fmt.Sprintf("%s/%s/%s", org, repo, sessionFolder)
 
-	sessionMgr, ok := h.Session.(*testutils.MockSessionManager)
+	sessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 	require.True(t, ok)
 	require.NoError(t, sessionMgr.Start(sessionName, "echo"))
 

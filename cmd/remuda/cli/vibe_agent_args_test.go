@@ -13,41 +13,41 @@ import (
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
-type captureStartSessionManager struct {
+type captureStartMultiplexer struct {
 	startCmd string
 }
 
-func (m *captureStartSessionManager) Name() string { return string(session.SessionManagerTmux) }
+func (m *captureStartMultiplexer) Name() string { return string(session.MultiplexerTmux) }
 
-func (m *captureStartSessionManager) Start(sessionName, command string) error {
+func (m *captureStartMultiplexer) Start(sessionName, command string) error {
 	m.startCmd = command
 	return nil
 }
 
-func (m *captureStartSessionManager) StartWithEnv(sessionName, command string, env []string) error {
+func (m *captureStartMultiplexer) StartWithEnv(sessionName, command string, env []string) error {
 	m.startCmd = command
 	return nil
 }
 
-func (m *captureStartSessionManager) List() ([]session.SessionInfo, error) {
+func (m *captureStartMultiplexer) List() ([]session.SessionInfo, error) {
 	return nil, nil
 }
 
-func (m *captureStartSessionManager) Find(name string) (session.SessionInfo, error) {
+func (m *captureStartMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
 
-func (m *captureStartSessionManager) Attach(name string) error { return nil }
+func (m *captureStartMultiplexer) Attach(name string) error { return nil }
 
-func (m *captureStartSessionManager) ReadBuffer(name string, lines int) (string, error) {
+func (m *captureStartMultiplexer) ReadBuffer(name string, lines int) (string, error) {
 	return "", nil
 }
 
-func (m *captureStartSessionManager) Send(name string, payload string, appendNewline bool) error {
+func (m *captureStartMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	return nil
 }
 
-func (m *captureStartSessionManager) Kill(name string) error { return nil }
+func (m *captureStartMultiplexer) Kill(name string) error { return nil }
 
 func runVibeWithConfig(t *testing.T, configYAML string, args ...string) string {
 	t.Helper()
@@ -59,7 +59,7 @@ func runVibeWithConfig(t *testing.T, configYAML string, args ...string) string {
 	workspace := filepath.Join(base, "owner", "repo", "wk")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-	mgr := &captureStartSessionManager{}
+	mgr := &captureStartMultiplexer{}
 	remuda := internal.NewRemuda(
 		internal.Config{ReposBaseDir: base},
 		noopGit{},
@@ -75,7 +75,7 @@ func runVibeWithConfig(t *testing.T, configYAML string, args ...string) string {
 		WithEnv(EnvMap{"REMUDA_CONFIG": configPath}),
 		WithHomeDir(t.TempDir()),
 		WithWorkingDir(t.TempDir()),
-		WithSessionManagerFactory(func(name session.SupportedSessionManager, _ zerolog.Logger) session.SessionManager {
+		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
 			return mgr
 		}),
 	)

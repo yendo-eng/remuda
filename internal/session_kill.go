@@ -64,7 +64,7 @@ func (k Remuda) killOne(
 		k.closeBDIssue(workspacePath)
 	}
 
-	if err := k.Session.Kill(name); err != nil {
+	if err := k.Multiplexer.Kill(name); err != nil {
 		return err
 	}
 

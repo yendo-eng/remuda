@@ -36,12 +36,12 @@ type Harness struct {
 	Stdout *bytes.Buffer
 	Stderr *bytes.Buffer
 
-	Git     git.Git
-	Session session.SessionManager
-	Jira    jira.Jira
-	Docker  docker.Docker
-	GitHub  github.GitHub
-	Slack   slack.Slack
+	Git         git.Git
+	Multiplexer session.Multiplexer
+	Jira        jira.Jira
+	Docker      docker.Docker
+	GitHub      github.GitHub
+	Slack       slack.Slack
 
 	CloneHooks *internal.CloneHookRegistry
 
@@ -79,9 +79,9 @@ func WithGitHub(gh github.GitHub) HarnessOption {
 	}
 }
 
-func WithSessionManager(sm session.SessionManager) HarnessOption {
+func WithMultiplexer(sm session.Multiplexer) HarnessOption {
 	return func(h *Harness) {
-		h.Session = sm
+		h.Multiplexer = sm
 	}
 }
 
@@ -139,7 +139,7 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	defaultSession := &MockSessionManager{}
+	defaultMultiplexer := &MockMultiplexer{}
 	defaultGitHub := &MockGitHub{}
 	defaultSlack := &MockSlack{}
 	defaultDocker := &docker.Mock{Running: false}
@@ -154,12 +154,12 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 		Stdout:       stdout,
 		Stderr:       stderr,
 
-		Git:     git.NewShellGit(),
-		Session: defaultSession,
-		Jira:    jira.Mock{},
-		Docker:  defaultDocker,
-		GitHub:  defaultGitHub,
-		Slack:   defaultSlack,
+		Git:         git.NewShellGit(),
+		Multiplexer: defaultMultiplexer,
+		Jira:        jira.Mock{},
+		Docker:      defaultDocker,
+		GitHub:      defaultGitHub,
+		Slack:       defaultSlack,
 
 		RemudaConfig: internal.Config{ReposBaseDir: reposBaseDir},
 	}
@@ -188,7 +188,7 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 		remudaOpts = append(remudaOpts, internal.WithCloneHooks(h.CloneHooks))
 	}
 
-	h.Remuda = internal.NewRemuda(h.RemudaConfig, h.Git, h.Session, h.Jira, h.Docker, h.GitHub, remudaOpts...)
+	h.Remuda = internal.NewRemuda(h.RemudaConfig, h.Git, h.Multiplexer, h.Jira, h.Docker, h.GitHub, remudaOpts...)
 
 	return h
 }

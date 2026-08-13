@@ -14,19 +14,19 @@ import (
 )
 
 type Context struct {
-	ctx                   context.Context
-	Remuda                internal.Remuda
-	ConfigFile            *configfile.V1
-	Version               string
-	Env                   EnvProvider
-	SessionManagerFactory SessionManagerFactory
-	WorkingDir            string
-	HomeDir               string
-	inv                   *invocation
-	homeDirErr            error
-	workingDirErr         error
-	homeDirSet            bool
-	workingDirSet         bool
+	ctx                context.Context
+	Remuda             internal.Remuda
+	ConfigFile         *configfile.V1
+	Version            string
+	Env                EnvProvider
+	MultiplexerFactory MultiplexerFactory
+	WorkingDir         string
+	HomeDir            string
+	inv                *invocation
+	homeDirErr         error
+	workingDirErr      error
+	homeDirSet         bool
+	workingDirSet      bool
 }
 
 // invocation carries per-command parse state: which flags were set
@@ -140,10 +140,10 @@ func WithEnv(env EnvProvider) func(*Context) {
 	}
 }
 
-// WithSessionManagerFactory overrides how session managers are constructed.
-func WithSessionManagerFactory(factory SessionManagerFactory) func(*Context) {
+// WithMultiplexerFactory overrides how multiplexers are constructed.
+func WithMultiplexerFactory(factory MultiplexerFactory) func(*Context) {
 	return func(ctx *Context) {
-		ctx.SessionManagerFactory = factory
+		ctx.MultiplexerFactory = factory
 	}
 }
 

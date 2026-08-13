@@ -15,10 +15,10 @@ func TestVibe_WritesSessionManifestWhenEnabled(t *testing.T) {
 	workspace := t.TempDir()
 	g := &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
 	k := Remuda{
-		Session: &captureSessionManager{},
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
-		Git:     g,
+		Multiplexer: &captureMultiplexer{},
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
+		Git:         g,
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{
@@ -44,10 +44,10 @@ func TestVibe_SkipsSessionManifestWhenDisabled(t *testing.T) {
 
 	workspace := t.TempDir()
 	k := Remuda{
-		Session: &captureSessionManager{},
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
-		Git:     &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")},
+		Multiplexer: &captureMultiplexer{},
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
+		Git:         &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")},
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{
@@ -71,10 +71,10 @@ func TestVibe_RefusesToOverwriteExistingManifest(t *testing.T) {
 	require.NoError(t, WriteSessionManifest(g, workspace, SessionManifest{Agent: "codex"}))
 
 	k := Remuda{
-		Session: &captureSessionManager{},
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
-		Git:     g,
+		Multiplexer: &captureMultiplexer{},
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
+		Git:         g,
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{

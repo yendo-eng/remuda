@@ -18,24 +18,24 @@ type sendCall struct {
 	appendNewline bool
 }
 
-type recordingSessionManager struct {
+type recordingMultiplexer struct {
 	calls  []sendCall
 	errFor map[string]error
 }
 
-func (m *recordingSessionManager) Name() string { return "recording" }
-func (m *recordingSessionManager) Start(sessionName, command string) error {
+func (m *recordingMultiplexer) Name() string { return "recording" }
+func (m *recordingMultiplexer) Start(sessionName, command string) error {
 	return nil
 }
-func (m *recordingSessionManager) List() ([]session.SessionInfo, error) { return nil, nil }
-func (m *recordingSessionManager) Find(name string) (session.SessionInfo, error) {
+func (m *recordingMultiplexer) List() ([]session.SessionInfo, error) { return nil, nil }
+func (m *recordingMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
-func (m *recordingSessionManager) Attach(name string) error { return nil }
-func (m *recordingSessionManager) ReadBuffer(name string, lines int) (string, error) {
+func (m *recordingMultiplexer) Attach(name string) error { return nil }
+func (m *recordingMultiplexer) ReadBuffer(name string, lines int) (string, error) {
 	return "", nil
 }
-func (m *recordingSessionManager) Send(name string, payload string, appendNewline bool) error {
+func (m *recordingMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	if m.errFor != nil {
 		if err, ok := m.errFor[name]; ok {
 			return err
@@ -44,14 +44,14 @@ func (m *recordingSessionManager) Send(name string, payload string, appendNewlin
 	m.calls = append(m.calls, sendCall{name: name, payload: payload, appendNewline: appendNewline})
 	return nil
 }
-func (m *recordingSessionManager) Kill(name string) error { return nil }
+func (m *recordingMultiplexer) Kill(name string) error { return nil }
 
 func TestSendPromptToSessionsSendsToAll(t *testing.T) {
 	t.Parallel()
-	mgr := &recordingSessionManager{}
+	mgr := &recordingMultiplexer{}
 	ctx := NewContext(context.Background(), internal.Remuda{
-		Session: mgr,
-		IO:      internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard},
+		Multiplexer: mgr,
+		IO:          internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard},
 	})
 
 	err := sendPromptToSessions(ctx, []string{"org/repo/one", "org/repo/two"}, "hello", true)
@@ -64,10 +64,10 @@ func TestSendPromptToSessionsSendsToAll(t *testing.T) {
 
 func TestSendPromptToSessionsStopsOnError(t *testing.T) {
 	t.Parallel()
-	mgr := &recordingSessionManager{errFor: map[string]error{"org/repo/two": errors.New("boom")}}
+	mgr := &recordingMultiplexer{errFor: map[string]error{"org/repo/two": errors.New("boom")}}
 	ctx := NewContext(context.Background(), internal.Remuda{
-		Session: mgr,
-		IO:      internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard},
+		Multiplexer: mgr,
+		IO:          internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard},
 	})
 
 	err := sendPromptToSessions(ctx, []string{"org/repo/one", "org/repo/two"}, "hello", true)

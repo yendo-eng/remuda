@@ -24,7 +24,7 @@ func main() {
 		cfg,
 		git.NewShellGit(),
 		// TODO: there may be a nicer way of doing this while still keeping it testable
-		nil, // leave the session manager null for cli to set up
+		nil, // leave the multiplexer null for cli to set up
 		jira.NewHTTPJira(),
 		docker.NewShellDocker(),
 		github.NewGhCLI(),

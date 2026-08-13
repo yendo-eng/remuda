@@ -10,45 +10,45 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-type captureSessionManager struct {
+type captureMultiplexer struct {
 	startName string
 	startCmd  string
 	startEnv  []string
 }
 
-func (m *captureSessionManager) Name() string { return string(session.SessionManagerTmux) }
-func (m *captureSessionManager) Start(sessionName, command string) error {
+func (m *captureMultiplexer) Name() string { return string(session.MultiplexerTmux) }
+func (m *captureMultiplexer) Start(sessionName, command string) error {
 	m.startName = sessionName
 	m.startCmd = command
 	return nil
 }
-func (m *captureSessionManager) StartWithEnv(sessionName, command string, envValues []string) error {
+func (m *captureMultiplexer) StartWithEnv(sessionName, command string, envValues []string) error {
 	m.startName = sessionName
 	m.startCmd = command
 	m.startEnv = append([]string{}, envValues...)
 	return nil
 }
-func (m *captureSessionManager) List() ([]session.SessionInfo, error) { return nil, nil }
-func (m *captureSessionManager) Find(name string) (session.SessionInfo, error) {
+func (m *captureMultiplexer) List() ([]session.SessionInfo, error) { return nil, nil }
+func (m *captureMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
-func (m *captureSessionManager) Attach(name string) error                          { return nil }
-func (m *captureSessionManager) ReadBuffer(name string, lines int) (string, error) { return "", nil }
-func (m *captureSessionManager) Send(name string, payload string, appendNewline bool) error {
+func (m *captureMultiplexer) Attach(name string) error                          { return nil }
+func (m *captureMultiplexer) ReadBuffer(name string, lines int) (string, error) { return "", nil }
+func (m *captureMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	return nil
 }
-func (m *captureSessionManager) Kill(name string) error { return nil }
+func (m *captureMultiplexer) Kill(name string) error { return nil }
 
 func TestVibe_Detached_TmuxExportsInheritedEnvVars(t *testing.T) {
 	t.Setenv("POSTMAN_API_KEY", "secret")
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Git:     &fakeGit{},
-		Session: sm,
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
 	}
 
 	workspace := t.TempDir()
@@ -74,12 +74,12 @@ func TestVibe_Detached_TmuxExportsInheritedEnvVars(t *testing.T) {
 func TestVibe_Detached_TmuxUnsetsMissingInheritedEnvVars(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Git:     &fakeGit{},
-		Session: sm,
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
 	}
 
 	workspace := t.TempDir()
@@ -105,12 +105,12 @@ func TestVibe_Detached_TmuxPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T)
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 	t.Setenv("POSTMAN_API_KEY", "  spaced \nvalue\t")
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Git:     &fakeGit{},
-		Session: sm,
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
 	}
 
 	workspace := t.TempDir()
@@ -151,12 +151,12 @@ func TestVibe_Detached_TmuxExportsImplicitAnthropicForClaude(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "anthropic-secret")
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Git:     &fakeGit{},
-		Session: sm,
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
 	}
 
 	workspace := t.TempDir()
@@ -181,12 +181,12 @@ func TestVibe_Detached_TmuxExportsImplicitAnthropicForClaude(t *testing.T) {
 func TestVibe_Detached_TmuxUnsetsImplicitAnthropicWhenMissingForClaude(t *testing.T) {
 	t.Parallel()
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Git:     &fakeGit{},
-		Session: sm,
-		Docker:  &docker.Mock{Running: true},
-		IO:      DefaultIO(),
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
 		Env: env.StaticProvider{Values: map[string]string{
 			"GH_TOKEN": "test-token", // avoid invoking `gh auth token`
 		}},
@@ -213,11 +213,11 @@ func TestVibe_Detached_TmuxUnsetsImplicitAnthropicWhenMissingForClaude(t *testin
 func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 	t.Parallel()
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Git:     &fakeGit{},
-		Session: sm,
-		IO:      DefaultIO(),
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		IO:          DefaultIO(),
 		Env: env.StaticProvider{Values: map[string]string{
 			"PATH": "/usr/bin:/bin",
 		}},
@@ -251,11 +251,11 @@ func TestVibe_DetachedTmuxForwardsAllowlistedEnvOnly(t *testing.T) {
 	t.Setenv("POSTMAN_API_KEY", "passthrough-secret")
 	t.Setenv("UNFORWARDED_SECRET", "do-not-forward")
 
-	sm := &captureSessionManager{}
+	sm := &captureMultiplexer{}
 	k := Remuda{
-		Git:     &fakeGit{},
-		Session: sm,
-		IO:      DefaultIO(),
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		IO:          DefaultIO(),
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{

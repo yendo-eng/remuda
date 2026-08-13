@@ -10,37 +10,37 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-type fakeSessionManager struct {
+type fakeMultiplexer struct {
 	sessions []session.SessionInfo
 	killed   []string
 }
 
-func (f *fakeSessionManager) Name() string { return "fake" }
+func (f *fakeMultiplexer) Name() string { return "fake" }
 
-func (f *fakeSessionManager) Start(sessionName, command string) error { return nil }
+func (f *fakeMultiplexer) Start(sessionName, command string) error { return nil }
 
-func (f *fakeSessionManager) List() ([]session.SessionInfo, error) { return f.sessions, nil }
+func (f *fakeMultiplexer) List() ([]session.SessionInfo, error) { return f.sessions, nil }
 
-func (f *fakeSessionManager) Find(name string) (session.SessionInfo, error) {
+func (f *fakeMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
 
-func (f *fakeSessionManager) Attach(name string) error { return nil }
+func (f *fakeMultiplexer) Attach(name string) error { return nil }
 
-func (f *fakeSessionManager) ReadBuffer(name string, lines int) (string, error) { return "", nil }
+func (f *fakeMultiplexer) ReadBuffer(name string, lines int) (string, error) { return "", nil }
 
-func (f *fakeSessionManager) Send(name string, payload string, appendNewline bool) error {
+func (f *fakeMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	return nil
 }
 
-func (f *fakeSessionManager) Kill(name string) error {
+func (f *fakeMultiplexer) Kill(name string) error {
 	f.killed = append(f.killed, name)
 	return nil
 }
 
 func TestSessionReapCandidates_FiltersByAge(t *testing.T) {
 	now := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
-	mgr := &fakeSessionManager{
+	mgr := &fakeMultiplexer{
 		sessions: []session.SessionInfo{
 			{Name: "org/repo/old", CreatedAt: now.Add(-10 * time.Hour)},
 			{Name: "org/repo/edge", CreatedAt: now.Add(-5 * time.Hour)},
@@ -49,7 +49,7 @@ func TestSessionReapCandidates_FiltersByAge(t *testing.T) {
 			{Name: "not-remuda", CreatedAt: now.Add(-10 * time.Hour)},
 		},
 	}
-	k := Remuda{Session: mgr}
+	k := Remuda{Multiplexer: mgr}
 
 	candidates, skipped, err := k.SessionReapCandidates(5*time.Hour, now)
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestSessionReapCandidates_FiltersByAge(t *testing.T) {
 }
 
 func TestSessionReapCandidates_RejectsNonPositive(t *testing.T) {
-	k := Remuda{Session: &fakeSessionManager{}}
+	k := Remuda{Multiplexer: &fakeMultiplexer{}}
 	_, _, err := k.SessionReapCandidates(0, time.Now())
 	require.Error(t, err)
 }
@@ -84,8 +84,8 @@ func TestSessionReap_DryRunCleanupWorkspacePath(t *testing.T) {
 }
 
 func TestSessionReap_NonDryRunCallsKill(t *testing.T) {
-	mgr := &fakeSessionManager{}
-	k := Remuda{Session: mgr}
+	mgr := &fakeMultiplexer{}
+	k := Remuda{Multiplexer: mgr}
 
 	results, err := k.SessionReap([]string{"org/repo/work"}, false, false)
 	require.NoError(t, err)
@@ -94,8 +94,8 @@ func TestSessionReap_NonDryRunCallsKill(t *testing.T) {
 }
 
 func TestSessionReap_CleanupSkipsInvalidWorkspacePath(t *testing.T) {
-	mgr := &fakeSessionManager{}
-	k := Remuda{Session: mgr, Config: Config{ReposBaseDir: t.TempDir()}}
+	mgr := &fakeMultiplexer{}
+	k := Remuda{Multiplexer: mgr, Config: Config{ReposBaseDir: t.TempDir()}}
 
 	results, err := k.SessionReap([]string{"not-remuda"}, true, false)
 	require.NoError(t, err)

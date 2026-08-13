@@ -8,7 +8,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-type MockSessionManager struct {
+type MockMultiplexer struct {
 	sessions      []Session
 	ReadBuf       string            // Default buffer for all sessions
 	ReadBufs      map[string]string // Per-session buffers (keyed by session name)
@@ -25,7 +25,7 @@ type Session struct {
 	StartEnv   []string
 }
 
-func (f *MockSessionManager) FindSession(name string) *Session {
+func (f *MockMultiplexer) FindSession(name string) *Session {
 	for i := range f.sessions {
 		if f.sessions[i].Name == name {
 			return &f.sessions[i]
@@ -35,11 +35,11 @@ func (f *MockSessionManager) FindSession(name string) *Session {
 	return nil
 }
 
-func (MockSessionManager) Name() string {
+func (MockMultiplexer) Name() string {
 	return "mock"
 }
 
-func (f *MockSessionManager) Start(sessionName, command string) error {
+func (f *MockMultiplexer) Start(sessionName, command string) error {
 	f.sessions = append(f.sessions, Session{
 		SessionInfo: session.SessionInfo{
 			Name:      sessionName,
@@ -50,7 +50,7 @@ func (f *MockSessionManager) Start(sessionName, command string) error {
 	return nil
 }
 
-func (f *MockSessionManager) StartWithEnv(sessionName, command string, env []string) error {
+func (f *MockMultiplexer) StartWithEnv(sessionName, command string, env []string) error {
 	f.sessions = append(f.sessions, Session{
 		SessionInfo: session.SessionInfo{
 			Name:      sessionName,
@@ -62,7 +62,7 @@ func (f *MockSessionManager) StartWithEnv(sessionName, command string, env []str
 	return nil
 }
 
-func (f *MockSessionManager) List() ([]session.SessionInfo, error) {
+func (f *MockMultiplexer) List() ([]session.SessionInfo, error) {
 	var infos []session.SessionInfo
 	for _, sess := range f.sessions {
 		infos = append(infos, sess.SessionInfo)
@@ -70,7 +70,7 @@ func (f *MockSessionManager) List() ([]session.SessionInfo, error) {
 	return infos, nil
 }
 
-func (f *MockSessionManager) Find(name string) (session.SessionInfo, error) {
+func (f *MockMultiplexer) Find(name string) (session.SessionInfo, error) {
 	for _, sess := range f.sessions {
 		if sess.Name == name {
 			return sess.SessionInfo, nil
@@ -79,7 +79,7 @@ func (f *MockSessionManager) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }
 
-func (f *MockSessionManager) Attach(name string) error {
+func (f *MockMultiplexer) Attach(name string) error {
 	for _, s := range f.sessions {
 		if s.Name == name {
 			return nil
@@ -89,7 +89,7 @@ func (f *MockSessionManager) Attach(name string) error {
 	return errCantFindSession(name)
 }
 
-func (f *MockSessionManager) ReadBuffer(name string, lines int) (string, error) {
+func (f *MockMultiplexer) ReadBuffer(name string, lines int) (string, error) {
 	f.LastReadName = name
 	f.LastReadLines = lines
 	if lines < 0 {
@@ -119,7 +119,7 @@ func (f *MockSessionManager) ReadBuffer(name string, lines int) (string, error) 
 	return truncate(f.ReadBuf), nil
 }
 
-func (f *MockSessionManager) Send(name string, payload string, appendNewline bool) error {
+func (f *MockMultiplexer) Send(name string, payload string, appendNewline bool) error {
 	for _, s := range f.sessions {
 		if s.Name == name {
 			f.LastSendName = name
@@ -131,7 +131,7 @@ func (f *MockSessionManager) Send(name string, payload string, appendNewline boo
 	return errCantFindSession(name)
 }
 
-func (f *MockSessionManager) Kill(name string) error {
+func (f *MockMultiplexer) Kill(name string) error {
 	for i, s := range f.sessions {
 		if s.Name == name {
 			f.sessions = append(f.sessions[:i], f.sessions[i+1:]...)
@@ -147,7 +147,7 @@ func errCantFindSession(name string) error {
 }
 
 // AddSessionWithBuffer adds a session with a specific buffer content.
-func (f *MockSessionManager) AddSessionWithBuffer(name, buffer string) {
+func (f *MockMultiplexer) AddSessionWithBuffer(name, buffer string) {
 	f.sessions = append(f.sessions, Session{
 		SessionInfo: session.SessionInfo{
 			Name: name,

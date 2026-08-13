@@ -5,9 +5,9 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-func startSessionWithEnv(manager session.SessionManager, sessionName, command string, provider env.Provider, agent string, extraEnvNames, overrideEnvNames []string) error {
+func startSessionWithEnv(manager session.Multiplexer, sessionName, command string, provider env.Provider, agent string, extraEnvNames, overrideEnvNames []string) error {
 	envValues := launchEnvValues(provider)
-	if manager.Name() == string(session.SessionManagerTmux) {
+	if manager.Name() == string(session.MultiplexerTmux) {
 		envValues = tmuxSessionEnvValues(provider, agent, extraEnvNames, overrideEnvNames)
 	}
 	if starter, ok := manager.(session.EnvStarter); ok {
