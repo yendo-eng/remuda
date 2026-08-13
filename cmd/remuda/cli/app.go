@@ -226,7 +226,8 @@ func (a *app) finishSetup() {
 	// built-in managers.
 	if kctx.Remuda.Multiplexer == nil ||
 		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerTmux) ||
-		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerZellij) {
+		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerZellij) ||
+		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerHerdr) {
 		kctx.Remuda.Multiplexer = a.multiplexerFactory(session.SupportedMultiplexer(a.sessionManager), logger)
 	}
 }

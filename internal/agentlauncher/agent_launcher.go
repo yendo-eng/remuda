@@ -12,6 +12,8 @@ type AgentLauncher interface {
 
 	// Command builds the command string to launch the agent with the given prompt.
 	Command(prompt string, extraArgs ...string) string
+	// Arguments returns the argv passed after the agent executable.
+	Arguments(prompt string, extraArgs ...string) []string
 
 	// WithRemoteControl enables remote-control launch behavior when supported.
 	//

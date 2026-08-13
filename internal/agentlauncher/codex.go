@@ -25,30 +25,38 @@ func Codex(model string, yolo bool, reasoningLevel string) AgentLauncher {
 
 func (c codexLauncher) Name() string { return "codex" }
 
+func (c codexLauncher) Arguments(prompt string, extraArgs ...string) []string {
+	return c.launch(prompt, extraArgs...).argv()
+}
+
 func (c codexLauncher) Command(prompt string, extraArgs ...string) string {
-	var b strings.Builder
-	b.WriteString("codex")
+	return c.launch(prompt, extraArgs...).command()
+}
+
+func (c codexLauncher) launch(prompt string, extraArgs ...string) launch {
+	command := launch{executable: "codex"}
 	if c.Yolo {
-		b.WriteString(" --dangerously-bypass-approvals-and-sandbox")
-		b.WriteString(" --dangerously-bypass-hook-trust")
-		// Allow env passthrough inside Codex's sandbox in yolo mode
-		b.WriteString(" --config shell_environment_policy.ignore_default_excludes=\"true\"")
+		command.raw(
+			"--dangerously-bypass-approvals-and-sandbox",
+			"--dangerously-bypass-hook-trust",
+		)
+		command.raw("--config")
+		command.rendered("shell_environment_policy.ignore_default_excludes=true", "shell_environment_policy.ignore_default_excludes=\"true\"")
 	}
 	if c.Model != "" && c.Model != ModelAgentDefault {
-		b.WriteString(" --model ")
-		b.WriteString(shellutil.SingleQuote(c.Model))
+		command.raw("--model")
+		command.quoted(c.Model)
 	}
 	if strings.TrimSpace(c.ReasoningLevel) != "" {
-		b.WriteString(" --config model_reasoning_effort=")
-		b.WriteString(shellutil.SingleQuote(c.ReasoningLevel))
+		command.raw("--config")
+		command.rendered("model_reasoning_effort="+c.ReasoningLevel, "model_reasoning_effort="+shellutil.SingleQuote(c.ReasoningLevel))
 	}
-	appendExtraArgs(&b, extraArgs)
+	command.quoted(extraArgs...)
 	if strings.TrimSpace(prompt) != "" {
-		b.WriteString(" -- '")
-		b.WriteString(shellutil.EscapeSingleQuotes(prompt))
-		b.WriteString("'")
+		command.raw("--")
+		command.quoted(prompt)
 	}
-	return b.String()
+	return command
 }
 
 func (c codexLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool) {

@@ -10,13 +10,19 @@ import (
 )
 
 type captureEnvSession struct {
-	env []string
+	env        []string
+	agentStart session.AgentStart
 }
 
 func (c *captureEnvSession) Name() string                            { return string(session.MultiplexerTmux) }
 func (c *captureEnvSession) Start(sessionName, command string) error { return nil }
 func (c *captureEnvSession) StartWithEnv(sessionName, command string, envValues []string) error {
 	c.env = append([]string{}, envValues...)
+	return nil
+}
+func (c *captureEnvSession) StartAgent(start session.AgentStart) error {
+	c.agentStart = start
+	c.env = append([]string{}, start.Env...)
 	return nil
 }
 func (c *captureEnvSession) List() ([]session.SessionInfo, error) { return nil, nil }
@@ -35,7 +41,7 @@ func TestStartSessionWithEnvAddsPathWhenMissing(t *testing.T) {
 	mgr := &captureEnvSession{}
 	provider := env.StaticProvider{Values: map[string]string{"FOO": "bar"}}
 
-	require.NoError(t, startSessionWithEnv(mgr, "sess", "cmd", provider, "", []string{"FOO"}, nil))
+	require.NoError(t, startSessionWithEnv(mgr, "sess", "/workspace", "cmd", "", nil, "prompt", provider, []string{"FOO"}, nil))
 
 	value, ok := envValue(mgr.env, "PATH")
 	require.True(t, ok)
@@ -43,6 +49,8 @@ func TestStartSessionWithEnvAddsPathWhenMissing(t *testing.T) {
 	value, ok = envValue(mgr.env, "FOO")
 	require.True(t, ok)
 	require.Equal(t, "bar", value)
+	require.Equal(t, "/workspace", mgr.agentStart.Workspace)
+	require.Equal(t, "prompt", mgr.agentStart.Prompt)
 }
 
 func TestStartSessionWithEnvKeepsProvidedPath(t *testing.T) {
@@ -51,7 +59,7 @@ func TestStartSessionWithEnvKeepsProvidedPath(t *testing.T) {
 	mgr := &captureEnvSession{}
 	provider := env.StaticProvider{Values: map[string]string{"PATH": "/custom/bin"}}
 
-	require.NoError(t, startSessionWithEnv(mgr, "sess", "cmd", provider, "", nil, nil))
+	require.NoError(t, startSessionWithEnv(mgr, "sess", "/workspace", "cmd", "", nil, "prompt", provider, nil, nil))
 
 	value, ok := envValue(mgr.env, "PATH")
 	require.True(t, ok)

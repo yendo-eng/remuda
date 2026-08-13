@@ -27,30 +27,36 @@ var _ git.Git = noopGit{}
 
 func TestRun_WiresSessionManagerFlag(t *testing.T) {
 	t.Parallel()
-	homeDir := t.TempDir()
-	workDir := t.TempDir()
-	var out bytes.Buffer
-	var errBuf bytes.Buffer
-	k := internal.NewRemuda(
-		internal.Config{ReposBaseDir: t.TempDir()},
-		noopGit{},
-		nil,
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &errBuf}),
-	)
-	ctx := NewContext(context.Background(), k,
-		WithEnv(EnvMap{}),
-		WithHomeDir(homeDir),
-		WithWorkingDir(workDir),
-		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-			return stubNamedMultiplexer{name: string(name)}
-		}),
-	)
 
-	require.NoError(t, Run(ctx, []string{"--session-manager", "zellij", "session", "list"}))
-	require.Contains(t, out.String(), "(zellij)")
+	for _, manager := range []string{"zellij", "herdr"} {
+		manager := manager
+		t.Run(manager, func(t *testing.T) {
+			t.Parallel()
+
+			var out bytes.Buffer
+			var errBuf bytes.Buffer
+			k := internal.NewRemuda(
+				internal.Config{ReposBaseDir: t.TempDir()},
+				noopGit{},
+				nil,
+				nil,
+				nil,
+				nil,
+				internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &errBuf}),
+			)
+			ctx := NewContext(context.Background(), k,
+				WithEnv(EnvMap{}),
+				WithHomeDir(t.TempDir()),
+				WithWorkingDir(t.TempDir()),
+				WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
+					return stubNamedMultiplexer{name: string(name)}
+				}),
+			)
+
+			require.NoError(t, Run(ctx, []string{"--session-manager", manager, "session", "list"}))
+			require.Contains(t, out.String(), "("+manager+")")
+		})
+	}
 }
 
 type stubNamedMultiplexer struct {

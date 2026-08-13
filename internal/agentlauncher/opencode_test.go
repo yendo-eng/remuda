@@ -35,3 +35,12 @@ func TestOpenCodeLauncher_Command_ExtraArgsBeforePrompt(t *testing.T) {
 	got := l.Command("hello", "--foo", "--bar")
 	require.Equal(t, "opencode --model 'gpt-4o' '--foo' '--bar' --prompt 'hello'", got)
 }
+
+func TestOpenCodeLauncher_Arguments(t *testing.T) {
+	l := OpenCode("openai/gpt-5")
+	require.Equal(t, []string{
+		"--model", "openai/gpt-5",
+		"--foo",
+		"--prompt", "fix it",
+	}, l.Arguments("fix it", "--foo"))
+}
