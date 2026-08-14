@@ -78,7 +78,7 @@ func (a *app) prepare(cmd *cobra.Command, opts prepareOpts) error {
 	}
 	rs.captureExplicitFlags(cmd.Flags())
 
-	env := envFromContext(*a.cliCtx)
+	env := a.cliCtx.env()
 	a.cliCtx.inv = &invocation{
 		app:      a,
 		cmd:      cmd,
@@ -182,7 +182,7 @@ func (a *app) applyRepoOverlays(slug string) error {
 // the repos base directory.
 func (a *app) applyReposBaseDir(eff *koanf.Koanf) {
 	cliCtx := a.cliCtx
-	env := envFromContext(*cliCtx)
+	env := cliCtx.env()
 	if base := env.Get("REMUDA_REPOS_BASE_DIR"); base != "" {
 		cliCtx.Remuda.Config.ReposBaseDir = base
 		return
@@ -201,7 +201,7 @@ func (a *app) applyReposBaseDir(eff *koanf.Koanf) {
 
 	// Best-effort: Expand "~" and "~/" to HOME when present.
 	if strings.HasPrefix(baseDir, "~") {
-		home, homeErr := homeDirFromContext(*cliCtx)
+		home, homeErr := cliCtx.homeDir()
 		if expanded, err := expandHomePath(baseDir, home, homeErr); err == nil && expanded != "" {
 			baseDir = expanded
 		}
@@ -324,7 +324,7 @@ func Run(cliCtx Context, args []string) error {
 func RunWithName(cliCtx Context, cliName string, args []string) error {
 	cliName = normalizeCLIName(cliName)
 
-	env := envFromContext(cliCtx)
+	env := cliCtx.env()
 	multiplexerFactory := cliCtx.MultiplexerFactory
 	if multiplexerFactory == nil {
 		multiplexerFactory = session.NewMultiplexerWithLogger

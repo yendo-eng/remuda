@@ -78,9 +78,9 @@ func loadConfigForRepoPersistence(cliCtx Context) (*configfile.V1, ConfigFileDis
 }
 
 func discoverConfigFileForWrite(cliCtx Context) (ConfigFileDiscovery, error) {
-	env := envFromContext(cliCtx)
-	home, homeErr := homeDirFromContext(cliCtx)
-	workingDir := workingDirFromContext(cliCtx)
+	env := cliCtx.env()
+	home, homeErr := cliCtx.homeDir()
+	workingDir := cliCtx.workingDir()
 
 	discovery, err := DiscoverConfigFile(cliCtx)
 	if err == nil {
@@ -132,9 +132,9 @@ func ensureConfigPathWritable(path string) error {
 }
 
 func primaryConfigPath(cliCtx Context) (string, error) {
-	env := envFromContext(cliCtx)
-	home, homeErr := homeDirFromContext(cliCtx)
-	workingDir := workingDirFromContext(cliCtx)
+	env := cliCtx.env()
+	home, homeErr := cliCtx.homeDir()
+	workingDir := cliCtx.workingDir()
 
 	if xdgHome := strings.TrimSpace(env.Get("XDG_CONFIG_HOME")); xdgHome != "" {
 		xdgHome = resolvePathFromWorkingDir(xdgHome, workingDir)

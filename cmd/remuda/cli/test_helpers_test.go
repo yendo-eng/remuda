@@ -47,7 +47,7 @@ func newTestInvocation(
 		app:      a,
 		cmd:      cmd,
 		rs:       rs,
-		env:      envFromContext(*ctx),
+		env:      ctx.env(),
 		profiled: profiled,
 	}
 }

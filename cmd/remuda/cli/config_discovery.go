@@ -39,9 +39,9 @@ type ConfigFileDiscovery struct {
 //
 // If no config file is found, Path is empty and error is nil.
 func DiscoverConfigFile(cliCtx Context) (ConfigFileDiscovery, error) {
-	env := envFromContext(cliCtx)
-	home, homeErr := homeDirFromContext(cliCtx)
-	workingDir := workingDirFromContext(cliCtx)
+	env := cliCtx.env()
+	home, homeErr := cliCtx.homeDir()
+	workingDir := cliCtx.workingDir()
 
 	if override := strings.TrimSpace(env.Get(configOverrideEnvVar)); override != "" {
 		expanded, err := expandHomePath(override, home, homeErr)

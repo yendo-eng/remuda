@@ -44,7 +44,7 @@ func repoSlugFromWorkspacePath(cliCtx Context, cfg *configfile.V1, workspace str
 		return ""
 	}
 	if strings.HasPrefix(workspace, "~") {
-		home, homeErr := homeDirFromContext(cliCtx)
+		home, homeErr := cliCtx.homeDir()
 		if expanded, err := expandHomePath(workspace, home, homeErr); err == nil && expanded != "" {
 			workspace = expanded
 		}
@@ -58,7 +58,7 @@ func repoSlugFromWorkspacePath(cliCtx Context, cfg *configfile.V1, workspace str
 		return ""
 	}
 	if strings.HasPrefix(baseDir, "~") {
-		home, homeErr := homeDirFromContext(cliCtx)
+		home, homeErr := cliCtx.homeDir()
 		if expanded, err := expandHomePath(baseDir, home, homeErr); err == nil && expanded != "" {
 			baseDir = expanded
 		}
@@ -88,7 +88,7 @@ func workspaceWithinBase(baseDir, workspace string) bool {
 }
 
 func reposBaseDirForOverlay(cliCtx Context, cfg *configfile.V1) string {
-	env := envFromContext(cliCtx)
+	env := cliCtx.env()
 	if base := strings.TrimSpace(env.Get("REMUDA_REPOS_BASE_DIR")); base != "" {
 		return base
 	}

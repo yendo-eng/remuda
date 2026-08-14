@@ -162,7 +162,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 			return nil
 		}
 
-		picked, err := pickOneWorkspaceWithFZF(logger, envFromContext(ctx), inactive, ctx.Remuda.Config.ReposBaseDir)
+		picked, err := pickOneWorkspaceWithFZF(logger, ctx.env(), inactive, ctx.Remuda.Config.ReposBaseDir)
 		if err != nil {
 			return pkgerrors.Wrap(err, "pick workspace")
 		}
@@ -171,7 +171,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 		}
 		selected = picked
 	} else {
-		home, homeErr := homeDirFromContext(ctx)
+		home, homeErr := ctx.homeDir()
 		expanded, err := expandHomePath(strings.TrimSpace(c.WorkspaceDir), home, homeErr)
 		if err != nil {
 			return err
@@ -224,7 +224,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 		if manifestLoaded {
 			agentName = manifest.Agent
 		} else {
-			agentName = resolveSessionResumeAgent(ctx.EffectiveConfig(), envFromContext(ctx))
+			agentName = resolveSessionResumeAgent(ctx.EffectiveConfig(), ctx.env())
 		}
 	}
 
