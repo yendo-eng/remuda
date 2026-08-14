@@ -133,6 +133,16 @@ func TestCompleteAgent_ListsValidAgents(t *testing.T) {
 	require.Equal(t, []string{"codex", "opencode", "claude", "bash"}, got)
 }
 
+func TestCompleteSessionManager_ListsValidMultiplexers(t *testing.T) {
+	home := t.TempDir()
+
+	got := runComplete(t, cli.EnvMap{}, home, "--session-manager", "")
+	require.Equal(t, enums.ValidMultiplexers, got)
+
+	directive := runCompleteDirective(t, cli.EnvMap{}, home, "--session-manager", "")
+	require.Equal(t, cobra.ShellCompDirectiveNoFileComp, directive)
+}
+
 func TestCompleteExperiments_ListsRegisteredExperiments(t *testing.T) {
 	home := t.TempDir()
 
