@@ -51,7 +51,7 @@ func (c WorkspacesEditCmd) Run(ctx Context) error {
 func ResolveEditorCommand(env EnvProvider) (string, error) {
 	env = envOrDefault(env)
 	for _, key := range []string{"REMUDA_EDITOR", "VISUAL", "EDITOR"} {
-		if cmd := strings.TrimSpace(env.Getenv(key)); cmd != "" {
+		if cmd := strings.TrimSpace(env.Get(key)); cmd != "" {
 			return cmd, nil
 		}
 	}

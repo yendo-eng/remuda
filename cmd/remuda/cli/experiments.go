@@ -23,7 +23,7 @@ func experimentInputSource(rs *flagResolution, env EnvProvider) string {
 	if rs != nil && rs.flagExplicit("experiments") {
 		return "--experiments"
 	}
-	if val := strings.TrimSpace(envOrDefault(env).Getenv("REMUDA_EXPERIMENTS")); val != "" {
+	if val := strings.TrimSpace(envOrDefault(env).Get("REMUDA_EXPERIMENTS")); val != "" {
 		return "REMUDA_EXPERIMENTS"
 	}
 	return "defaults.experiments"

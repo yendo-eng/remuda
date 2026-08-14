@@ -274,7 +274,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 // codex (the historically supported resume path).
 func resolveSessionResumeAgent(eff *koanf.Koanf, env EnvProvider) string {
 	env = envOrDefault(env)
-	if val, ok := env.LookupEnv("REMUDA_AGENT"); ok {
+	if val, ok := env.Lookup("REMUDA_AGENT"); ok {
 		trimmed := strings.TrimSpace(val)
 		if trimmed != "" && strings.EqualFold(trimmed, "claude") {
 			return "claude"

@@ -9,17 +9,17 @@ import (
 
 // EnvProvider supplies environment lookups for a single CLI invocation.
 type EnvProvider interface {
-	Getenv(key string) string
-	LookupEnv(key string) (string, bool)
+	Get(key string) string
+	Lookup(key string) (string, bool)
 }
 
 type osEnvProvider struct{}
 
-func (osEnvProvider) Getenv(key string) string {
+func (osEnvProvider) Get(key string) string {
 	return os.Getenv(key)
 }
 
-func (osEnvProvider) LookupEnv(key string) (string, bool) {
+func (osEnvProvider) Lookup(key string) (string, bool) {
 	return os.LookupEnv(key)
 }
 
@@ -30,14 +30,14 @@ func (osEnvProvider) Environ() []string {
 // EnvMap is a map-backed EnvProvider for tests.
 type EnvMap map[string]string
 
-func (m EnvMap) Getenv(key string) string {
-	if val, ok := m.LookupEnv(key); ok {
+func (m EnvMap) Get(key string) string {
+	if val, ok := m.Lookup(key); ok {
 		return val
 	}
 	return ""
 }
 
-func (m EnvMap) LookupEnv(key string) (string, bool) {
+func (m EnvMap) Lookup(key string) (string, bool) {
 	val, ok := m[key]
 	return val, ok
 }

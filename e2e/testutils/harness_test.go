@@ -30,13 +30,13 @@ func TestHarness_ClearsIsolationPrefixes(t *testing.T) {
 
 	h := newHarness(t, baseEnv)
 
-	_, ok := h.Env.LookupEnv("REMUDA_USE_PROMPTS")
+	_, ok := h.Env.Lookup("REMUDA_USE_PROMPTS")
 	require.False(t, ok)
-	_, ok = h.Env.LookupEnv("GIT_CONFIG_KEY_0")
+	_, ok = h.Env.Lookup("GIT_CONFIG_KEY_0")
 	require.False(t, ok)
-	_, ok = h.Env.LookupEnv("GIT_CONFIG_VALUE_0")
+	_, ok = h.Env.Lookup("GIT_CONFIG_VALUE_0")
 	require.False(t, ok)
-	_, ok = h.Env.LookupEnv("GIT_ATTR_FOO")
+	_, ok = h.Env.Lookup("GIT_ATTR_FOO")
 	require.False(t, ok)
 
 	// Forced vars should still be applied.

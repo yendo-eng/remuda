@@ -173,7 +173,7 @@ func (r *flagResolution) apply(env EnvProvider, cfg *koanf.Koanf) error {
 func (r *flagResolution) applyOne(fl *pflag.Flag, b *flagBinding, env EnvProvider, cfg *koanf.Koanf) error {
 	envValue, envIsSet := "", false
 	for _, key := range b.envs {
-		if val, ok := env.LookupEnv(key); ok && val != "" {
+		if val, ok := env.Lookup(key); ok && val != "" {
 			envValue, envIsSet = val, true
 			break
 		}

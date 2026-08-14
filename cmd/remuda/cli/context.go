@@ -78,12 +78,12 @@ func (c Context) ApplyRepoOverlays(slug string) error {
 
 func NewContext(
 	ctx context.Context,
-	k internal.Remuda,
+	rem internal.Remuda,
 	opts ...func(*Context),
 ) Context {
 	cliCtx := Context{
 		ctx:    ctx,
-		Remuda: k,
+		Remuda: rem,
 	}
 
 	for _, opt := range opts {
@@ -189,11 +189,11 @@ type internalEnvProvider struct {
 }
 
 func (p internalEnvProvider) Getenv(key string) string {
-	return p.env.Getenv(key)
+	return p.env.Get(key)
 }
 
 func (p internalEnvProvider) LookupEnv(key string) (string, bool) {
-	return p.env.LookupEnv(key)
+	return p.env.Lookup(key)
 }
 
 func (p internalEnvProvider) UserHomeDir() (string, error) {

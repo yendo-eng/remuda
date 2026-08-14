@@ -89,7 +89,7 @@ func workspaceWithinBase(baseDir, workspace string) bool {
 
 func reposBaseDirForOverlay(cliCtx Context, cfg *configfile.V1) string {
 	env := envFromContext(cliCtx)
-	if base := strings.TrimSpace(env.Getenv("REMUDA_REPOS_BASE_DIR")); base != "" {
+	if base := strings.TrimSpace(env.Get("REMUDA_REPOS_BASE_DIR")); base != "" {
 		return base
 	}
 	if cfg != nil && cfg.Repos != nil && cfg.Repos.BaseDir != nil {
