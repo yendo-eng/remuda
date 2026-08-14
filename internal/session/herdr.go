@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -27,12 +28,6 @@ type UnsupportedAgentCommandError struct{}
 
 func (UnsupportedAgentCommandError) Error() string {
 	return "--agent-cmd is not supported by the herdr session manager"
-}
-
-type UnsupportedContainerModeError struct{}
-
-func (UnsupportedContainerModeError) Error() string {
-	return "container mode is not supported by the herdr session manager"
 }
 
 type SessionAlreadyExistsError struct {
@@ -74,6 +69,10 @@ type herdrPane struct {
 	PaneID string `json:"pane_id"`
 }
 
+type herdrTab struct {
+	TabID string `json:"tab_id"`
+}
+
 func NewHerdr() Multiplexer {
 	return NewHerdrWithLogger(logging.DefaultLogger())
 }
@@ -113,12 +112,14 @@ func (h *herdr) StartAgent(start AgentStart) error {
 
 	args := []string{"workspace", "create", "--cwd", start.Workspace, "--label", start.SessionName, "--no-focus"}
 	// Herdr has no env-file or stdin channel. These values remain visible in
-	// process listings while the short-lived CLI command runs; the CLI-only
-	// backend accepts that exposure rather than adding a socket client.
+	// process listings while the short-lived workspace-create CLI command runs.
 	for _, value := range start.Env {
 		if _, _, ok := strings.Cut(value, "="); ok {
 			args = append(args, "--env", value)
 		}
+	}
+	if start.Container {
+		args = append(args, "--env", "HERDR_AGENT="+start.Agent)
 	}
 	output, err := h.runOutput(args...)
 	if err != nil {
@@ -127,6 +128,7 @@ func (h *herdr) StartAgent(start AgentStart) error {
 
 	var created herdrResponse[struct {
 		Workspace herdrWorkspace `json:"workspace"`
+		Tab       herdrTab       `json:"tab"`
 		RootPane  herdrPane      `json:"root_pane"`
 	}]
 	if err := json.Unmarshal([]byte(output), &created); err != nil {
@@ -158,6 +160,23 @@ func (h *herdr) StartAgent(start AgentStart) error {
 		return err
 	}
 
+	if start.Container {
+		if created.Result.Tab.TabID == "" {
+			return pkgerrors.New("herdr workspace create response is missing tab id")
+		}
+		if err := h.applyLayout(
+			created.Result.Tab.TabID,
+			start.Workspace,
+			start.CommandArgv,
+			start.Env,
+			start.Agent,
+		); err != nil {
+			return err
+		}
+		started = true
+		return nil
+	}
+
 	if start.Agent == "bash" {
 		if len(start.Args) > 0 {
 			h.logger.Debug().
@@ -186,6 +205,89 @@ func (h *herdr) StartAgent(start AgentStart) error {
 		}
 	}
 	started = true
+	return nil
+}
+
+func (h *herdr) applyLayout(tabID, cwd string, command, envValues []string, agent string) error {
+	if len(command) == 0 {
+		return pkgerrors.New("herdr container launch is missing command argv")
+	}
+
+	statusOutput, err := h.runOutput("status", "server", "--json")
+	if err != nil {
+		return err
+	}
+	var status struct {
+		Socket string `json:"socket"`
+	}
+	if err := json.Unmarshal([]byte(statusOutput), &status); err != nil {
+		return pkgerrors.Wrap(err, "decode herdr server status response")
+	}
+	if strings.TrimSpace(status.Socket) == "" {
+		return pkgerrors.New("herdr server status response is missing socket path")
+	}
+
+	conn, err := dialHerdrSocket(status.Socket, herdrAgentStartRetryTimeout)
+	if err != nil {
+		return pkgerrors.Wrap(err, "connect to herdr API socket")
+	}
+	defer func() { _ = conn.Close() }()
+	if err := conn.SetDeadline(time.Now().Add(herdrAgentStartRetryTimeout)); err != nil {
+		return pkgerrors.Wrap(err, "set herdr API socket deadline")
+	}
+
+	launchEnv := make(map[string]string, len(envValues)+1)
+	for _, value := range envValues {
+		key, envValue, ok := strings.Cut(value, "=")
+		if ok {
+			launchEnv[key] = envValue
+		}
+	}
+	launchEnv["HERDR_AGENT"] = agent
+
+	request := struct {
+		ID     string `json:"id"`
+		Method string `json:"method"`
+		Params struct {
+			TabID string `json:"tab_id"`
+			Focus bool   `json:"focus"`
+			Root  struct {
+				Type    string            `json:"type"`
+				CWD     string            `json:"cwd"`
+				Command []string          `json:"command"`
+				Env     map[string]string `json:"env"`
+			} `json:"root"`
+		} `json:"params"`
+	}{
+		ID:     "remuda:layout",
+		Method: "layout.apply",
+	}
+	request.Params.TabID = tabID
+	request.Params.Root.Type = "pane"
+	request.Params.Root.CWD = cwd
+	request.Params.Root.Command = command
+	request.Params.Root.Env = launchEnv
+
+	if err := json.NewEncoder(conn).Encode(request); err != nil {
+		return pkgerrors.Wrap(err, "send herdr layout.apply request")
+	}
+
+	var response struct {
+		Error *struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(bufio.NewReader(conn)).Decode(&response); err != nil {
+		return pkgerrors.Wrap(err, "decode herdr layout.apply response")
+	}
+	if response.Error != nil {
+		message := response.Error.Message
+		if message == "" {
+			message = response.Error.Code
+		}
+		return pkgerrors.Errorf("herdr layout.apply failed: %s", message)
+	}
 	return nil
 }
 
@@ -280,8 +382,12 @@ func (h *herdr) Send(name, payload string, appendNewline bool) error {
 	if err != nil {
 		return err
 	}
+	return h.sendToPane(pane.PaneID, payload, appendNewline)
+}
+
+func (h *herdr) sendToPane(paneID, payload string, appendNewline bool) error {
 	if payload != "" {
-		if _, err := h.runOutput("pane", "send-text", pane.PaneID, payload); err != nil {
+		if _, err := h.runOutput("pane", "send-text", paneID, payload); err != nil {
 			return err
 		}
 	}
@@ -289,7 +395,7 @@ func (h *herdr) Send(name, payload string, appendNewline bool) error {
 		// Bash root panes have no managed agent target for agent prompt. Keep the
 		// pane path and delay Enter so Codex does not treat it as pasted text.
 		time.Sleep(200 * time.Millisecond)
-		_, err := h.runOutput("pane", "send-keys", pane.PaneID, "enter")
+		_, err := h.runOutput("pane", "send-keys", paneID, "enter")
 		return err
 	}
 	return nil

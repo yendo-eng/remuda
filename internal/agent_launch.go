@@ -65,7 +65,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	containerName := docker.ContainerNameFromSession(sessionName)
 
 	envProvider := k.launchEnvProvider(cmd, sessionName)
-	launchCmd, containerImage, err := k.composeLaunchCommand(
+	launch, err := k.composeLaunchCommandParts(
 		VibeCommand{
 			Agent:               cmd.AgentName,
 			Yolo:                cmd.Yolo,
@@ -83,6 +83,8 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	if err != nil {
 		return agentLaunchResult{}, err
 	}
+	launchCmd := launch.shell
+	containerImage := launch.image
 
 	result := agentLaunchResult{
 		Workspace:      workspaceAbs,
@@ -122,7 +124,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	for key := range cmd.EnvOverrides {
 		overrideEnvNames = append(overrideEnvNames, key)
 	}
-	if err := startSessionWithEnv(k.Multiplexer, sessionName, workspaceAbs, startCmd, cmd.AgentName, cmd.Args, cmd.Prompt, envProvider, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
+	if err := startSessionWithEnv(k.Multiplexer, sessionName, workspaceAbs, startCmd, launch.argv, cmd.Container, cmd.AgentName, cmd.Args, cmd.Prompt, envProvider, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
 
@@ -133,15 +135,12 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	return result, nil
 }
 
-func validateMultiplexerLaunch(manager session.Multiplexer, agentCmd string, container bool) error {
+func validateMultiplexerLaunch(manager session.Multiplexer, agentCmd string) error {
 	if manager.Name() != string(session.MultiplexerHerdr) {
 		return nil
 	}
 	if strings.TrimSpace(agentCmd) != "" {
 		return session.UnsupportedAgentCommandError{}
-	}
-	if container {
-		return session.UnsupportedContainerModeError{}
 	}
 	return nil
 }

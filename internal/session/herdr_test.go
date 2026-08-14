@@ -2,11 +2,17 @@ package session_test
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -79,6 +85,122 @@ esac
 			}
 		})
 	}
+}
+
+func TestHerdrStartAgentRunsLongContainerArgvWithLayout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Herdr's API socket test uses a Unix socket")
+	}
+
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "calls")
+	socketPath, requests := listenHerdrAPI(t)
+	socketJSON, err := json.Marshal(socketPath)
+	require.NoError(t, err)
+	writeHerdrStub(t, dir, fmt.Sprintf(`
+case "$1 $2" in
+  "workspace list")
+    printf '%%s\n' '{"result":{"workspaces":[]}}'
+    ;;
+  "workspace create")
+    printf '%%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"tab":{"tab_id":"w7:t1"},"root_pane":{"pane_id":"w7:p1"}}}'
+    ;;
+  "status server")
+    printf '%%s\n' '{"status":"running","socket":%s}'
+    ;;
+esac
+`, socketJSON))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("REMUDA_HERDR_CALLS", logPath)
+
+	command := []string{"docker", "run", "--rm", "-it"}
+	for i := 0; i < 80; i++ {
+		command = append(command, "-v", fmt.Sprintf(
+			"/Users/devin/Library/Application Support/remuda/mount-%02d:/workspaces/mount-%02d:ro",
+			i, i,
+		))
+	}
+	command = append(command, "remuda-agent:latest", "bash", "-lc", "exec codex")
+	require.Greater(t, len(strings.Join(command, " ")), 1500)
+
+	starter, ok := session.NewHerdr().(session.AgentStarter)
+	require.True(t, ok)
+	require.NoError(t, starter.StartAgent(session.AgentStart{
+		SessionName: "yendo/remuda/rm-f20z",
+		Workspace:   "/workspaces/rm-f20z",
+		Agent:       "codex",
+		Command:     strings.Join(command, " "),
+		CommandArgv: command,
+		Container:   true,
+		Env:         []string{"PATH=/usr/bin"},
+	}))
+
+	select {
+	case result := <-requests:
+		require.NoError(t, result.err)
+		require.Equal(t, "layout.apply", result.request.Method)
+		require.Equal(t, "w7:t1", result.request.Params.TabID)
+		require.Equal(t, "pane", result.request.Params.Root.Type)
+		require.Equal(t, "/workspaces/rm-f20z", result.request.Params.Root.CWD)
+		require.Equal(t, command, result.request.Params.Root.Command)
+		require.Equal(t, "/usr/bin", result.request.Params.Root.Env["PATH"])
+		require.Equal(t, "codex", result.request.Params.Root.Env["HERDR_AGENT"])
+	case <-time.After(time.Second):
+		t.Fatal("Herdr did not receive a layout.apply request")
+	}
+
+	calls := readHerdrCalls(t, logPath)
+	require.Contains(t, calls[1], "--env HERDR_AGENT=codex")
+	require.Contains(t, calls[2], "workspace report-metadata w7 --source remuda")
+	require.Equal(t, "status server --json", calls[3])
+	require.NotContains(t, strings.Join(calls, "\n"), "pane run")
+	require.NotContains(t, strings.Join(calls, "\n"), "agent start")
+}
+
+type herdrLayoutRequest struct {
+	Method string `json:"method"`
+	Params struct {
+		TabID string `json:"tab_id"`
+		Root  struct {
+			Type    string            `json:"type"`
+			CWD     string            `json:"cwd"`
+			Command []string          `json:"command"`
+			Env     map[string]string `json:"env"`
+		} `json:"root"`
+	} `json:"params"`
+}
+
+type herdrLayoutRequestResult struct {
+	request herdrLayoutRequest
+	err     error
+}
+
+func listenHerdrAPI(t *testing.T) (string, <-chan herdrLayoutRequestResult) {
+	t.Helper()
+
+	socketPath := filepath.Join(t.TempDir(), "herdr.sock")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "unix", socketPath)
+	require.NoError(t, err)
+	requests := make(chan herdrLayoutRequestResult, 1)
+	t.Cleanup(func() { require.NoError(t, listener.Close()) })
+
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			requests <- herdrLayoutRequestResult{err: err}
+			return
+		}
+		defer func() { _ = conn.Close() }()
+
+		var request herdrLayoutRequest
+		err = json.NewDecoder(conn).Decode(&request)
+		if err == nil {
+			_, err = conn.Write([]byte("{\"id\":\"remuda:layout\",\"result\":{}}\n"))
+		}
+		requests <- herdrLayoutRequestResult{request: request, err: err}
+	}()
+
+	return socketPath, requests
 }
 
 func TestHerdrStartAgentRetriesWhilePaneShellInitializes(t *testing.T) {
