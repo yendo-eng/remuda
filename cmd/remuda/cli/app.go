@@ -266,6 +266,7 @@ func (a *app) buildRoot() *cobra.Command {
 		bindKey("session.manager"),
 		bindEnum(enums.ValidMultiplexers...),
 	)
+	registerStaticCompletion(root, "session-manager", enums.ValidMultiplexers)
 
 	root.AddCommand(
 		a.cloneCmd(),
