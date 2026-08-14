@@ -164,14 +164,16 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "tmux", "kill-server")
+		//nolint:gosec,nolintlint // G204: wrapperPath is a test-owned temp wrapper script written by this test, not external input.
+		cmd := exec.CommandContext(ctx, wrapperPath, "kill-server")
 		cmd.Env = baseEnv
 		_ = cmd.Run()
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "tmux", "new-session", "-d", "-s", "seed", "sleep 30")
+	//nolint:gosec // G204: wrapperPath is a test-owned temp wrapper script written by this test, not external input.
+	cmd := exec.CommandContext(ctx, wrapperPath, "new-session", "-d", "-s", "seed", "sleep 30")
 	cmd.Env = seedEnv
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(out))
@@ -223,7 +225,8 @@ func TestTmuxStartWithEnvSurfacesStderrOnDuplicateSession(t *testing.T) {
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "tmux", "kill-server")
+		//nolint:gosec,nolintlint // G204: wrapperPath is a test-owned temp wrapper script written by this test, not external input.
+		cmd := exec.CommandContext(ctx, wrapperPath, "kill-server")
 		cmd.Env = baseEnv
 		_ = cmd.Run()
 	}()
