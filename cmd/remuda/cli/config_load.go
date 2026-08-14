@@ -10,8 +10,8 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-func loadConfigV1(kctx Context) (*configfile.V1, ConfigFileDiscovery, error) {
-	discovery, err := DiscoverConfigFile(kctx)
+func loadConfigV1(cliCtx Context) (*configfile.V1, ConfigFileDiscovery, error) {
+	discovery, err := DiscoverConfigFile(cliCtx)
 	if err != nil {
 		return nil, discovery, err
 	}
@@ -38,32 +38,32 @@ func normalizeRepoSlug(slug string) string {
 	return strings.ToLower(strings.TrimSpace(slug))
 }
 
-func repoSlugFromWorkspacePath(kctx Context, cfg *configfile.V1, workspace string) string {
+func repoSlugFromWorkspacePath(cliCtx Context, cfg *configfile.V1, workspace string) string {
 	workspace = strings.TrimSpace(workspace)
 	if workspace == "" {
 		return ""
 	}
 	if strings.HasPrefix(workspace, "~") {
-		home, homeErr := homeDirFromContext(kctx)
+		home, homeErr := homeDirFromContext(cliCtx)
 		if expanded, err := expandHomePath(workspace, home, homeErr); err == nil && expanded != "" {
 			workspace = expanded
 		}
 	}
-	if abs := absPathFromContext(workspace, kctx); abs != "" {
+	if abs := absPathFromContext(workspace, cliCtx); abs != "" {
 		workspace = abs
 	}
 
-	baseDir := reposBaseDirForOverlay(kctx, cfg)
+	baseDir := reposBaseDirForOverlay(cliCtx, cfg)
 	if baseDir == "" {
 		return ""
 	}
 	if strings.HasPrefix(baseDir, "~") {
-		home, homeErr := homeDirFromContext(kctx)
+		home, homeErr := homeDirFromContext(cliCtx)
 		if expanded, err := expandHomePath(baseDir, home, homeErr); err == nil && expanded != "" {
 			baseDir = expanded
 		}
 	}
-	if abs := absPathFromContext(baseDir, kctx); abs != "" {
+	if abs := absPathFromContext(baseDir, cliCtx); abs != "" {
 		baseDir = abs
 	}
 
@@ -87,8 +87,8 @@ func workspaceWithinBase(baseDir, workspace string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+sep)
 }
 
-func reposBaseDirForOverlay(kctx Context, cfg *configfile.V1) string {
-	env := envFromContext(kctx)
+func reposBaseDirForOverlay(cliCtx Context, cfg *configfile.V1) string {
+	env := envFromContext(cliCtx)
 	if base := strings.TrimSpace(env.Getenv("REMUDA_REPOS_BASE_DIR")); base != "" {
 		return base
 	}
@@ -97,12 +97,12 @@ func reposBaseDirForOverlay(kctx Context, cfg *configfile.V1) string {
 			return base
 		}
 	}
-	return reposBaseDirFromContext(kctx)
+	return reposBaseDirFromContext(cliCtx)
 }
 
-func reposBaseDirFromContext(kctx Context) string {
-	if strings.TrimSpace(kctx.Remuda.Config.ReposBaseDir) != "" {
-		return kctx.Remuda.Config.ReposBaseDir
+func reposBaseDirFromContext(cliCtx Context) string {
+	if strings.TrimSpace(cliCtx.Remuda.Config.ReposBaseDir) != "" {
+		return cliCtx.Remuda.Config.ReposBaseDir
 	}
-	return internal.ConfigFromEnvWithProvider(kctx.Remuda.Env).ReposBaseDir
+	return internal.ConfigFromEnvWithProvider(cliCtx.Remuda.Env).ReposBaseDir
 }

@@ -29,7 +29,7 @@ func (a *app) sessionReadbufCmd() *cobra.Command {
 	fs.IntVarP(&c.Lines, "lines", "n", 200, "Number of recent lines to print; 0 prints the full buffer.")
 	cmd.MarkFlagsMutuallyExclusive("name", "pick", "all")
 	registerSessionNameCompletion(cmd, "name")
-	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.cliCtx) })
 }
 
 func (c SessionReadbufCmd) Run(ctx Context) error {

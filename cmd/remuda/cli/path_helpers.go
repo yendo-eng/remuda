@@ -12,12 +12,12 @@ func resolvePathFromWorkingDir(path, workingDir string) string {
 	return filepath.Join(workingDir, path)
 }
 
-func absPathFromContext(path string, kctx Context) string {
+func absPathFromContext(path string, cliCtx Context) string {
 	if path == "" {
 		return ""
 	}
 	if strings.HasPrefix(path, "~") {
-		home, homeErr := homeDirFromContext(kctx)
+		home, homeErr := homeDirFromContext(cliCtx)
 		if expanded, err := expandHomePath(path, home, homeErr); err == nil && expanded != "" {
 			path = expanded
 		}
@@ -25,7 +25,7 @@ func absPathFromContext(path string, kctx Context) string {
 	if filepath.IsAbs(path) {
 		return filepath.Clean(path)
 	}
-	workingDir := workingDirFromContext(kctx)
+	workingDir := workingDirFromContext(cliCtx)
 	if workingDir == "" {
 		if abs, err := filepath.Abs(path); err == nil && abs != "" {
 			return abs

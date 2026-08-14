@@ -21,7 +21,7 @@ func (a *app) sessionShellCmd() *cobra.Command {
 	}
 	c.SessionNamePickOption.register(cmd)
 	cmd.Flags().BoolVar(&c.Host, "host", false, "Open a host shell in the session workspace (skip Docker).")
-	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.cliCtx) })
 }
 
 func (c SessionShellCmd) Run(ctx Context) error {

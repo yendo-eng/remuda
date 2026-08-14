@@ -54,7 +54,7 @@ func (a *app) vibeCheckCmd() *cobra.Command {
 							return repoSlugFromURL(prURLRepo)
 						}
 					}
-					return c.repoSelection(*a.kctx, RepoResolutionOptions{}).RepoSlug
+					return c.repoSelection(*a.cliCtx, RepoResolutionOptions{}).RepoSlug
 				},
 			})
 			if err != nil {
@@ -64,10 +64,10 @@ func (a *app) vibeCheckCmd() *cobra.Command {
 			if err := c.AgentSessionOptions.afterApply(); err != nil {
 				return err
 			}
-			if err := c.ContextEngineeringOptions.afterApply(*a.kctx); err != nil {
+			if err := c.ContextEngineeringOptions.afterApply(*a.cliCtx); err != nil {
 				return err
 			}
-			return c.Run(*a.kctx)
+			return c.Run(*a.cliCtx)
 		},
 	}
 

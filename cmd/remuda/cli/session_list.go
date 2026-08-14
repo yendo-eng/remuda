@@ -22,7 +22,7 @@ func (a *app) sessionListCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&c.JSON, "json", false, "Emit JSON instead of plain text.")
 	cmd.Flags().BoolVar(&c.NoOrg, "no-org", false, "Omit the leading org segment from session names.")
-	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.cliCtx) })
 }
 
 func (c *SessionListCmd) Run(ctx Context) error {

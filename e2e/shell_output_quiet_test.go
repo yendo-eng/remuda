@@ -51,10 +51,10 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 			nil,
 			nil,
 		)
-		kctx := cli.NewContext(t.Context(), k, cli.Stdout(&bytes.Buffer{}), cli.Stderr(&bytes.Buffer{}))
+		cliCtx := cli.NewContext(t.Context(), k, cli.Stdout(&bytes.Buffer{}), cli.Stderr(&bytes.Buffer{}))
 
 		stderr, err := captureStderr(t, func() error {
-			return cli.Run(kctx, []string{"clone", "--name", "wk", "--repo-url", remoteURL})
+			return cli.Run(cliCtx, []string{"clone", "--name", "wk", "--repo-url", remoteURL})
 		})
 		require.NoError(t, err)
 		require.NotContains(t, stderr, "Cloning into", "expected git output to be suppressed without -v")
@@ -71,10 +71,10 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 			nil,
 			nil,
 		)
-		kctx := cli.NewContext(t.Context(), k, cli.Stdout(&bytes.Buffer{}), cli.Stderr(&bytes.Buffer{}))
+		cliCtx := cli.NewContext(t.Context(), k, cli.Stdout(&bytes.Buffer{}), cli.Stderr(&bytes.Buffer{}))
 
 		stderr, err := captureStderr(t, func() error {
-			return cli.Run(kctx, []string{"-v", "clone", "--name", "wk2", "--repo-url", remoteURL})
+			return cli.Run(cliCtx, []string{"-v", "clone", "--name", "wk2", "--repo-url", remoteURL})
 		})
 		require.NoError(t, err)
 		require.Contains(t, stderr, "Cloning into", "expected git output to be streamed with -v")

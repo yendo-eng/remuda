@@ -21,8 +21,10 @@ import (
 
 type MultiplexerFactory func(session.SupportedMultiplexer, zerolog.Logger) session.Multiplexer
 
-const defaultCLIName = "remuda"
-const defaultCLIVersion = "unknown"
+const (
+	defaultCLIName    = "remuda"
+	defaultCLIVersion = "unknown"
+)
 
 func normalizeCLIName(raw string) string {
 	trimmed := strings.TrimSpace(raw)
@@ -38,7 +40,7 @@ func normalizeCLIName(raw string) string {
 
 // app wires the cobra command tree to a single CLI invocation.
 type app struct {
-	kctx               *Context
+	cliCtx             *Context
 	cliName            string
 	version            string
 	cfg                *configfile.V1
@@ -76,8 +78,8 @@ func (a *app) prepare(cmd *cobra.Command, opts prepareOpts) error {
 	}
 	rs.captureExplicitFlags(cmd.Flags())
 
-	env := envFromContext(*a.kctx)
-	a.kctx.inv = &invocation{
+	env := envFromContext(*a.cliCtx)
+	a.cliCtx.inv = &invocation{
 		app:      a,
 		cmd:      cmd,
 		rs:       rs,
@@ -92,7 +94,7 @@ func (a *app) prepare(cmd *cobra.Command, opts prepareOpts) error {
 	if err := rs.apply(env, base); err != nil {
 		return err
 	}
-	a.kctx.inv.eff = base
+	a.cliCtx.inv.eff = base
 
 	slug := ""
 	if opts.slugFn != nil {
@@ -113,7 +115,7 @@ func (a *app) validateExperiments(rs *flagResolution) error {
 	if strings.TrimSpace(a.experiments.Experiments) == "" {
 		return nil
 	}
-	source := experimentInputSource(rs, a.kctx.inv.env)
+	source := experimentInputSource(rs, a.cliCtx.inv.env)
 	retired, err := validateExperiments(a.experiments.Experiments, source)
 	if err != nil {
 		return err
@@ -137,13 +139,13 @@ func (a *app) warnRetiredExperiment(name string) {
 	}
 	a.warnedRetiredExperiments[name] = struct{}{}
 	reason, _ := expregistry.RetiredReason(name)
-	a.kctx.Remuda.IO.Errf("warning: experiment %q %s\n", name, reason)
+	a.cliCtx.Remuda.IO.Errf("warning: experiment %q %s\n", name, reason)
 }
 
 // applyRepoOverlays re-resolves flags with per_repo/profile overlays for the
 // given slug. Also invoked after interactive repo selection (FTUE, --pick).
 func (a *app) applyRepoOverlays(slug string) error {
-	inv := a.kctx.inv
+	inv := a.cliCtx.inv
 	profile := profileRef{}
 	if inv.profiled {
 		flagValue := ""
@@ -179,16 +181,16 @@ func (a *app) applyRepoOverlays(slug string) error {
 // applyReposBaseDir honors precedence env > config > built-in default for
 // the repos base directory.
 func (a *app) applyReposBaseDir(eff *koanf.Koanf) {
-	kctx := a.kctx
-	env := envFromContext(*kctx)
+	cliCtx := a.cliCtx
+	env := envFromContext(*cliCtx)
 	if base := env.Getenv("REMUDA_REPOS_BASE_DIR"); base != "" {
-		kctx.Remuda.Config.ReposBaseDir = base
+		cliCtx.Remuda.Config.ReposBaseDir = base
 		return
 	}
 	// Only apply config defaults when the caller hasn't already chosen a base dir.
 	// This preserves behavior for tests and other non-main entrypoints that
 	// construct internal.Remuda with an explicit Config.
-	if kctx.Remuda.Config.ReposBaseDir != internal.ConfigFromEnvWithProvider(kctx.Remuda.Env).ReposBaseDir {
+	if cliCtx.Remuda.Config.ReposBaseDir != internal.ConfigFromEnvWithProvider(cliCtx.Remuda.Env).ReposBaseDir {
 		return
 	}
 
@@ -199,36 +201,36 @@ func (a *app) applyReposBaseDir(eff *koanf.Koanf) {
 
 	// Best-effort: Expand "~" and "~/" to HOME when present.
 	if strings.HasPrefix(baseDir, "~") {
-		home, homeErr := homeDirFromContext(*kctx)
+		home, homeErr := homeDirFromContext(*cliCtx)
 		if expanded, err := expandHomePath(baseDir, home, homeErr); err == nil && expanded != "" {
 			baseDir = expanded
 		}
 	}
 
-	kctx.Remuda.Config.ReposBaseDir = baseDir
+	cliCtx.Remuda.Config.ReposBaseDir = baseDir
 }
 
 // finishSetup applies the resolved --verbose and --session-manager values.
 func (a *app) finishSetup() {
-	kctx := a.kctx
+	cliCtx := a.cliCtx
 
 	logLevel := zerolog.InfoLevel
 	if a.verbose {
 		logLevel = zerolog.DebugLevel
 	}
-	logger := logging.NewConsoleLogger(kctx.Remuda.IO.Err, logLevel)
-	kctx.Remuda.SetLogger(logger)
-	kctx.ctx = logging.WithLogger(kctx.ctx, logger)
+	logger := logging.NewConsoleLogger(cliCtx.Remuda.IO.Err, logLevel)
+	cliCtx.Remuda.SetLogger(logger)
+	cliCtx.ctx = logging.WithLogger(cliCtx.ctx, logger)
 
 	// Wire the selected session manager after resolution so --session-manager
 	// and config-file defaults take effect for this invocation. Preserve
 	// injected session managers (eg. e2e mocks) unless we're using the
 	// built-in managers.
-	if kctx.Remuda.Multiplexer == nil ||
-		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerTmux) ||
-		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerZellij) ||
-		kctx.Remuda.Multiplexer.Name() == string(session.MultiplexerHerdr) {
-		kctx.Remuda.Multiplexer = a.multiplexerFactory(session.SupportedMultiplexer(a.sessionManager), logger)
+	if cliCtx.Remuda.Multiplexer == nil ||
+		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerTmux) ||
+		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerZellij) ||
+		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerHerdr) {
+		cliCtx.Remuda.Multiplexer = a.multiplexerFactory(session.SupportedMultiplexer(a.sessionManager), logger)
 	}
 }
 
@@ -283,8 +285,8 @@ func (a *app) buildRoot() *cobra.Command {
 	return root
 }
 
-func applyCloneHooksFromConfig(kctx *Context, cfg *configfile.V1) {
-	if kctx == nil || kctx.Remuda.CloneHooks == nil {
+func applyCloneHooksFromConfig(cliCtx *Context, cfg *configfile.V1) {
+	if cliCtx == nil || cliCtx.Remuda.CloneHooks == nil {
 		return
 	}
 
@@ -312,36 +314,36 @@ func applyCloneHooksFromConfig(kctx *Context, cfg *configfile.V1) {
 		}
 	}
 
-	kctx.Remuda.CloneHooks.SetConfigHooks(hooksByRepo)
+	cliCtx.Remuda.CloneHooks.SetConfigHooks(hooksByRepo)
 }
 
-func Run(kctx Context, args []string) error {
-	return RunWithName(kctx, defaultCLIName, args)
+func Run(cliCtx Context, args []string) error {
+	return RunWithName(cliCtx, defaultCLIName, args)
 }
 
-func RunWithName(kctx Context, cliName string, args []string) error {
+func RunWithName(cliCtx Context, cliName string, args []string) error {
 	cliName = normalizeCLIName(cliName)
 
-	env := envFromContext(kctx)
-	multiplexerFactory := kctx.MultiplexerFactory
+	env := envFromContext(cliCtx)
+	multiplexerFactory := cliCtx.MultiplexerFactory
 	if multiplexerFactory == nil {
 		multiplexerFactory = session.NewMultiplexerWithLogger
 	}
-	logger := logging.NewConsoleLogger(kctx.Remuda.IO.Err, zerolog.InfoLevel)
-	kctx.Remuda.SetLogger(logger)
-	kctx.ctx = logging.WithLogger(kctx.ctx, logger)
+	logger := logging.NewConsoleLogger(cliCtx.Remuda.IO.Err, zerolog.InfoLevel)
+	cliCtx.Remuda.SetLogger(logger)
+	cliCtx.ctx = logging.WithLogger(cliCtx.ctx, logger)
 
 	// Completion functions may need a session manager before command flags
 	// resolve, so wire one from the environment up front.
-	if kctx.Remuda.Multiplexer == nil {
+	if cliCtx.Remuda.Multiplexer == nil {
 		managerName := session.MultiplexerTmux
 		if sessionMgr := env.Getenv("REMUDA_SESSION_MANAGER"); sessionMgr != "" {
 			managerName = session.SupportedMultiplexer(sessionMgr)
 		}
-		kctx.Remuda.Multiplexer = multiplexerFactory(managerName, logger)
+		cliCtx.Remuda.Multiplexer = multiplexerFactory(managerName, logger)
 	}
 
-	cfg, discovery, err := loadConfigV1(kctx)
+	cfg, discovery, err := loadConfigV1(cliCtx)
 	if err != nil {
 		strictRequested := strings.TrimSpace(env.Getenv(configOverrideEnvVar)) != ""
 		strict := strictRequested || discovery.Strict
@@ -366,21 +368,21 @@ func RunWithName(kctx Context, cliName string, args []string) error {
 		return err
 	}
 
-	kctx.ConfigFile = cfg
-	applyCloneHooksFromConfig(&kctx, cfg)
+	cliCtx.ConfigFile = cfg
+	applyCloneHooksFromConfig(&cliCtx, cfg)
 
 	// Keep alias catalog in sync with the parsed config for the remainder of startup.
 	if cfg != nil && cfg.Repos != nil && len(cfg.Repos.Aliases) > 0 {
 		github.MergeRepoAliases(cfg.Repos.Aliases)
 	}
 
-	version := strings.TrimSpace(kctx.Version)
+	version := strings.TrimSpace(cliCtx.Version)
 	if version == "" {
 		version = defaultCLIVersion
 	}
 
 	a := &app{
-		kctx:               &kctx,
+		cliCtx:             &cliCtx,
 		cliName:            cliName,
 		version:            version,
 		cfg:                cfg,
@@ -388,13 +390,13 @@ func RunWithName(kctx Context, cliName string, args []string) error {
 	}
 	root := a.buildRoot()
 	root.SetArgs(args)
-	root.SetIn(kctx.Remuda.IO.In)
-	root.SetOut(kctx.Remuda.IO.Out)
-	root.SetErr(kctx.Remuda.IO.Err)
+	root.SetIn(cliCtx.Remuda.IO.In)
+	root.SetOut(cliCtx.Remuda.IO.Out)
+	root.SetErr(cliCtx.Remuda.IO.Err)
 
 	// Completion callbacks run outside prepare(); give them access to the
 	// CLI context through the command context.
-	execCtx := context.WithValue(kctx.ctx, completionContextKey{}, &kctx)
+	execCtx := context.WithValue(cliCtx.ctx, completionContextKey{}, &cliCtx)
 
 	return root.ExecuteContext(execCtx)
 }

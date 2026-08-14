@@ -23,7 +23,7 @@ func (a *app) promptsCmd() *cobra.Command {
 		Short: "List available prompts.",
 		Args:  cobra.NoArgs,
 	}
-	a.simpleCmd(listCmd, nil, func([]string) error { return list.Run(*a.kctx) })
+	a.simpleCmd(listCmd, nil, func([]string) error { return list.Run(*a.cliCtx) })
 
 	show := &ShowPromptCmd{}
 	showCmd := &cobra.Command{
@@ -31,12 +31,12 @@ func (a *app) promptsCmd() *cobra.Command {
 		Short: "Show the content of a prompt (custom overrides built-in on name collision).",
 		Args:  cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return allPromptNames(*a.kctx), cobra.ShellCompDirectiveNoFileComp
+			return allPromptNames(*a.cliCtx), cobra.ShellCompDirectiveNoFileComp
 		},
 	}
 	a.simpleCmd(showCmd, nil, func(args []string) error {
 		show.Name = args[0]
-		return show.Run(*a.kctx)
+		return show.Run(*a.cliCtx)
 	})
 
 	cmd.AddCommand(listCmd, showCmd)

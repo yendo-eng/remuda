@@ -81,44 +81,44 @@ func NewContext(
 	k internal.Remuda,
 	opts ...func(*Context),
 ) Context {
-	kctx := Context{
+	cliCtx := Context{
 		ctx:    ctx,
 		Remuda: k,
 	}
 
 	for _, opt := range opts {
-		opt(&kctx)
+		opt(&cliCtx)
 	}
 
-	if kctx.Env == nil {
-		kctx.Env = defaultEnvProvider()
+	if cliCtx.Env == nil {
+		cliCtx.Env = defaultEnvProvider()
 	}
-	if !kctx.homeDirSet {
+	if !cliCtx.homeDirSet {
 		home, err := defaultHomeDir()
-		kctx.HomeDir = home
-		kctx.homeDirErr = err
+		cliCtx.HomeDir = home
+		cliCtx.homeDirErr = err
 	}
-	if !kctx.workingDirSet {
+	if !cliCtx.workingDirSet {
 		wd, err := defaultWorkingDir()
-		kctx.WorkingDir = wd
-		kctx.workingDirErr = err
+		cliCtx.WorkingDir = wd
+		cliCtx.workingDirErr = err
 	}
 
-	kctx.Remuda.Env = internalEnvProvider{
-		env:        kctx.Env,
-		homeDir:    kctx.HomeDir,
-		homeErr:    kctx.homeDirErr,
-		workingDir: kctx.WorkingDir,
-		workingErr: kctx.workingDirErr,
+	cliCtx.Remuda.Env = internalEnvProvider{
+		env:        cliCtx.Env,
+		homeDir:    cliCtx.HomeDir,
+		homeErr:    cliCtx.homeDirErr,
+		workingDir: cliCtx.WorkingDir,
+		workingErr: cliCtx.workingDirErr,
 	}
-	kctx.Remuda.Env = env.NewMutableProvider(kctx.Remuda.Env)
-	if kctx.Remuda.GitHub == nil {
-		kctx.Remuda.GitHub = github.NewGhCLIWithEnv(kctx.Remuda.Env)
-	} else if setter, ok := kctx.Remuda.GitHub.(github.EnvProviderSetter); ok {
-		kctx.Remuda.GitHub = setter.WithEnv(kctx.Remuda.Env)
+	cliCtx.Remuda.Env = env.NewMutableProvider(cliCtx.Remuda.Env)
+	if cliCtx.Remuda.GitHub == nil {
+		cliCtx.Remuda.GitHub = github.NewGhCLIWithEnv(cliCtx.Remuda.Env)
+	} else if setter, ok := cliCtx.Remuda.GitHub.(github.EnvProviderSetter); ok {
+		cliCtx.Remuda.GitHub = setter.WithEnv(cliCtx.Remuda.Env)
 	}
 
-	return kctx
+	return cliCtx
 }
 
 func Stdout(w io.Writer) func(*Context) {

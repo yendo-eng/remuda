@@ -37,7 +37,7 @@ func (a *app) completionsCmd(root *cobra.Command) *cobra.Command {
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			out := a.kctx.Remuda.IO.Out
+			out := a.cliCtx.Remuda.IO.Out
 			switch args[0] {
 			case "bash":
 				return root.GenBashCompletionV2(out, true)
@@ -89,11 +89,11 @@ func registerStaticCompletionKeepOrder(cmd *cobra.Command, flag string, values [
 
 func registerSessionNameCompletion(cmd *cobra.Command, flag string) {
 	registerFlagCompletion(cmd, flag, func(c *cobra.Command, _ string) []string {
-		kctx := contextFromCompletion(c)
-		if kctx == nil {
+		cliCtx := contextFromCompletion(c)
+		if cliCtx == nil {
 			return nil
 		}
-		sessions, err := kctx.Remuda.SessionList()
+		sessions, err := cliCtx.Remuda.SessionList()
 		if err != nil {
 			return nil
 		}
@@ -118,12 +118,12 @@ func registerRepoAliasCompletion(cmd *cobra.Command, flag string) {
 
 func registerProfileNameCompletion(cmd *cobra.Command, flag string) {
 	registerFlagCompletion(cmd, flag, func(c *cobra.Command, _ string) []string {
-		kctx := contextFromCompletion(c)
-		if kctx == nil || kctx.ConfigFile == nil || len(kctx.ConfigFile.Profiles) == 0 {
+		cliCtx := contextFromCompletion(c)
+		if cliCtx == nil || cliCtx.ConfigFile == nil || len(cliCtx.ConfigFile.Profiles) == 0 {
 			return nil
 		}
-		names := make([]string, 0, len(kctx.ConfigFile.Profiles))
-		for name := range kctx.ConfigFile.Profiles {
+		names := make([]string, 0, len(cliCtx.ConfigFile.Profiles))
+		for name := range cliCtx.ConfigFile.Profiles {
 			names = append(names, name)
 		}
 		sort.Strings(names)
@@ -133,11 +133,11 @@ func registerProfileNameCompletion(cmd *cobra.Command, flag string) {
 
 func registerPromptNameCompletion(cmd *cobra.Command, flag string) {
 	registerFlagCompletion(cmd, flag, func(c *cobra.Command, _ string) []string {
-		kctx := contextFromCompletion(c)
-		if kctx == nil {
+		cliCtx := contextFromCompletion(c)
+		if cliCtx == nil {
 			return nil
 		}
-		return allPromptNames(*kctx)
+		return allPromptNames(*cliCtx)
 	})
 }
 
@@ -146,15 +146,15 @@ func registerPromptNameCompletion(cmd *cobra.Command, flag string) {
 // only prompts that excluding would actually remove.
 func registerNoUsePromptNameCompletion(cmd *cobra.Command, flag string) {
 	registerFlagCompletion(cmd, flag, func(c *cobra.Command, _ string) []string {
-		kctx := contextFromCompletion(c)
-		if kctx == nil {
+		cliCtx := contextFromCompletion(c)
+		if cliCtx == nil {
 			return nil
 		}
 
 		useFromFlags, _ := c.Flags().GetStringSlice("use")
 		noUseFromFlags, _ := c.Flags().GetStringSlice("no-use")
 
-		env := envFromContext(*kctx)
+		env := envFromContext(*cliCtx)
 		var use []string
 		if envSet(env, "REMUDA_USE_PROMPTS") {
 			// Match runtime precedence: explicit --use replaces env defaults.
@@ -165,8 +165,8 @@ func registerNoUsePromptNameCompletion(cmd *cobra.Command, flag string) {
 			}
 		} else {
 			var configUse []string
-			if kctx.ConfigFile != nil && kctx.ConfigFile.Defaults != nil && kctx.ConfigFile.Defaults.UsePrompts != nil {
-				configUse = *kctx.ConfigFile.Defaults.UsePrompts
+			if cliCtx.ConfigFile != nil && cliCtx.ConfigFile.Defaults != nil && cliCtx.ConfigFile.Defaults.UsePrompts != nil {
+				configUse = *cliCtx.ConfigFile.Defaults.UsePrompts
 			}
 			use = mergeUnique(configUse, useFromFlags)
 		}
@@ -181,7 +181,7 @@ func registerNoUsePromptNameCompletion(cmd *cobra.Command, flag string) {
 			effectiveSet[name] = struct{}{}
 		}
 
-		all := allPromptNames(*kctx)
+		all := allPromptNames(*cliCtx)
 		out := make([]string, 0, len(all))
 		for _, name := range all {
 			if _, ok := effectiveSet[name]; ok {
@@ -194,11 +194,11 @@ func registerNoUsePromptNameCompletion(cmd *cobra.Command, flag string) {
 
 func registerModelCompletion(cmd *cobra.Command) {
 	registerFlagCompletion(cmd, "model", func(c *cobra.Command, _ string) []string {
-		kctx := contextFromCompletion(c)
-		if kctx == nil {
+		cliCtx := contextFromCompletion(c)
+		if cliCtx == nil {
 			return nil
 		}
-		agent, _, err := agentlauncher.Parse(completionAgentName(c, *kctx), "", false)
+		agent, _, err := agentlauncher.Parse(completionAgentName(c, *cliCtx), "", false)
 		if err != nil {
 			return nil
 		}
@@ -208,23 +208,23 @@ func registerModelCompletion(cmd *cobra.Command) {
 
 func registerReasoningLevelCompletion(cmd *cobra.Command) {
 	registerFlagCompletionKeepOrder(cmd, "reasoning-level", func(c *cobra.Command, _ string) []string {
-		kctx := contextFromCompletion(c)
-		if kctx == nil {
+		cliCtx := contextFromCompletion(c)
+		if cliCtx == nil {
 			return nil
 		}
-		agentName := completionAgentName(c, *kctx)
+		agentName := completionAgentName(c, *cliCtx)
 
 		model, _ := c.Flags().GetString("model")
 		if strings.TrimSpace(model) == "" {
-			model = strings.TrimSpace(envFromContext(*kctx).Getenv("REMUDA_MODEL"))
+			model = strings.TrimSpace(envFromContext(*cliCtx).Getenv("REMUDA_MODEL"))
 		}
 		if model == "" {
-			model = strings.TrimSpace(defaultModelFromConfig(*kctx))
+			model = strings.TrimSpace(defaultModelFromConfig(*cliCtx))
 		}
 		model = agentlauncher.EffectiveModel(agentName, model)
 
 		if strings.EqualFold(agentName, string(agentlauncher.AgentClaude)) {
-			return claudeHintsForContext(*kctx).EffortSuggestions
+			return claudeHintsForContext(*cliCtx).EffortSuggestions
 		}
 
 		return agentlauncher.SuggestedReasoningLevels(agentName, model)
@@ -249,22 +249,22 @@ func contextFromCompletion(cmd *cobra.Command) *Context {
 	if ctx == nil {
 		return nil
 	}
-	if kctx, ok := ctx.Value(completionContextKey{}).(*Context); ok {
-		return kctx
+	if cliCtx, ok := ctx.Value(completionContextKey{}).(*Context); ok {
+		return cliCtx
 	}
 	return nil
 }
 
 type completionContextKey struct{}
 
-func completionAgentName(c *cobra.Command, kctx Context) string {
+func completionAgentName(c *cobra.Command, cliCtx Context) string {
 	agentName, _ := c.Flags().GetString("agent")
 	agentName = strings.TrimSpace(agentName)
 	if agentName == "" || agentName == "codex" && !c.Flags().Changed("agent") {
-		if fromEnv := strings.TrimSpace(envFromContext(kctx).Getenv("REMUDA_AGENT")); fromEnv != "" {
+		if fromEnv := strings.TrimSpace(envFromContext(cliCtx).Getenv("REMUDA_AGENT")); fromEnv != "" {
 			return fromEnv
 		}
-		if fromConfig := strings.TrimSpace(defaultAgentFromConfig(kctx)); fromConfig != "" {
+		if fromConfig := strings.TrimSpace(defaultAgentFromConfig(cliCtx)); fromConfig != "" {
 			return fromConfig
 		}
 		return "codex"
@@ -272,8 +272,8 @@ func completionAgentName(c *cobra.Command, kctx Context) string {
 	return agentName
 }
 
-func allPromptNames(kctx Context) []string {
-	provider := kctx.Remuda.Env
+func allPromptNames(cliCtx Context) []string {
+	provider := cliCtx.Remuda.Env
 	promptList, err := prompts.ListWithEnv(provider)
 	if err != nil {
 		return nil
@@ -285,24 +285,24 @@ func allPromptNames(kctx Context) []string {
 	return names
 }
 
-func defaultAgentFromConfig(kctx Context) string {
-	cfg := kctx.ConfigFile
+func defaultAgentFromConfig(cliCtx Context) string {
+	cfg := cliCtx.ConfigFile
 	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.Agent == nil {
 		return ""
 	}
 	return *cfg.Defaults.Agent
 }
 
-func defaultModelFromConfig(kctx Context) string {
-	cfg := kctx.ConfigFile
+func defaultModelFromConfig(cliCtx Context) string {
+	cfg := cliCtx.ConfigFile
 	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.Model == nil {
 		return ""
 	}
 	return *cfg.Defaults.Model
 }
 
-func claudeHintsForContext(kctx Context) claudeCompletionHints {
-	cacheKey := strings.TrimSpace(envFromContext(kctx).Getenv("PATH"))
+func claudeHintsForContext(cliCtx Context) claudeCompletionHints {
+	cacheKey := strings.TrimSpace(envFromContext(cliCtx).Getenv("PATH"))
 	if cacheKey == "" {
 		cacheKey = "__empty_path__"
 	}
@@ -317,7 +317,7 @@ func claudeHintsForContext(kctx Context) claudeCompletionHints {
 	hints := claudeCompletionHints{
 		EffortSuggestions: nil,
 	}
-	helpText := loadClaudeHelpText(kctx)
+	helpText := loadClaudeHelpText(cliCtx)
 	hints.EffortSuggestions = mergeEffortSuggestions(
 		parseClaudeEffortSuggestions(helpText),
 		agentlauncher.ClaudeEffortLevels,
@@ -334,8 +334,8 @@ func claudeHintsForContext(kctx Context) claudeCompletionHints {
 	return hints
 }
 
-func loadClaudeHelpText(kctx Context) string {
-	baseCtx := kctx.ctx
+func loadClaudeHelpText(cliCtx Context) string {
+	baseCtx := cliCtx.ctx
 	if baseCtx == nil {
 		baseCtx = context.Background()
 	}
@@ -343,7 +343,7 @@ func loadClaudeHelpText(kctx Context) string {
 	ctx, cancel := context.WithTimeout(baseCtx, claudeHelpTimeout)
 	defer cancel()
 
-	cmdEnv := environFromEnvProvider(envFromContext(kctx))
+	cmdEnv := environFromEnvProvider(envFromContext(cliCtx))
 	baseCmd := util.CmdWithEnv(cmdEnv, "claude", "--help")
 	if baseCmd.Err != nil {
 		return ""

@@ -30,7 +30,7 @@ func (a *app) llmCmd() *cobra.Command {
 	c.SlugifyOptions.register(slugify, fl)
 	a.simpleCmd(slugify, fl, func(args []string) error {
 		c.Prompt = args[0]
-		return c.Run(*a.kctx)
+		return c.Run(*a.cliCtx)
 	})
 
 	cmd.AddCommand(slugify)

@@ -32,14 +32,14 @@ func (a *app) cloneCmd() *cobra.Command {
 				fl: fl,
 				slugFn: func() string {
 					c.CloneRepoOption.normalize()
-					return c.repoSelection(*a.kctx, RepoResolutionOptions{RepoURLArg: c.RepoURLArg}).RepoSlug
+					return c.repoSelection(*a.cliCtx, RepoResolutionOptions{RepoURLArg: c.RepoURLArg}).RepoSlug
 				},
 			})
 			if err != nil {
 				return err
 			}
 			c.CloneRepoOption.normalize()
-			return c.Run(*a.kctx)
+			return c.Run(*a.cliCtx)
 		},
 	}
 

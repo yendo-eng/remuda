@@ -25,7 +25,7 @@ func (a *app) workspacesEditCmd() *cobra.Command {
 		if err := c.Validate(); err != nil {
 			return err
 		}
-		return c.Run(*a.kctx)
+		return c.Run(*a.cliCtx)
 	})
 }
 

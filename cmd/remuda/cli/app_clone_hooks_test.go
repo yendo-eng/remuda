@@ -39,7 +39,7 @@ func TestApplyCloneHooksFromConfig_AppendsAfterRegisteredHooks(t *testing.T) {
 		internal.WithCloneHooks(registry),
 		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}),
 	)
-	kctx := Context{Remuda: k}
+	cliCtx := Context{Remuda: k}
 
 	cfg := &configfile.V1{
 		PerRepo: map[string]configfile.OverlayV1{
@@ -51,8 +51,8 @@ func TestApplyCloneHooksFromConfig_AppendsAfterRegisteredHooks(t *testing.T) {
 		},
 	}
 
-	applyCloneHooksFromConfig(&kctx, cfg)
-	err := kctx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
+	applyCloneHooksFromConfig(&cliCtx, cfg)
+	err := cliCtx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
 		Org:         "acme",
 		Repo:        "rocket",
 		WorktreeDir: worktreeDir,
@@ -81,7 +81,7 @@ func TestApplyCloneHooksFromConfig_ReplacesAndClearsConfigHooks(t *testing.T) {
 		internal.WithCloneHooks(registry),
 		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}),
 	)
-	kctx := Context{Remuda: k}
+	cliCtx := Context{Remuda: k}
 
 	cfgA := &configfile.V1{
 		PerRepo: map[string]configfile.OverlayV1{
@@ -92,8 +92,8 @@ func TestApplyCloneHooksFromConfig_ReplacesAndClearsConfigHooks(t *testing.T) {
 			},
 		},
 	}
-	applyCloneHooksFromConfig(&kctx, cfgA)
-	require.NoError(t, kctx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
+	applyCloneHooksFromConfig(&cliCtx, cfgA)
+	require.NoError(t, cliCtx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
 		Org:         "acme",
 		Repo:        "rocket",
 		WorktreeDir: worktreeDir,
@@ -112,8 +112,8 @@ func TestApplyCloneHooksFromConfig_ReplacesAndClearsConfigHooks(t *testing.T) {
 			},
 		},
 	}
-	applyCloneHooksFromConfig(&kctx, cfgB)
-	require.NoError(t, kctx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
+	applyCloneHooksFromConfig(&cliCtx, cfgB)
+	require.NoError(t, cliCtx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
 		Org:         "acme",
 		Repo:        "rocket",
 		WorktreeDir: worktreeDir,
@@ -123,9 +123,9 @@ func TestApplyCloneHooksFromConfig_ReplacesAndClearsConfigHooks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "second\n", string(data))
 
-	applyCloneHooksFromConfig(&kctx, nil)
+	applyCloneHooksFromConfig(&cliCtx, nil)
 	require.NoError(t, os.Remove(markerFile))
-	require.NoError(t, kctx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
+	require.NoError(t, cliCtx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
 		Org:         "acme",
 		Repo:        "rocket",
 		WorktreeDir: worktreeDir,
@@ -148,7 +148,7 @@ func TestApplyCloneHooksFromConfig_GeneratesDefaultHookNames(t *testing.T) {
 		internal.WithCloneHooks(registry),
 		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}),
 	)
-	kctx := Context{Remuda: k}
+	cliCtx := Context{Remuda: k}
 
 	cfg := &configfile.V1{
 		PerRepo: map[string]configfile.OverlayV1{
@@ -159,9 +159,9 @@ func TestApplyCloneHooksFromConfig_GeneratesDefaultHookNames(t *testing.T) {
 			},
 		},
 	}
-	applyCloneHooksFromConfig(&kctx, cfg)
+	applyCloneHooksFromConfig(&cliCtx, cfg)
 
-	err := kctx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
+	err := cliCtx.Remuda.CloneHooks.RunCloneHooks(internal.CloneHookContext{
 		Org:  "acme",
 		Repo: "rocket",
 	})
