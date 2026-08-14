@@ -2,7 +2,6 @@ package cli
 
 import (
 	"errors"
-
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -44,7 +43,7 @@ func DiscoverConfigFile(cliCtx Context) (ConfigFileDiscovery, error) {
 	home, homeErr := homeDirFromContext(cliCtx)
 	workingDir := workingDirFromContext(cliCtx)
 
-	if override := strings.TrimSpace(env.Getenv(configOverrideEnvVar)); override != "" {
+	if override := strings.TrimSpace(env.Get(configOverrideEnvVar)); override != "" {
 		expanded, err := expandHomePath(override, home, homeErr)
 		if err != nil {
 			return ConfigFileDiscovery{}, err
@@ -60,7 +59,7 @@ func DiscoverConfigFile(cliCtx Context) (ConfigFileDiscovery, error) {
 		}, nil
 	}
 
-	xdgHome := strings.TrimSpace(env.Getenv("XDG_CONFIG_HOME"))
+	xdgHome := strings.TrimSpace(env.Get("XDG_CONFIG_HOME"))
 
 	if xdgHome != "" {
 		xdgHome = resolvePathFromWorkingDir(xdgHome, workingDir)

@@ -20,7 +20,7 @@ func main() {
 	cfg := internal.ConfigFromEnv()
 	version := resolveVersion(buildVersion, debug.ReadBuildInfo)
 
-	k := internal.NewRemuda(
+	remuda := internal.NewRemuda(
 		cfg,
 		git.NewShellGit(),
 		// TODO: there may be a nicer way of doing this while still keeping it testable
@@ -31,7 +31,7 @@ func main() {
 	)
 
 	err := clipkg.RunWithName(
-		clipkg.NewContext(context.Background(), k, clipkg.WithVersion(version)),
+		clipkg.NewContext(context.Background(), remuda, clipkg.WithVersion(version)),
 		os.Args[0],
 		os.Args[1:],
 	)

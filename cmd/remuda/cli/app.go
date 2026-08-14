@@ -183,7 +183,7 @@ func (a *app) applyRepoOverlays(slug string) error {
 func (a *app) applyReposBaseDir(eff *koanf.Koanf) {
 	cliCtx := a.cliCtx
 	env := envFromContext(*cliCtx)
-	if base := env.Getenv("REMUDA_REPOS_BASE_DIR"); base != "" {
+	if base := env.Get("REMUDA_REPOS_BASE_DIR"); base != "" {
 		cliCtx.Remuda.Config.ReposBaseDir = base
 		return
 	}
@@ -337,7 +337,7 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 	// resolve, so wire one from the environment up front.
 	if cliCtx.Remuda.Multiplexer == nil {
 		managerName := session.MultiplexerTmux
-		if sessionMgr := env.Getenv("REMUDA_SESSION_MANAGER"); sessionMgr != "" {
+		if sessionMgr := env.Get("REMUDA_SESSION_MANAGER"); sessionMgr != "" {
 			managerName = session.SupportedMultiplexer(sessionMgr)
 		}
 		cliCtx.Remuda.Multiplexer = multiplexerFactory(managerName, logger)
@@ -345,7 +345,7 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 
 	cfg, discovery, err := loadConfigV1(cliCtx)
 	if err != nil {
-		strictRequested := strings.TrimSpace(env.Getenv(configOverrideEnvVar)) != ""
+		strictRequested := strings.TrimSpace(env.Get(configOverrideEnvVar)) != ""
 		strict := strictRequested || discovery.Strict
 
 		fields := logger.Warn().Err(err).Bool("strict", strict)

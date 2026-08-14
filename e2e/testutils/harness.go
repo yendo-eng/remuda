@@ -274,7 +274,7 @@ func (h *Harness) SetEnv(key, value string) {
 
 func (h *Harness) Getenv(key string) string {
 	h.t.Helper()
-	return h.Env.Getenv(key)
+	return h.Env.Get(key)
 }
 
 func (h *Harness) SetWorkingDir(dir string) {

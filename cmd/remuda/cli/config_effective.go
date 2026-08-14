@@ -27,7 +27,7 @@ func selectProfile(flagValue string, flagIsExplicit bool, env EnvProvider, cfg *
 			return profileRef{Name: trimmed}
 		}
 	}
-	if trimmed := strings.TrimSpace(envOrDefault(env).Getenv("REMUDA_PROFILE")); trimmed != "" {
+	if trimmed := strings.TrimSpace(envOrDefault(env).Get("REMUDA_PROFILE")); trimmed != "" {
 		return profileRef{Name: trimmed}
 	}
 	slug = normalizeRepoSlug(slug)

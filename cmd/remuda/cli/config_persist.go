@@ -97,7 +97,7 @@ func discoverConfigFileForWrite(cliCtx Context) (ConfigFileDiscovery, error) {
 		return discovery, nil
 	}
 
-	override := strings.TrimSpace(env.Getenv(configOverrideEnvVar))
+	override := strings.TrimSpace(env.Get(configOverrideEnvVar))
 	if override == "" {
 		return discovery, err
 	}
@@ -136,7 +136,7 @@ func primaryConfigPath(cliCtx Context) (string, error) {
 	home, homeErr := homeDirFromContext(cliCtx)
 	workingDir := workingDirFromContext(cliCtx)
 
-	if xdgHome := strings.TrimSpace(env.Getenv("XDG_CONFIG_HOME")); xdgHome != "" {
+	if xdgHome := strings.TrimSpace(env.Get("XDG_CONFIG_HOME")); xdgHome != "" {
 		xdgHome = resolvePathFromWorkingDir(xdgHome, workingDir)
 		return filepath.Join(xdgHome, "remuda", "config.yaml"), nil
 	}

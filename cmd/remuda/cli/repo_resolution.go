@@ -117,7 +117,7 @@ func repoSourceForAlias(env EnvProvider, ctx Context, repo string) RepoSelection
 }
 
 func envSet(env EnvProvider, name string) bool {
-	if val, ok := env.LookupEnv(name); ok {
+	if val, ok := env.Lookup(name); ok {
 		return strings.TrimSpace(val) != ""
 	}
 	return false
