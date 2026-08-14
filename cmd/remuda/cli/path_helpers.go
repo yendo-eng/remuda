@@ -17,7 +17,7 @@ func absPathFromContext(path string, cliCtx Context) string {
 		return ""
 	}
 	if strings.HasPrefix(path, "~") {
-		home, homeErr := homeDirFromContext(cliCtx)
+		home, homeErr := cliCtx.homeDir()
 		if expanded, err := expandHomePath(path, home, homeErr); err == nil && expanded != "" {
 			path = expanded
 		}
@@ -25,7 +25,7 @@ func absPathFromContext(path string, cliCtx Context) string {
 	if filepath.IsAbs(path) {
 		return filepath.Clean(path)
 	}
-	workingDir := workingDirFromContext(cliCtx)
+	workingDir := cliCtx.workingDir()
 	if workingDir == "" {
 		if abs, err := filepath.Abs(path); err == nil && abs != "" {
 			return abs

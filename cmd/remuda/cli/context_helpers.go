@@ -2,11 +2,48 @@ package cli
 
 import "os"
 
-func envFromContext(ctx Context) EnvProvider {
-	if ctx.Env != nil {
-		return ctx.Env
+type contextDirs struct {
+	home    *fixedPath
+	working *fixedPath
+}
+
+type fixedPath struct {
+	value string
+	err   error
+}
+
+func fixedPathFor(value string, unavailable error) *fixedPath {
+	if value == "" {
+		return &fixedPath{err: unavailable}
 	}
-	return defaultEnvProvider()
+	return &fixedPath{value: value}
+}
+
+func (d contextDirs) homeDir() (string, error) {
+	if d.home != nil {
+		return d.home.value, d.home.err
+	}
+	return defaultHomeDir()
+}
+
+func (d contextDirs) workingDir() (string, error) {
+	if d.working != nil {
+		return d.working.value, d.working.err
+	}
+	return defaultWorkingDir()
+}
+
+func (c Context) env() EnvProvider {
+	return envOrDefault(c.Env)
+}
+
+func (c Context) homeDir() (string, error) {
+	return c.dirs.homeDir()
+}
+
+func (c Context) workingDir() string {
+	workingDir, _ := c.dirs.workingDir()
+	return workingDir
 }
 
 func envOrDefault(env EnvProvider) EnvProvider {
@@ -17,32 +54,33 @@ func envOrDefault(env EnvProvider) EnvProvider {
 }
 
 func environFromEnvProvider(env EnvProvider) []string {
-	if env == nil {
-		return os.Environ()
-	}
-	if environer, ok := env.(interface{ Environ() []string }); ok {
+	if environer, ok := envOrDefault(env).(interface{ Environ() []string }); ok {
 		return environer.Environ()
 	}
 	return os.Environ()
 }
 
-func homeDirFromContext(ctx Context) (string, error) {
-	if ctx.homeDirSet {
-		return ctx.HomeDir, ctx.homeDirErr
-	}
-	if ctx.HomeDir != "" {
-		return ctx.HomeDir, ctx.homeDirErr
-	}
-	return defaultHomeDir()
+type contextEnvProvider struct {
+	base EnvProvider
+	dirs contextDirs
 }
 
-func workingDirFromContext(ctx Context) string {
-	if ctx.workingDirSet {
-		return ctx.WorkingDir
-	}
-	if ctx.WorkingDir != "" {
-		return ctx.WorkingDir
-	}
-	wd, _ := defaultWorkingDir()
-	return wd
+func (p contextEnvProvider) Getenv(key string) string {
+	return p.base.Get(key)
+}
+
+func (p contextEnvProvider) LookupEnv(key string) (string, bool) {
+	return p.base.Lookup(key)
+}
+
+func (p contextEnvProvider) UserHomeDir() (string, error) {
+	return p.dirs.homeDir()
+}
+
+func (p contextEnvProvider) WorkingDir() (string, error) {
+	return p.dirs.workingDir()
+}
+
+func (p contextEnvProvider) Environ() []string {
+	return environFromEnvProvider(p.base)
 }

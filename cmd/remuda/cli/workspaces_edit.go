@@ -39,7 +39,7 @@ func (c WorkspacesEditCmd) Run(ctx Context) error {
 		return err
 	}
 
-	editorCmd, err := ResolveEditorCommand(envFromContext(ctx))
+	editorCmd, err := ResolveEditorCommand(ctx.env())
 	if err != nil {
 		return err
 	}

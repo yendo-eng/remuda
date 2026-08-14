@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"io"
-	"os"
 
 	"github.com/knadh/koanf/v2"
 	"github.com/spf13/cobra"
@@ -20,13 +19,8 @@ type Context struct {
 	Version            string
 	Env                EnvProvider
 	MultiplexerFactory MultiplexerFactory
-	WorkingDir         string
-	HomeDir            string
+	dirs               contextDirs
 	inv                *invocation
-	homeDirErr         error
-	workingDirErr      error
-	homeDirSet         bool
-	workingDirSet      bool
 }
 
 // invocation carries per-command parse state: which flags were set
@@ -90,28 +84,11 @@ func NewContext(
 		opt(&cliCtx)
 	}
 
-	if cliCtx.Env == nil {
-		cliCtx.Env = defaultEnvProvider()
-	}
-	if !cliCtx.homeDirSet {
-		home, err := defaultHomeDir()
-		cliCtx.HomeDir = home
-		cliCtx.homeDirErr = err
-	}
-	if !cliCtx.workingDirSet {
-		wd, err := defaultWorkingDir()
-		cliCtx.WorkingDir = wd
-		cliCtx.workingDirErr = err
-	}
-
-	cliCtx.Remuda.Env = internalEnvProvider{
-		env:        cliCtx.Env,
-		homeDir:    cliCtx.HomeDir,
-		homeErr:    cliCtx.homeDirErr,
-		workingDir: cliCtx.WorkingDir,
-		workingErr: cliCtx.workingDirErr,
-	}
-	cliCtx.Remuda.Env = env.NewMutableProvider(cliCtx.Remuda.Env)
+	cliCtx.Env = envOrDefault(cliCtx.Env)
+	cliCtx.Remuda.Env = env.NewMutableProvider(contextEnvProvider{
+		base: cliCtx.Env,
+		dirs: cliCtx.dirs,
+	})
 	if cliCtx.Remuda.GitHub == nil {
 		cliCtx.Remuda.GitHub = github.NewGhCLIWithEnv(cliCtx.Remuda.Env)
 	} else if setter, ok := cliCtx.Remuda.GitHub.(github.EnvProviderSetter); ok {
@@ -157,68 +134,13 @@ func WithVersion(version string) func(*Context) {
 // WithWorkingDir overrides the working directory for this CLI invocation.
 func WithWorkingDir(dir string) func(*Context) {
 	return func(ctx *Context) {
-		ctx.WorkingDir = dir
-		ctx.workingDirSet = true
-		if dir == "" {
-			ctx.workingDirErr = env.ErrWorkingDirUnavailable
-		} else {
-			ctx.workingDirErr = nil
-		}
+		ctx.dirs.working = fixedPathFor(dir, env.ErrWorkingDirUnavailable)
 	}
 }
 
 // WithHomeDir overrides the home directory for this CLI invocation.
 func WithHomeDir(dir string) func(*Context) {
 	return func(ctx *Context) {
-		ctx.HomeDir = dir
-		ctx.homeDirSet = true
-		if dir == "" {
-			ctx.homeDirErr = errHomeDirUnavailable
-		} else {
-			ctx.homeDirErr = nil
-		}
+		ctx.dirs.home = fixedPathFor(dir, errHomeDirUnavailable)
 	}
-}
-
-type internalEnvProvider struct {
-	env        EnvProvider
-	homeDir    string
-	homeErr    error
-	workingDir string
-	workingErr error
-}
-
-func (p internalEnvProvider) Getenv(key string) string {
-	return p.env.Get(key)
-}
-
-func (p internalEnvProvider) LookupEnv(key string) (string, bool) {
-	return p.env.Lookup(key)
-}
-
-func (p internalEnvProvider) UserHomeDir() (string, error) {
-	if p.homeErr != nil {
-		return "", p.homeErr
-	}
-	if p.homeDir == "" {
-		return "", env.ErrHomeDirUnavailable
-	}
-	return p.homeDir, nil
-}
-
-func (p internalEnvProvider) WorkingDir() (string, error) {
-	if p.workingErr != nil {
-		return "", p.workingErr
-	}
-	if p.workingDir == "" {
-		return "", env.ErrWorkingDirUnavailable
-	}
-	return p.workingDir, nil
-}
-
-func (p internalEnvProvider) Environ() []string {
-	if environer, ok := p.env.(interface{ Environ() []string }); ok {
-		return environer.Environ()
-	}
-	return os.Environ()
 }

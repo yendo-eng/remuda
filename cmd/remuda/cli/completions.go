@@ -154,7 +154,7 @@ func registerNoUsePromptNameCompletion(cmd *cobra.Command, flag string) {
 		useFromFlags, _ := c.Flags().GetStringSlice("use")
 		noUseFromFlags, _ := c.Flags().GetStringSlice("no-use")
 
-		env := envFromContext(*cliCtx)
+		env := cliCtx.env()
 		var use []string
 		if envSet(env, "REMUDA_USE_PROMPTS") {
 			// Match runtime precedence: explicit --use replaces env defaults.
@@ -216,7 +216,7 @@ func registerReasoningLevelCompletion(cmd *cobra.Command) {
 
 		model, _ := c.Flags().GetString("model")
 		if strings.TrimSpace(model) == "" {
-			model = strings.TrimSpace(envFromContext(*cliCtx).Get("REMUDA_MODEL"))
+			model = strings.TrimSpace(cliCtx.env().Get("REMUDA_MODEL"))
 		}
 		if model == "" {
 			model = strings.TrimSpace(defaultModelFromConfig(*cliCtx))
@@ -261,7 +261,7 @@ func completionAgentName(c *cobra.Command, cliCtx Context) string {
 	agentName, _ := c.Flags().GetString("agent")
 	agentName = strings.TrimSpace(agentName)
 	if agentName == "" || agentName == "codex" && !c.Flags().Changed("agent") {
-		if fromEnv := strings.TrimSpace(envFromContext(cliCtx).Get("REMUDA_AGENT")); fromEnv != "" {
+		if fromEnv := strings.TrimSpace(cliCtx.env().Get("REMUDA_AGENT")); fromEnv != "" {
 			return fromEnv
 		}
 		if fromConfig := strings.TrimSpace(defaultAgentFromConfig(cliCtx)); fromConfig != "" {
@@ -302,7 +302,7 @@ func defaultModelFromConfig(cliCtx Context) string {
 }
 
 func claudeHintsForContext(cliCtx Context) claudeCompletionHints {
-	cacheKey := strings.TrimSpace(envFromContext(cliCtx).Get("PATH"))
+	cacheKey := strings.TrimSpace(cliCtx.env().Get("PATH"))
 	if cacheKey == "" {
 		cacheKey = "__empty_path__"
 	}
@@ -343,7 +343,7 @@ func loadClaudeHelpText(cliCtx Context) string {
 	ctx, cancel := context.WithTimeout(baseCtx, claudeHelpTimeout)
 	defer cancel()
 
-	cmdEnv := environFromEnvProvider(envFromContext(cliCtx))
+	cmdEnv := environFromEnvProvider(cliCtx.env())
 	baseCmd := util.CmdWithEnv(cmdEnv, "claude", "--help")
 	if baseCmd.Err != nil {
 		return ""

@@ -47,7 +47,7 @@ func resolveRepoSelection(ctx Context, repo CloneRepoOption, opts RepoResolution
 	}
 
 	if repoURL != "" {
-		source := repoSourceForRepoURL(envFromContext(ctx), ctx, usedRepoURLArg, repo.RepoURL, opts.SourceHint)
+		source := repoSourceForRepoURL(ctx.env(), ctx, usedRepoURLArg, repo.RepoURL, opts.SourceHint)
 		return RepoSelection{
 			RepoURL:  repoURL,
 			RepoSlug: repoSlugFromURL(repoURL),
@@ -60,7 +60,7 @@ func resolveRepoSelection(ctx Context, repo CloneRepoOption, opts RepoResolution
 		if err != nil {
 			return RepoSelection{}, err
 		}
-		source := repoSourceForAlias(envFromContext(ctx), ctx, repo.Repo)
+		source := repoSourceForAlias(ctx.env(), ctx, repo.Repo)
 		return RepoSelection{
 			RepoURL:  url,
 			RepoSlug: repoSlugFromURL(url),
@@ -146,7 +146,7 @@ func repoSlugFromExistingWorkspace(ctx Context, baseDir, workspace string) strin
 		return ""
 	}
 	if strings.HasPrefix(workspace, "~") {
-		home, homeErr := homeDirFromContext(ctx)
+		home, homeErr := ctx.homeDir()
 		if expanded, err := expandHomePath(workspace, home, homeErr); err == nil && expanded != "" {
 			workspace = expanded
 		}
@@ -160,7 +160,7 @@ func repoSlugFromExistingWorkspace(ctx Context, baseDir, workspace string) strin
 		return ""
 	}
 	if strings.HasPrefix(baseDir, "~") {
-		home, homeErr := homeDirFromContext(ctx)
+		home, homeErr := ctx.homeDir()
 		if expanded, err := expandHomePath(baseDir, home, homeErr); err == nil && expanded != "" {
 			baseDir = expanded
 		}

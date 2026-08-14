@@ -5,18 +5,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal"
 )
 
 func TestAbsPathFromContextExpandsTildeWithWorkingDir(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
 	workingDir := t.TempDir()
-	ctx := Context{
-		HomeDir:       home,
-		homeDirSet:    true,
-		WorkingDir:    workingDir,
-		workingDirSet: true,
-	}
+	ctx := NewContext(
+		t.Context(),
+		internal.Remuda{},
+		WithHomeDir(home),
+		WithWorkingDir(workingDir),
+	)
 
 	tildePath := filepath.Join("~", "repos", "acme", "widgets", "wk")
 	got := absPathFromContext(tildePath, ctx)
