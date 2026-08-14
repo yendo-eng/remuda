@@ -41,7 +41,7 @@ func TestStartSessionWithEnvAddsPathWhenMissing(t *testing.T) {
 	mgr := &captureEnvSession{}
 	provider := env.StaticProvider{Values: map[string]string{"FOO": "bar"}}
 
-	require.NoError(t, startSessionWithEnv(mgr, "sess", "/workspace", "cmd", "", nil, "prompt", provider, []string{"FOO"}, nil))
+	require.NoError(t, startSessionWithEnv(mgr, "sess", "/workspace", "cmd", nil, false, "", nil, "prompt", provider, []string{"FOO"}, nil))
 
 	value, ok := envValue(mgr.env, "PATH")
 	require.True(t, ok)
@@ -59,11 +59,35 @@ func TestStartSessionWithEnvKeepsProvidedPath(t *testing.T) {
 	mgr := &captureEnvSession{}
 	provider := env.StaticProvider{Values: map[string]string{"PATH": "/custom/bin"}}
 
-	require.NoError(t, startSessionWithEnv(mgr, "sess", "/workspace", "cmd", "", nil, "prompt", provider, nil, nil))
+	require.NoError(t, startSessionWithEnv(mgr, "sess", "/workspace", "cmd", nil, false, "", nil, "prompt", provider, nil, nil))
 
 	value, ok := envValue(mgr.env, "PATH")
 	require.True(t, ok)
 	require.Equal(t, "/custom/bin", value)
+}
+
+func TestStartSessionWithEnvPassesContainerCommand(t *testing.T) {
+	mgr := &captureEnvSession{}
+	provider := env.StaticProvider{Values: map[string]string{"PATH": "/usr/bin"}}
+
+	require.NoError(t, startSessionWithEnv(
+		mgr,
+		"sess",
+		"/workspace",
+		"docker run --rm image",
+		[]string{"docker", "run", "--rm", "image"},
+		true,
+		"codex",
+		nil,
+		"prompt",
+		provider,
+		nil,
+		nil,
+	))
+
+	require.Equal(t, "docker run --rm image", mgr.agentStart.Command)
+	require.Equal(t, []string{"docker", "run", "--rm", "image"}, mgr.agentStart.CommandArgv)
+	require.True(t, mgr.agentStart.Container)
 }
 
 func envValue(values []string, key string) (string, bool) {

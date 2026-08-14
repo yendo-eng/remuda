@@ -10,26 +10,29 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-func TestValidateMultiplexerLaunchRejectsUnsupportedHerdrModes(t *testing.T) {
+func TestValidateMultiplexerLaunchRejectsUnsupportedHerdrAgentCommand(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name      string
 		agentCmd  string
-		container bool
-		want      error
+		wantError bool
 	}{
-		{name: "agent command", agentCmd: "custom-agent", want: session.UnsupportedAgentCommandError{}},
-		{name: "container", container: true, want: session.UnsupportedContainerModeError{}},
+		{name: "agent command", agentCmd: "custom-agent", wantError: true},
+		{name: "built-in agent"},
 	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateMultiplexerLaunch(session.NewHerdr(), tt.agentCmd, tt.container)
-			require.Error(t, err)
-			require.IsType(t, tt.want, err)
+			err := validateMultiplexerLaunch(session.NewHerdr(), tt.agentCmd)
+			if tt.wantError {
+				var unsupported session.UnsupportedAgentCommandError
+				require.ErrorAs(t, err, &unsupported)
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }

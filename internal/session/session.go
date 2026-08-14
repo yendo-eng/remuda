@@ -79,6 +79,9 @@ type EnvStarter interface {
 type AgentStart struct {
 	SessionName string
 	Workspace   string
+	Command     string
+	CommandArgv []string
+	Container   bool
 	Agent       string
 	Args        []string
 	Prompt      string

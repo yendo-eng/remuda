@@ -124,7 +124,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	logger := logging.FromContext(ctx)
 	k.SetLogger(logger)
 	logger.Debug().Str("agent", cmd.Agent).Msg("starting vibe command")
-	if err := validateMultiplexerLaunch(k.Multiplexer, cmd.AgentCmd, cmd.Container); err != nil {
+	if err := validateMultiplexerLaunch(k.Multiplexer, cmd.AgentCmd); err != nil {
 		return err
 	}
 
@@ -306,25 +306,47 @@ func checkModelSupported(logger zerolog.Logger, agent agentlauncher.AgentLaunche
 		Msg("warning: the selected model may not be supported by the chosen agent")
 }
 
+type composedLaunchCommand struct {
+	shell string
+	argv  []string
+	image string
+}
+
 func (k Remuda) composeLaunchCommand(
 	cmd VibeCommand,
 	workspace, agentCmd, sessionName, containerName string,
 	envProvider env.Provider,
 ) (string, string, error) {
+	launch, err := k.composeLaunchCommandParts(
+		cmd,
+		workspace,
+		agentCmd,
+		sessionName,
+		containerName,
+		envProvider,
+	)
+	return launch.shell, launch.image, err
+}
+
+func (k Remuda) composeLaunchCommandParts(
+	cmd VibeCommand,
+	workspace, agentCmd, sessionName, containerName string,
+	envProvider env.Provider,
+) (composedLaunchCommand, error) {
 	logger := k.logger()
 	if !cmd.Container {
-		return agentCmd, "", nil
+		return composedLaunchCommand{shell: agentCmd}, nil
 	}
 
 	containerImage := strings.TrimSpace(cmd.ContainerName)
 	if containerImage == "" {
-		return "", "", pkgerrors.New(
+		return composedLaunchCommand{}, pkgerrors.New(
 			"container mode requires an explicit image; pass --container-name or configure defaults.container.image (including profiles.<name>.container.image or per_repo.<slug>.defaults.container.image)",
 		)
 	}
 
 	if err := k.Docker.CheckRunning(); err != nil {
-		return "", "", err
+		return composedLaunchCommand{}, err
 	}
 
 	github.EnsureTokenInEnvWithProvider(envProvider)
@@ -345,7 +367,7 @@ func (k Remuda) composeLaunchCommand(
 	if len(cmd.ContainerInheritEnv) > 0 {
 		inheritOpts, err := containerInheritEnvOpts(cmd.ContainerInheritEnv)
 		if err != nil {
-			return "", "", err
+			return composedLaunchCommand{}, err
 		}
 		containerOpts = append(containerOpts, inheritOpts...)
 	}
@@ -378,7 +400,12 @@ func (k Remuda) composeLaunchCommand(
 	}
 	containerAgent := util.SSHRewriteSnippet() + "\n" + agentCmd
 	launchCmd := docker.BuildRunCommand(absWS, containerImage, allOpts, containerAgent, false, containerName)
-	return launchCmd, containerImage, nil
+	launchArgv := docker.BuildRunArgv(absWS, containerImage, allOpts, containerAgent, false, containerName)
+	return composedLaunchCommand{
+		shell: launchCmd,
+		argv:  launchArgv,
+		image: containerImage,
+	}, nil
 }
 
 func containerOptsDefineEnv(opts []string, name string) bool {

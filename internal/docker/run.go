@@ -71,6 +71,20 @@ func BuildRunCommand(
 	allocateTTY bool,
 	containerName string,
 ) string {
+	return quoteArgv(BuildRunArgv(workspaceAbs, image, opts, agentCmd, allocateTTY, containerName))
+}
+
+// BuildRunArgv composes the docker run argv for containerized sessions.
+//
+// The returned argv is suitable for process APIs that launch without passing
+// through a shell, such as Herdr's layout.apply command.
+func BuildRunArgv(
+	workspaceAbs, image string,
+	opts []string,
+	agentCmd string,
+	allocateTTY bool,
+	containerName string,
+) []string {
 	containerWS := ContainerWorkspacePath(workspaceAbs)
 
 	argv := []string{"docker", "run", "--rm", "-it"}
@@ -122,7 +136,10 @@ func BuildRunCommand(
 	inner.WriteString(`git config --global url."git@github.com:".insteadOf "https://github.com/" >/dev/null 2>&1 || true; `)
 	inner.WriteString(agentCmd)
 	argv = append(argv, "bash", "-lc", inner.String())
+	return argv
+}
 
+func quoteArgv(argv []string) string {
 	quoted := make([]string, len(argv))
 	for i, tok := range argv {
 		quoted[i] = shell.SingleQuote(tok)

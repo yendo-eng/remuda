@@ -47,7 +47,7 @@ type SessionResumeCommand struct {
 
 func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) error {
 	k.SetLogger(logging.FromContext(ctx))
-	if err := validateMultiplexerLaunch(k.Multiplexer, cmd.AgentCmd, cmd.Container); err != nil {
+	if err := validateMultiplexerLaunch(k.Multiplexer, cmd.AgentCmd); err != nil {
 		return err
 	}
 
