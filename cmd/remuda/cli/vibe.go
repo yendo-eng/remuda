@@ -62,9 +62,9 @@ func (a *app) vibeCmd() *cobra.Command {
 				profiled: true,
 				slugFn: func() string {
 					c.CloneRepoOption.normalize()
-					return c.repoSelection(*a.kctx, RepoResolutionOptions{
+					return c.repoSelection(*a.cliCtx, RepoResolutionOptions{
 						ExistingWorkspace: c.In,
-						ReposBaseDir:      a.kctx.Remuda.Config.ReposBaseDir,
+						ReposBaseDir:      a.cliCtx.Remuda.Config.ReposBaseDir,
 					}).RepoSlug
 				},
 			})
@@ -75,13 +75,13 @@ func (a *app) vibeCmd() *cobra.Command {
 			if err := c.AgentSessionOptions.afterApply(); err != nil {
 				return err
 			}
-			if err := c.ContextEngineeringOptions.afterApply(*a.kctx); err != nil {
+			if err := c.ContextEngineeringOptions.afterApply(*a.cliCtx); err != nil {
 				return err
 			}
 			if err := c.validate(); err != nil {
 				return err
 			}
-			return c.Run(*a.kctx)
+			return c.Run(*a.cliCtx)
 		},
 	}
 

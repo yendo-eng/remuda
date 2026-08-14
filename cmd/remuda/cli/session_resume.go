@@ -47,7 +47,7 @@ func (a *app) sessionResumeCmd() *cobra.Command {
 					if c.Pick || strings.TrimSpace(c.WorkspaceDir) == "" {
 						return ""
 					}
-					return repoSlugFromWorkspacePath(*a.kctx, a.kctx.ConfigFile, c.WorkspaceDir)
+					return repoSlugFromWorkspacePath(*a.cliCtx, a.cliCtx.ConfigFile, c.WorkspaceDir)
 				},
 			})
 			if err != nil {
@@ -56,13 +56,13 @@ func (a *app) sessionResumeCmd() *cobra.Command {
 			if err := c.AgentSessionOptions.afterApply(); err != nil {
 				return err
 			}
-			if err := c.ContextEngineeringOptions.afterApply(*a.kctx); err != nil {
+			if err := c.ContextEngineeringOptions.afterApply(*a.cliCtx); err != nil {
 				return err
 			}
 			if err := c.validate(); err != nil {
 				return err
 			}
-			return c.Run(*a.kctx)
+			return c.Run(*a.cliCtx)
 		},
 	}
 

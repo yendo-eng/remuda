@@ -21,7 +21,7 @@ func (a *app) repoListCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 	cmd.Flags().BoolVar(&c.JSON, "json", false, "Emit JSON instead of plain text.")
-	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.cliCtx) })
 }
 
 func (c *RepoListCmd) Run(ctx Context) error {

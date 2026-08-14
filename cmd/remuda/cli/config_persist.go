@@ -2,7 +2,6 @@ package cli
 
 import (
 	"errors"
-
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -12,7 +11,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/configfile"
 )
 
-func persistDefaultRepoSelection(kctx Context, alias string, url string) (ConfigFileDiscovery, error) {
+func persistDefaultRepoSelection(cliCtx Context, alias string, url string) (ConfigFileDiscovery, error) {
 	alias = strings.TrimSpace(alias)
 	url = strings.TrimSpace(url)
 	if alias == "" && url == "" {
@@ -22,7 +21,7 @@ func persistDefaultRepoSelection(kctx Context, alias string, url string) (Config
 		return ConfigFileDiscovery{}, pkgerrors.New("repo alias and URL are mutually exclusive")
 	}
 
-	cfg, discovery, raw, err := loadConfigForRepoPersistence(kctx)
+	cfg, discovery, raw, err := loadConfigForRepoPersistence(cliCtx)
 	if err != nil {
 		return discovery, err
 	}
@@ -46,8 +45,8 @@ func persistDefaultRepoSelection(kctx Context, alias string, url string) (Config
 	return discovery, nil
 }
 
-func loadConfigForRepoPersistence(kctx Context) (*configfile.V1, ConfigFileDiscovery, []byte, error) {
-	discovery, err := discoverConfigFileForWrite(kctx)
+func loadConfigForRepoPersistence(cliCtx Context) (*configfile.V1, ConfigFileDiscovery, []byte, error) {
+	discovery, err := discoverConfigFileForWrite(cliCtx)
 	if err != nil {
 		return nil, discovery, nil, err
 	}
@@ -78,18 +77,18 @@ func loadConfigForRepoPersistence(kctx Context) (*configfile.V1, ConfigFileDisco
 	return cfg, discovery, data, nil
 }
 
-func discoverConfigFileForWrite(kctx Context) (ConfigFileDiscovery, error) {
-	env := envFromContext(kctx)
-	home, homeErr := homeDirFromContext(kctx)
-	workingDir := workingDirFromContext(kctx)
+func discoverConfigFileForWrite(cliCtx Context) (ConfigFileDiscovery, error) {
+	env := envFromContext(cliCtx)
+	home, homeErr := homeDirFromContext(cliCtx)
+	workingDir := workingDirFromContext(cliCtx)
 
-	discovery, err := DiscoverConfigFile(kctx)
+	discovery, err := DiscoverConfigFile(cliCtx)
 	if err == nil {
 		if discovery.Path != "" {
 			return discovery, nil
 		}
 
-		primary, perr := primaryConfigPath(kctx)
+		primary, perr := primaryConfigPath(cliCtx)
 		if perr != nil {
 			return discovery, perr
 		}
@@ -132,10 +131,10 @@ func ensureConfigPathWritable(path string) error {
 	return nil
 }
 
-func primaryConfigPath(kctx Context) (string, error) {
-	env := envFromContext(kctx)
-	home, homeErr := homeDirFromContext(kctx)
-	workingDir := workingDirFromContext(kctx)
+func primaryConfigPath(cliCtx Context) (string, error) {
+	env := envFromContext(cliCtx)
+	home, homeErr := homeDirFromContext(cliCtx)
+	workingDir := workingDirFromContext(cliCtx)
 
 	if xdgHome := strings.TrimSpace(env.Getenv("XDG_CONFIG_HOME")); xdgHome != "" {
 		xdgHome = resolvePathFromWorkingDir(xdgHome, workingDir)

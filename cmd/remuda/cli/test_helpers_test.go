@@ -28,7 +28,7 @@ func newTestInvocation(
 	t *testing.T, ctx *Context, cfg *configfile.V1, profiled bool, args []string, register func(*cobra.Command, *flagSet),
 ) {
 	t.Helper()
-	a := &app{kctx: ctx, cfg: cfg}
+	a := &app{cliCtx: ctx, cfg: cfg}
 	cmd := &cobra.Command{Use: "test"}
 	fl := newFlagSet(cmd.Flags())
 	if profiled {

@@ -15,13 +15,13 @@ func runCLI(t *testing.T, args ...string) error {
 	t.Helper()
 	var out, errOut bytes.Buffer
 	k := internal.NewRemuda(internal.Config{}, nil, nil, nil, nil, nil)
-	kctx := cli.NewContext(context.Background(), k,
+	cliCtx := cli.NewContext(context.Background(), k,
 		cli.Stdout(&out),
 		cli.Stderr(&errOut),
 		cli.WithEnv(cli.EnvMap{}),
 		cli.WithHomeDir(t.TempDir()),
 	)
-	return cli.Run(kctx, args)
+	return cli.Run(cliCtx, args)
 }
 
 func TestWorkspacesEditArgs(t *testing.T) {

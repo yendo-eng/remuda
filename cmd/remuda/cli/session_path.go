@@ -15,7 +15,7 @@ func (a *app) sessionPathCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 	c.SessionNamePickOption.register(cmd)
-	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.cliCtx) })
 }
 
 func (c *SessionPathCmd) Run(ctx Context) error {

@@ -39,10 +39,10 @@ type ConfigFileDiscovery struct {
 //  4. ~/.remuda/config.yaml (legacy)
 //
 // If no config file is found, Path is empty and error is nil.
-func DiscoverConfigFile(kctx Context) (ConfigFileDiscovery, error) {
-	env := envFromContext(kctx)
-	home, homeErr := homeDirFromContext(kctx)
-	workingDir := workingDirFromContext(kctx)
+func DiscoverConfigFile(cliCtx Context) (ConfigFileDiscovery, error) {
+	env := envFromContext(cliCtx)
+	home, homeErr := homeDirFromContext(cliCtx)
+	workingDir := workingDirFromContext(cliCtx)
 
 	if override := strings.TrimSpace(env.Getenv(configOverrideEnvVar)); override != "" {
 		expanded, err := expandHomePath(override, home, homeErr)

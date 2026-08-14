@@ -15,7 +15,7 @@ func (a *app) sessionInactiveCmd() *cobra.Command {
 		Short: "Print inactive workspace paths (no active session), one per line.",
 		Args:  cobra.NoArgs,
 	}
-	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.kctx) })
+	return a.simpleCmd(cmd, nil, func([]string) error { return c.Run(*a.cliCtx) })
 }
 
 func (c SessionInactiveCmd) Run(ctx Context) error {
