@@ -50,6 +50,8 @@ func NewMultiplexerWithLogger(name SupportedMultiplexer, logger zerolog.Logger) 
 	}
 }
 
+// Multiplexer is an interface for a terminal multiplexer, such as tmux, used
+// to house Remuda sessions.
 type Multiplexer interface {
 	// Name of the multiplexer.
 	Name() string
