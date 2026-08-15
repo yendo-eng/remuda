@@ -230,8 +230,30 @@ func (a *app) finishSetup() {
 		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerTmux) ||
 		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerZellij) ||
 		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerHerdr) {
-		cliCtx.Remuda.Multiplexer = a.multiplexerFactory(session.SupportedMultiplexer(a.sessionManager), logger)
+		cliCtx.Remuda.Multiplexer = buildMultiplexer(
+			session.SupportedMultiplexer(a.sessionManager),
+			logger,
+			a.multiplexerFactory,
+			a.experiments.ExperimentEnabled(expregistry.AggregateMultiplexer),
+		)
 	}
+}
+
+func buildMultiplexer(createTargetName session.SupportedMultiplexer, logger zerolog.Logger, factory MultiplexerFactory, aggregate bool) session.Multiplexer {
+	createTarget := factory(createTargetName, logger)
+	if !aggregate {
+		return createTarget
+	}
+
+	backends := make([]session.Multiplexer, 0, len(enums.ValidMultiplexers))
+	for _, name := range enums.ValidMultiplexers {
+		backend := createTarget
+		if name != string(createTargetName) {
+			backend = factory(session.SupportedMultiplexer(name), logger)
+		}
+		backends = append(backends, backend)
+	}
+	return session.NewAggregateMultiplexerWithLogger(createTarget, logger, backends...)
 }
 
 func (a *app) buildRoot() *cobra.Command {
@@ -260,7 +282,7 @@ func (a *app) buildRoot() *cobra.Command {
 	pf := root.PersistentFlags()
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "Enable verbose logging.")
 	// The user-facing flag, environment variable, and config key deliberately retain "session manager" vocabulary.
-	pf.StringVar(&a.sessionManager, "session-manager", string(session.MultiplexerTmux), "Session manager to use.")
+	pf.StringVar(&a.sessionManager, "session-manager", string(session.MultiplexerTmux), "Backend used to create new sessions.")
 	a.rootFlags = newFlagSet(pf)
 	a.experiments.registerPersistent(root, a.rootFlags)
 	a.rootFlags.bind("session-manager",
@@ -333,16 +355,6 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 	cliCtx.Remuda.SetLogger(logger)
 	cliCtx.ctx = logging.WithLogger(cliCtx.ctx, logger)
 
-	// Completion functions may need a session manager before command flags
-	// resolve, so wire one from the environment up front.
-	if cliCtx.Remuda.Multiplexer == nil {
-		managerName := session.MultiplexerTmux
-		if sessionMgr := env.Get("REMUDA_SESSION_MANAGER"); sessionMgr != "" {
-			managerName = session.SupportedMultiplexer(sessionMgr)
-		}
-		cliCtx.Remuda.Multiplexer = multiplexerFactory(managerName, logger)
-	}
-
 	cfg, discovery, err := loadConfigV1(cliCtx)
 	if err != nil {
 		strictRequested := strings.TrimSpace(env.Get(configOverrideEnvVar)) != ""
@@ -369,6 +381,16 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 	}
 
 	cliCtx.ConfigFile = cfg
+	// Completion callbacks run before command preparation, so wire their
+	// multiplexer from the settings available during bootstrap.
+	if cliCtx.Remuda.Multiplexer == nil {
+		managerName := session.MultiplexerTmux
+		if sessionMgr := env.Get("REMUDA_SESSION_MANAGER"); sessionMgr != "" {
+			managerName = session.SupportedMultiplexer(sessionMgr)
+		}
+		aggregate := bootstrapExperimentEnabled(expregistry.AggregateMultiplexer, env, cfg)
+		cliCtx.Remuda.Multiplexer = buildMultiplexer(managerName, logger, multiplexerFactory, aggregate)
+	}
 	applyCloneHooksFromConfig(&cliCtx, cfg)
 
 	// Keep alias catalog in sync with the parsed config for the remainder of startup.
@@ -399,4 +421,12 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 	execCtx := context.WithValue(cliCtx.ctx, completionContextKey{}, &cliCtx)
 
 	return root.ExecuteContext(execCtx)
+}
+
+func bootstrapExperimentEnabled(name string, env EnvProvider, cfg *configfile.V1) bool {
+	experiments := env.Get("REMUDA_EXPERIMENTS")
+	if strings.TrimSpace(experiments) == "" && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Experiments != nil {
+		experiments = strings.Join(*cfg.Defaults.Experiments, ",")
+	}
+	return (ExperimentsOption{Experiments: experiments}).ExperimentEnabled(name)
 }
