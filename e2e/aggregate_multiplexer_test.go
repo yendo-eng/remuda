@@ -26,6 +26,37 @@ func TestAggregateMultiplexerListAndCompletionFromConfig(t *testing.T) {
 	require.Contains(t, completion.Stdout, "org/repo/herdr-session\n")
 }
 
+func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
+	t.Parallel()
+	h, backends := newAggregateMultiplexerHarness(t)
+	backends[session.MultiplexerTmux].AddSessionWithBuffer("org/repo/tmux-session", "")
+	backends[session.MultiplexerZellij].AddSessionWithBuffer("org/repo/zellij-session", "")
+	backends[session.MultiplexerHerdr].AddSessionWithBuffer("org/repo/herdr-session", "")
+
+	list := h.RunOK("session", "list", "--json")
+
+	require.JSONEq(t, `[
+  {
+    "Name": "org/repo/tmux-session",
+    "Attached": false,
+    "CreatedAt": "0001-01-01T00:00:00Z",
+    "Multiplexer": "tmux"
+  },
+  {
+    "Name": "org/repo/zellij-session",
+    "Attached": false,
+    "CreatedAt": "0001-01-01T00:00:00Z",
+    "Multiplexer": "zellij"
+  },
+  {
+    "Name": "org/repo/herdr-session",
+    "Attached": false,
+    "CreatedAt": "0001-01-01T00:00:00Z",
+    "Multiplexer": "herdr"
+  }
+]`, list.Stdout)
+}
+
 func TestAggregateMultiplexerRoutesAndRejectsCrossBackendDuplicate(t *testing.T) {
 	t.Parallel()
 	h, backends := newAggregateMultiplexerHarness(t)
@@ -60,9 +91,9 @@ func newAggregateMultiplexerHarness(t *testing.T) (*testutils.Harness, map[sessi
 	t.Helper()
 
 	backends := map[session.SupportedMultiplexer]*testutils.MockMultiplexer{
-		session.MultiplexerTmux:   {},
-		session.MultiplexerZellij: {},
-		session.MultiplexerHerdr:  {},
+		session.MultiplexerTmux:   {Backend: session.MultiplexerTmux},
+		session.MultiplexerZellij: {Backend: session.MultiplexerZellij},
+		session.MultiplexerHerdr:  {Backend: session.MultiplexerHerdr},
 	}
 	h := testutils.NewHarness(t, testutils.WithMultiplexerFactory(
 		func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {

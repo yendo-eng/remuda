@@ -90,54 +90,6 @@ func TestRun_AggregatesMultiplexersWhenExperimentEnabled(t *testing.T) {
 	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr\n", out.String())
 }
 
-func TestRun_ListsMultiplexerInJSON(t *testing.T) {
-	t.Parallel()
-
-	var out bytes.Buffer
-	k := internal.NewRemuda(
-		internal.Config{ReposBaseDir: t.TempDir()},
-		noopGit{},
-		nil,
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &bytes.Buffer{}}),
-	)
-	ctx := NewContext(context.Background(), k,
-		WithEnv(EnvMap{}),
-		WithHomeDir(t.TempDir()),
-		WithWorkingDir(t.TempDir()),
-		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-			return stubNamedMultiplexer{
-				name:     string(name),
-				sessions: []session.SessionInfo{{Name: "org/repo/" + string(name), Multiplexer: string(name)}},
-			}
-		}),
-	)
-
-	require.NoError(t, Run(ctx, []string{"--experiments", "aggregate-multiplexer", "--session-manager", "herdr", "session", "list", "--json"}))
-	require.JSONEq(t, `[
-  {
-    "Name": "org/repo/tmux",
-    "Attached": false,
-    "CreatedAt": "0001-01-01T00:00:00Z",
-    "Multiplexer": "tmux"
-  },
-  {
-    "Name": "org/repo/zellij",
-    "Attached": false,
-    "CreatedAt": "0001-01-01T00:00:00Z",
-    "Multiplexer": "zellij"
-  },
-  {
-    "Name": "org/repo/herdr",
-    "Attached": false,
-    "CreatedAt": "0001-01-01T00:00:00Z",
-    "Multiplexer": "herdr"
-  }
-]`, out.String())
-}
-
 func TestRun_AggregatesSessionNameCompletionWhenExperimentEnabled(t *testing.T) {
 	t.Parallel()
 
