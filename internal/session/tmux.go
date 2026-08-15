@@ -232,7 +232,7 @@ func parseTmuxListOutput(s string) []SessionInfo {
 			continue
 		}
 		attached := attachedRaw == "1"
-		info := SessionInfo{Name: name, Attached: attached}
+		info := SessionInfo{Name: name, Attached: attached, Multiplexer: string(MultiplexerTmux)}
 		if createdRaw != "" {
 			if epoch, err := strconv.ParseInt(createdRaw, 10, 64); err == nil {
 				info.CreatedAt = time.Unix(epoch, 0).UTC()
