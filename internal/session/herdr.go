@@ -322,7 +322,7 @@ func (h *herdr) List() ([]SessionInfo, error) {
 			h.logger.Debug().Str("workspace", workspace.WorkspaceID).Msg("skipping herdr workspace with invalid remuda identity metadata")
 			continue
 		}
-		info := SessionInfo{Name: name}
+		info := SessionInfo{Name: name, Multiplexer: string(MultiplexerHerdr)}
 		createdAt, err := time.Parse(time.RFC3339Nano, workspace.Tokens["created_at"])
 		if err == nil {
 			info.CreatedAt = createdAt

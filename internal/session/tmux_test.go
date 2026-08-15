@@ -95,8 +95,8 @@ func TestTmuxListParsesSpaceDelimitedFormat(t *testing.T) {
 	got, err := session.NewTmux().List()
 	require.NoError(t, err)
 	require.Equal(t, []session.SessionInfo{
-		{Name: "org/repo/work", Attached: true, CreatedAt: time.Unix(1710000000, 0).UTC()},
-		{Name: "other session", Attached: false, CreatedAt: time.Unix(1710000123, 0).UTC()},
+		{Name: "org/repo/work", Attached: true, CreatedAt: time.Unix(1710000000, 0).UTC(), Multiplexer: string(session.MultiplexerTmux)},
+		{Name: "other session", Attached: false, CreatedAt: time.Unix(1710000123, 0).UTC(), Multiplexer: string(session.MultiplexerTmux)},
 	}, got)
 }
 

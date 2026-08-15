@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,6 +21,15 @@ func TestAggregateMultiplexerListAndCompletionFromConfig(t *testing.T) {
 
 	list := h.RunOK("session", "list")
 	require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-session\n", list.Stdout)
+
+	jsonList := h.RunOK("session", "list", "--json")
+	var infos []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(jsonList.Stdout), &infos))
+	require.Len(t, infos, 2)
+	require.Equal(t, "org/repo/tmux-session", infos[0]["Name"])
+	require.Equal(t, string(session.MultiplexerTmux), infos[0]["Multiplexer"])
+	require.Equal(t, "org/repo/herdr-session", infos[1]["Name"])
+	require.Equal(t, string(session.MultiplexerHerdr), infos[1]["Multiplexer"])
 
 	completion := h.RunOK("__complete", "--session-manager", "herdr", "session", "attach", "--name", "")
 	require.Contains(t, completion.Stdout, "org/repo/tmux-session\n")
@@ -60,9 +70,9 @@ func newAggregateMultiplexerHarness(t *testing.T) (*testutils.Harness, map[sessi
 	t.Helper()
 
 	backends := map[session.SupportedMultiplexer]*testutils.MockMultiplexer{
-		session.MultiplexerTmux:   {},
-		session.MultiplexerZellij: {},
-		session.MultiplexerHerdr:  {},
+		session.MultiplexerTmux:   {MultiplexerName: string(session.MultiplexerTmux)},
+		session.MultiplexerZellij: {MultiplexerName: string(session.MultiplexerZellij)},
+		session.MultiplexerHerdr:  {MultiplexerName: string(session.MultiplexerHerdr)},
 	}
 	h := testutils.NewHarness(t, testutils.WithMultiplexerFactory(
 		func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {

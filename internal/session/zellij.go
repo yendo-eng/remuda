@@ -144,7 +144,7 @@ func parseZellijListOutputWithNow(s string, now time.Time) []SessionInfo {
 		if decoded, ok := decodeZellijSessionName(name); ok {
 			name = decoded
 		}
-		info := SessionInfo{Name: name, Attached: attached}
+		info := SessionInfo{Name: name, Attached: attached, Multiplexer: string(MultiplexerZellij)}
 		if createdAge, ok := parseZellijCreatedAge(line); ok {
 			info.CreatedAt = now.Add(-createdAge)
 		}

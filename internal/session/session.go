@@ -100,11 +100,14 @@ type LoggerSetter interface {
 	SetLogger(logger zerolog.Logger)
 }
 
-// SessionInfo is a minimal description of a tmux session.
+// SessionInfo is a minimal description of a multiplexer session.
 type SessionInfo struct {
 	Name      string
 	Attached  bool
 	CreatedAt time.Time // Zero means unknown.
+	// Multiplexer is the backend that owns the session (e.g. "tmux"). Backends
+	// stamp it in List; SessionInfos built elsewhere leave it empty.
+	Multiplexer string
 }
 
 func (s SessionInfo) IsRemudaSession() bool {

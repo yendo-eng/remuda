@@ -9,14 +9,15 @@ import (
 )
 
 type MockMultiplexer struct {
-	sessions      []Session
-	ReadBuf       string            // Default buffer for all sessions
-	ReadBufs      map[string]string // Per-session buffers (keyed by session name)
-	LastReadName  string
-	LastReadLines int
-	LastSendName  string
-	LastSendInput string
-	LastSendEnter bool
+	MultiplexerName string // Reported by Name and stamped on listed sessions; empty means "mock".
+	sessions        []Session
+	ReadBuf         string            // Default buffer for all sessions
+	ReadBufs        map[string]string // Per-session buffers (keyed by session name)
+	LastReadName    string
+	LastReadLines   int
+	LastSendName    string
+	LastSendInput   string
+	LastSendEnter   bool
 }
 
 type Session struct {
@@ -35,8 +36,11 @@ func (f *MockMultiplexer) FindSession(name string) *Session {
 	return nil
 }
 
-func (MockMultiplexer) Name() string {
-	return "mock"
+func (f *MockMultiplexer) Name() string {
+	if f.MultiplexerName == "" {
+		return "mock"
+	}
+	return f.MultiplexerName
 }
 
 func (f *MockMultiplexer) Start(sessionName, command string) error {
@@ -65,7 +69,9 @@ func (f *MockMultiplexer) StartWithEnv(sessionName, command string, env []string
 func (f *MockMultiplexer) List() ([]session.SessionInfo, error) {
 	var infos []session.SessionInfo
 	for _, sess := range f.sessions {
-		infos = append(infos, sess.SessionInfo)
+		info := sess.SessionInfo
+		info.Multiplexer = f.Name()
+		infos = append(infos, info)
 	}
 	return infos, nil
 }

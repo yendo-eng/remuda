@@ -18,6 +18,7 @@ func TestParseZellijListOutputWithNow(t *testing.T) {
 	require.Len(t, got, 3)
 	require.Equal(t, "org/repo/attached", got[0].Name)
 	require.True(t, got[0].Attached)
+	require.Equal(t, string(MultiplexerZellij), got[0].Multiplexer)
 	require.WithinDuration(t, now.Add(-1*time.Minute), got[0].CreatedAt, time.Second)
 	require.Equal(t, "org/repo/detached", got[1].Name)
 	require.False(t, got[1].Attached)
