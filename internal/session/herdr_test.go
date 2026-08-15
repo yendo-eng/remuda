@@ -301,8 +301,10 @@ esac
 	require.NoError(t, err)
 	require.Len(t, sessions, 2)
 	require.Equal(t, "yendo/remuda/rm-ypr2", sessions[0].Name)
+	require.Equal(t, "herdr", sessions[0].Multiplexer)
 	require.Equal(t, "2026-08-13T19:00:00Z", sessions[0].CreatedAt.Format("2006-01-02T15:04:05Z07:00"))
 	require.Equal(t, "yendo/remuda/unknown-age", sessions[1].Name)
+	require.Equal(t, "herdr", sessions[1].Multiplexer)
 	require.True(t, sessions[1].CreatedAt.IsZero())
 }
 

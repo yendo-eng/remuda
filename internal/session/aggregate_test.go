@@ -72,17 +72,17 @@ func (b *aggregateBackend) SetLogger(zerolog.Logger) { b.loggerSet = true }
 func TestAggregateMultiplexerListSkipsUnavailableBackends(t *testing.T) {
 	t.Parallel()
 
-	tmux := &aggregateBackend{name: "tmux", sessions: []session.SessionInfo{{Name: "org/repo/tmux"}}}
+	tmux := &aggregateBackend{name: "tmux", sessions: []session.SessionInfo{{Name: "org/repo/tmux", Multiplexer: "tmux"}}}
 	zellij := &aggregateBackend{name: "zellij", listErr: errors.New("zellij unavailable")}
-	herdr := &aggregateBackend{name: "herdr", sessions: []session.SessionInfo{{Name: "org/repo/herdr"}}}
+	herdr := &aggregateBackend{name: "herdr", sessions: []session.SessionInfo{{Name: "org/repo/herdr", Multiplexer: "herdr"}}}
 	mgr := session.NewAggregateMultiplexer(tmux, tmux, zellij, herdr)
 
 	got, err := mgr.List()
 
 	require.NoError(t, err)
 	require.Equal(t, []session.SessionInfo{
-		{Name: "org/repo/tmux"},
-		{Name: "org/repo/herdr"},
+		{Name: "org/repo/tmux", Multiplexer: "tmux"},
+		{Name: "org/repo/herdr", Multiplexer: "herdr"},
 	}, got)
 }
 

@@ -110,14 +110,32 @@ func TestRun_ListsMultiplexerInJSON(t *testing.T) {
 		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
 			return stubNamedMultiplexer{
 				name:     string(name),
-				sessions: []session.SessionInfo{{Name: "org/repo/" + string(name)}},
+				sessions: []session.SessionInfo{{Name: "org/repo/" + string(name), Multiplexer: string(name)}},
 			}
 		}),
 	)
 
 	require.NoError(t, Run(ctx, []string{"--experiments", "aggregate-multiplexer", "--session-manager", "herdr", "session", "list", "--json"}))
-	require.Contains(t, out.String(), "\"Multiplexer\": \"tmux\"")
-	require.Contains(t, out.String(), "\"Multiplexer\": \"herdr\"")
+	require.JSONEq(t, `[
+  {
+    "Name": "org/repo/tmux",
+    "Attached": false,
+    "CreatedAt": "0001-01-01T00:00:00Z",
+    "Multiplexer": "tmux"
+  },
+  {
+    "Name": "org/repo/zellij",
+    "Attached": false,
+    "CreatedAt": "0001-01-01T00:00:00Z",
+    "Multiplexer": "zellij"
+  },
+  {
+    "Name": "org/repo/herdr",
+    "Attached": false,
+    "CreatedAt": "0001-01-01T00:00:00Z",
+    "Multiplexer": "herdr"
+  }
+]`, out.String())
 }
 
 func TestRun_AggregatesSessionNameCompletionWhenExperimentEnabled(t *testing.T) {
