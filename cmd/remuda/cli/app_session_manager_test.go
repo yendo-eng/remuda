@@ -90,6 +90,36 @@ func TestRun_AggregatesMultiplexersWhenExperimentEnabled(t *testing.T) {
 	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr\n", out.String())
 }
 
+func TestRun_ListsMultiplexerInJSON(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	k := internal.NewRemuda(
+		internal.Config{ReposBaseDir: t.TempDir()},
+		noopGit{},
+		nil,
+		nil,
+		nil,
+		nil,
+		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &bytes.Buffer{}}),
+	)
+	ctx := NewContext(context.Background(), k,
+		WithEnv(EnvMap{}),
+		WithHomeDir(t.TempDir()),
+		WithWorkingDir(t.TempDir()),
+		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
+			return stubNamedMultiplexer{
+				name:     string(name),
+				sessions: []session.SessionInfo{{Name: "org/repo/" + string(name)}},
+			}
+		}),
+	)
+
+	require.NoError(t, Run(ctx, []string{"--experiments", "aggregate-multiplexer", "--session-manager", "herdr", "session", "list", "--json"}))
+	require.Contains(t, out.String(), "\"Multiplexer\": \"tmux\"")
+	require.Contains(t, out.String(), "\"Multiplexer\": \"herdr\"")
+}
+
 func TestRun_AggregatesSessionNameCompletionWhenExperimentEnabled(t *testing.T) {
 	t.Parallel()
 
