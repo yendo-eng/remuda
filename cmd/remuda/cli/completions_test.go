@@ -147,7 +147,7 @@ func TestCompleteExperiments_ListsRegisteredExperiments(t *testing.T) {
 	home := t.TempDir()
 
 	got := runComplete(t, cli.EnvMap{}, home, "clone", "--experiments", "")
-	require.Equal(t, []string{"use-prompts-context-wrapper", "cow-clone", "session-manifest"}, got)
+	require.Equal(t, []string{"use-prompts-context-wrapper", "cow-clone", "session-manifest", "aggregate-multiplexer"}, got)
 }
 
 func TestCompleteReasoningLevel_UsesConfigDefaults(t *testing.T) {

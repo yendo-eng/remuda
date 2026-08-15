@@ -17,6 +17,10 @@ const CoWClone = "cow-clone"
 // passed explicitly.
 const SessionManifest = "session-manifest"
 
+// AggregateMultiplexer makes session operations span every supported backend
+// while the configured multiplexer remains the target for new sessions.
+const AggregateMultiplexer = "aggregate-multiplexer"
+
 type Experiment struct {
 	Name        string
 	Description string
@@ -35,6 +39,10 @@ func Registry() []Experiment {
 		{
 			Name:        SessionManifest,
 			Description: "write a .remuda.json launch manifest into the workspace and have session resume default flags from it",
+		},
+		{
+			Name:        AggregateMultiplexer,
+			Description: "span session operations across all multiplexers while creating sessions in the configured backend",
 		},
 	}
 }

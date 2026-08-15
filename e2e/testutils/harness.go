@@ -36,12 +36,13 @@ type Harness struct {
 	Stdout *bytes.Buffer
 	Stderr *bytes.Buffer
 
-	Git         git.Git
-	Multiplexer session.Multiplexer
-	Jira        jira.Jira
-	Docker      docker.Docker
-	GitHub      github.GitHub
-	Slack       slack.Slack
+	Git                git.Git
+	Multiplexer        session.Multiplexer
+	MultiplexerFactory cli.MultiplexerFactory
+	Jira               jira.Jira
+	Docker             docker.Docker
+	GitHub             github.GitHub
+	Slack              slack.Slack
 
 	CloneHooks *internal.CloneHookRegistry
 
@@ -82,6 +83,14 @@ func WithGitHub(gh github.GitHub) HarnessOption {
 func WithMultiplexer(sm session.Multiplexer) HarnessOption {
 	return func(h *Harness) {
 		h.Multiplexer = sm
+		h.MultiplexerFactory = nil
+	}
+}
+
+func WithMultiplexerFactory(factory cli.MultiplexerFactory) HarnessOption {
+	return func(h *Harness) {
+		h.Multiplexer = nil
+		h.MultiplexerFactory = factory
 	}
 }
 
@@ -239,6 +248,9 @@ func (h *Harness) Run(args ...string) CLIRunResult {
 	ctxOpts := []func(*cli.Context){
 		cli.WithEnv(h.Env),
 		cli.WithHomeDir(h.HomeDir),
+	}
+	if h.MultiplexerFactory != nil {
+		ctxOpts = append(ctxOpts, cli.WithMultiplexerFactory(h.MultiplexerFactory))
 	}
 	if h.WorkingDir != "" {
 		ctxOpts = append(ctxOpts, cli.WithWorkingDir(h.WorkingDir))
