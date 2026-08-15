@@ -9,6 +9,7 @@ import (
 )
 
 type MockMultiplexer struct {
+	Backend       session.SupportedMultiplexer
 	sessions      []Session
 	ReadBuf       string            // Default buffer for all sessions
 	ReadBufs      map[string]string // Per-session buffers (keyed by session name)
@@ -41,24 +42,20 @@ func (MockMultiplexer) Name() string {
 
 func (f *MockMultiplexer) Start(sessionName, command string) error {
 	f.sessions = append(f.sessions, Session{
-		SessionInfo: session.SessionInfo{
-			Name:      sessionName,
-			CreatedAt: time.Now(),
-		},
-		CommandRan: command,
+		SessionInfo: f.sessionInfo(sessionName),
+		CommandRan:  command,
 	})
+	f.sessions[len(f.sessions)-1].CreatedAt = time.Now()
 	return nil
 }
 
 func (f *MockMultiplexer) StartWithEnv(sessionName, command string, env []string) error {
 	f.sessions = append(f.sessions, Session{
-		SessionInfo: session.SessionInfo{
-			Name:      sessionName,
-			CreatedAt: time.Now(),
-		},
-		CommandRan: command,
-		StartEnv:   append([]string{}, env...),
+		SessionInfo: f.sessionInfo(sessionName),
+		CommandRan:  command,
+		StartEnv:    append([]string{}, env...),
 	})
+	f.sessions[len(f.sessions)-1].CreatedAt = time.Now()
 	return nil
 }
 
@@ -149,12 +146,18 @@ func errCantFindSession(name string) error {
 // AddSessionWithBuffer adds a session with a specific buffer content.
 func (f *MockMultiplexer) AddSessionWithBuffer(name, buffer string) {
 	f.sessions = append(f.sessions, Session{
-		SessionInfo: session.SessionInfo{
-			Name: name,
-		},
+		SessionInfo: f.sessionInfo(name),
 	})
 	if f.ReadBufs == nil {
 		f.ReadBufs = make(map[string]string)
 	}
 	f.ReadBufs[name] = buffer
+}
+
+func (f MockMultiplexer) sessionInfo(name string) session.SessionInfo {
+	info := session.SessionInfo{Name: name}
+	if f.Backend != "" {
+		info.Multiplexer = string(f.Backend)
+	}
+	return info
 }
