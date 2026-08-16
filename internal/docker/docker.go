@@ -266,15 +266,6 @@ func opencodeStateDirCandidates(goos, home string) []string {
 	return []string{linuxDir, macDir}
 }
 
-// BuildClaudeStateMountOpts returns docker mount options that expose host Claude
-// OAuth/session state in the container, when available.
-//
-// - Mounts ~/.claude to /root/.claude (rw) when present.
-// - Mounts ~/.claude.json to /root/.claude.json (rw) when present.
-func BuildClaudeStateMountOpts() []string {
-	return BuildClaudeStateMountOptsWithProvider(env.Default())
-}
-
 // BuildClaudeStateMountOptsWithProvider returns docker mount options that expose host Claude
 // OAuth/session state in the container, when available.
 func BuildClaudeStateMountOptsWithProvider(provider env.Provider) []string {
