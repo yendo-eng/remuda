@@ -13,7 +13,7 @@ import (
 func TestBuildContainerAuthOpts_ProducesMountsWhenAvailable(t *testing.T) {
 	tmp := t.TempDir()
 
-	// Simulate HOME with gh config, gitconfig, and .ssh
+	// Simulate HOME with gh config, gitconfig, and .ssh.
 	ghDir := filepath.Join(tmp, ".config", "gh")
 	require.NoError(t, os.MkdirAll(ghDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(ghDir, "hosts.yml"), []byte("test: token"), 0o600))
@@ -48,7 +48,9 @@ func TestBuildContainerAuthOpts_ProducesMountsWhenAvailable(t *testing.T) {
 
 	require.Contains(t, opts, ghDir+":/root/.config/gh:ro")
 	// We intentionally do NOT mount host ~/.gitconfig to keep container writable.
-	require.Contains(t, opts, sshDir+":/root/.ssh:ro")
+	for _, opt := range opts {
+		require.NotContains(t, opt, ":/root/.ssh")
+	}
 	// Darwin uses Docker Desktop magic socket path; others use SSH_AUTH_SOCK
 	if runtime.GOOS == "darwin" {
 		require.Contains(t, opts, "/run/host-services/ssh-auth.sock:/ssh-agent")

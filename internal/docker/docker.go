@@ -41,7 +41,7 @@ var ErrContainerNotFound = pkgerrors.New("docker container not found")
 //
 // - Mounts ~/.config/gh to /root/.config/gh (ro) if present.
 // - Mounts ~/.gitconfig to /root/.gitconfig (ro) if present.
-// - Forwards the SSH agent socket and ~/.ssh (ro) if present.
+// - Forwards the SSH agent socket if present.
 func BuildContainerAuthOpts() []string {
 	return BuildContainerAuthOptsWithProvider(env.Default())
 }
@@ -61,10 +61,6 @@ func BuildContainerAuthOptsWithProvider(provider env.Provider) []string {
 		// Do not mount host ~/.gitconfig by default. We want the container to
 		// be able to write its own /root/.gitconfig so we can configure the
 		// gh credential helper non-interactively without touching the host.
-		sshDir := filepath.Join(home, ".ssh")
-		if st, err := os.Stat(sshDir); err == nil && st.IsDir() {
-			opts = append(opts, "-v", sshDir+":/root/.ssh:ro")
-		}
 	}
 
 	// SSH agent: prefer Docker Desktop's magic path on macOS to avoid

@@ -53,7 +53,7 @@ remuda vibe --container --no-detached "Investigate flaky tests"
 - For Claude runs (`--agent claude`), `ANTHROPIC_API_KEY` is forwarded into the container.
 - `--container-inherit-env <NAME>` forwards additional host environment variables into the container via `docker run -e <NAME>`.
   Use this for opt-in forwarding of sensitive values such as `GOPRIVATE` (for example: `--container-inherit-env GOPRIVATE`).
-- If an SSH agent is available (`SSH_AUTH_SOCK` on Linux, Docker Desktop's agent on macOS), its socket is forwarded along with read-only mounts of `~/.ssh` and `~/.config/gh` to support git+ssh and `gh` operations inside the container.
+- When present, `~/.config/gh` is mounted read-only for `gh` operations; if an SSH agent is available (`SSH_AUTH_SOCK` on Linux, Docker Desktop's agent on macOS), its socket is forwarded to support git+ssh inside the container.
 - For Claude runs (`--agent claude`), host `~/.claude` and `~/.claude.json` are mounted read/write when present so Claude OAuth/session state can be reused.
 - Codex account-login sessions (`OPENAI_API_KEY` unset, `~/.codex/auth.json` present): the whole `~/.codex` directory is mounted read/write at `/root/.codex`, so the ChatGPT account login and its token refreshes (which atomically rewrite `auth.json`) persist across container runs. The individual mounts below are skipped in this case since the whole-directory mount already covers them.
 - Codex API-key sessions (`OPENAI_API_KEY` set): a synthesized read-only `auth.json` containing the key is mounted at `/root/.codex/auth.json` instead; no account auth is mounted.
