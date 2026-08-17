@@ -4,7 +4,7 @@ Remuda can be configured via environment variables and a YAML configuration file
 
 ## Environment Variables
 
-Remuda inspects a handful of environment variables (and associated helper files)
+Remuda inspects a handful of environment variables
 to reduce setup friction. Where possible it will fall back to sensible defaults
 or populate values automatically, but you can configure them explicitly:
 
@@ -41,7 +41,8 @@ or populate values automatically, but you can configure them explicitly:
 - `REMUDA_EDITOR` – command invoked by `remuda workspaces edit`. If unset, Remuda
   falls back to `VISUAL`, then `EDITOR`. The value is passed to your shell so
   you can include flags (eg. `export REMUDA_EDITOR='code --wait'`).
-- `REMUDA_USE_PROMPTS` – comma-separated list of built-in prompt names to apply
+- `SLACK_TOKEN` – Slack API token required when using `--slack-thread`.
+- `REMUDA_USE_PROMPTS` – comma-separated list of saved prompt names to apply
   by default when running `vibe`, `vibe-check`, or `session resume`. Equivalent to
   passing `--use` for each entry; use `--no-use` to exclude a default prompt for
   a single run.
@@ -64,8 +65,9 @@ or populate values automatically, but you can configure them explicitly:
   `--dangerously-bypass-hook-trust`, `claude` maps to
   `--dangerously-skip-permissions`).
 - `REMUDA_SESSION_MANAGER` – select the session manager used for detached runs.
-  Accepts `tmux` (default) or `zellij`. Equivalent to passing
-  `--session-manager`.
+  Accepts `tmux` (default), `zellij`, or `herdr`. Equivalent to passing
+  `--session-manager`. `herdr` requires the Herdr service/CLI to be available
+  and does not support `--agent-cmd`.
 - `REMUDA_DEFAULT_REPO` – default repository alias used when no repo is supplied
   via flags/args. Handy for teams whose primary workspace is not the default
   configured repository.
@@ -129,7 +131,7 @@ Environment variables still override the saved defaults:
 version: 1
 
 session:
-  manager: tmux   # tmux|zellij
+  manager: tmux   # tmux|zellij|herdr
 
 workspaces:
   ignore:
@@ -193,7 +195,7 @@ When you pass `--jira <ISSUE-KEY>` to `vibe` or `vibe-check`,
 Remuda resolves Jira auth with this precedence:
 
 1. CLI flags: `--jira-endpoint`, `--jira-user`, `--jira-token`
-2. Environment: `REMUDA_JIRA_*` vars (legacy `JIRA_*` aliases also supported)
+2. Environment: `REMUDA_JIRA_*` vars
 3. Config file: `jira.endpoint`, `jira.user`, `jira.api_token`
 
 The old `.jira.d/config.yml` discovery flow is no longer used.

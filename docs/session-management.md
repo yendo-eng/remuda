@@ -1,12 +1,20 @@
 # Session Management
 
-Remuda launches agents inside tmux sessions named `org/repo/<folder>`. Use the
-`session` commands to inspect, attach, tail logs, and clean up sessions and their
-workspaces.
+Remuda has concepts of **workspaces** and **sessions**:
 
-`fzf` is required for interactive session picking workflows.
-`session reap` targets active sessions by age; `--older-than` uses Go-style
-durations (e.g. `72h`, `336h`).
+- A workspace is a checkout of a git repo, either as a worktree or as a separate clone.
+- A session is an active agent instance running inside of a terminal multiplexer.
+
+By default, a session is launched in a workspace located at
+`~/.remuda/repos/<org>/<repo>/<session-name>`.
+
+Remuda supports these terminal multiplexers:
+
+- tmux (default)
+- zellij
+- herdr
+
+Some commands support a `--pick` flag which requires `fzf` to be installed.
 
 ## Examples
 
@@ -65,7 +73,7 @@ remuda workspaces edit acme-org/example-repo/feature-login-audit
 remuda session resume ~/.remuda/repos/acme-org/example-repo/feature-login-audit
 remuda session resume --pick
 remuda session resume --yolo ~/.remuda/repos/acme-org/example-repo/feature-login-audit
-remuda session resume --agent claude --model claude-sonnet-4.6 ~/.remuda/repos/acme-org/example-repo/feature-login-audit "Continue from the last checkpoint and add tests"
+remuda session resume --agent claude --model claude-sonnet-4-6 ~/.remuda/repos/acme-org/example-repo/feature-login-audit "Continue from the last checkpoint and add tests"
 remuda session resume --agent-cmd "codex resume --last" ~/.remuda/repos/acme-org/example-repo/feature-login-audit "Continue"
 
 # Reap active sessions older than a threshold (dry-run by default)
@@ -108,6 +116,7 @@ Clone-creation flags are not available on `session resume`:
 selection remain `vibe`/`clone` concerns.
 
 For `session kill --merge`, merge flags are selected with this precedence:
+
 1. CLI `--merge-flag` values (repeatable; replaces config list)
 2. `defaults.merge.gh_flags` in config
 3. built-in default `--rebase`
