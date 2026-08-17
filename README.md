@@ -46,9 +46,12 @@ Requirements:
 - Required to build/install (via `go install`):
   - Go 1.24+ (any platform supported by the Go toolchain)
   - Git
-- Strongly recommended:
-  - `tmux` for the default detached-session flow (`zellij` is a supported alternative when configured)
-  - Agent harness (at least one is required to actually run an agent). Currently supported:
+- Required or strongly recommended:
+  - A terminal multiplexer:
+    - `tmux` (the default backend for detached sessions)
+    - `zellij`
+    - `herdr`
+  - An agent harness. Currently supported:
     - [Codex](https://github.com/openai/codex)
     - [OpenCode](https://github.com/anomalyco/opencode)
     - [Claude Code](https://code.claude.com/docs/en/overview)
@@ -96,10 +99,11 @@ remuda vibe \
 
 For detailed usage information, see:
 
-- [Commands](docs/commands.md) – vibe, clone, vibe-check
-- [Session Management](docs/session-management.md) – managing tmux sessions
+- [Commands](docs/commands.md) – all Remuda commands
+- [Session Management](docs/session-management.md) – managing detached sessions
 - [Container Mode](docs/container-mode.md) – running agents in Docker
 - [Configuration](docs/configuration.md) – environment variables and config file
+- [Experiments](docs/experiments.md) – opt-in experimental features
 
 ### Session Merge Flags
 

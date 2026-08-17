@@ -4,73 +4,28 @@ This document covers the main commands provided by Remuda.
 
 ## Commands Overview
 
-- `remuda clone --name <name> [repo_url]` (or `--wizard`): fast workspace creation from a local cache using git worktrees. Folder and branch are `<name>`; errors on collision unless `--force` is used.
-- `remuda vibe [--name <name>] [<prompt>]` (or `--wizard`): start an AI coding session in a new workspace (detached session via tmux by default). Omit the prompt to start the agent in its default interactive mode. If `--name` is omitted, Remuda derives one from the prompt. Session name is `org/repo/<name>`.
-- `remuda vibe-check [--name <name>] <branch>` (or `--wizard`): review a branch and produce a Markdown report in the session output.
-  - Defaults `--name` to `<branch>-code-review`.
-  - For PR reviews, pass `--pr <pr-ref>` (requires `gh auth status` to be authenticated).
-  - Outputs: `.vibe/check/pr.json` and `.vibe/check/diff.patch` in the workspace; the Markdown report is emitted in the session output (not saved by default).
-  - Note: does not forward `--yolo`. The branch (or PR head branch) is checked out in the workspace before review.
-- `remuda workspaces list [--active|--inactive]`: list Remuda-managed workspaces on disk, one absolute path per line.
-- `remuda workspaces remove [--dry-run] [--force] <target>...`: remove one or more explicit workspaces by absolute path or `org/repo/workspace` identifier.
-- `remuda workspaces edit <target>`: open a workspace (active or inactive) in `$REMUDA_EDITOR`/`$VISUAL`/`$EDITOR` by absolute path or `org/repo/workspace` identifier.
-- `remuda config validate`: validate the resolved config file (missing config is treated as success).
-- `remuda session <subcommand>`: manage running sessions created by Remuda. Subcommands: `list`, `attach`, `readbuf`, `send`, `path`, `kill`, `inactive`, `resume`, `reap`, `shell`. See [Session Management](session-management.md).
-  - `session resume` supports the same post-clone launch flags as `vibe`: `--agent`, `--model`, `--reasoning-level`, `--agent-cmd`, `--use`, `--no-use`, `--jira`, `--github-issue` (alias: `--gh-issue`), `--openai-api-key`, `--profile`, `--yolo`, plus detached/attach/container flags and an optional trailing prompt arg.
-  - `session resume` is stateless: Remuda does not detect which agent created the original session. Use the same agent that created the workspace session history.
-  - `session resume` defaults to Codex unless config/env defaults resolve to Claude via existing resume-default logic.
-  - Clone-creation flags (`--repo`, `--repo-url`, `--full-clone`, `--no-clone-hooks`, wizard repo-selection) are intentionally not supported on `session resume`.
-  - `--experiments session-manifest` – `vibe` writes a `.remuda.json` launch manifest (agent,
-    model, reasoning level, yolo, container settings, use-prompts) into the workspace root, local
-    and untracked. With the same experiment enabled, `session resume` reads it back to default any
-    of the flags above that weren't passed explicitly, instead of falling back to Codex.
+### Create and run
 
----
+| Command | Purpose |
+| --- | --- |
+| [`clone`](#clone) | Create a workspace without launching an agent. |
+| [`vibe`](#vibe) | Create a workspace and launch an agent. |
+| [`vibe-check`](#vibe-check) | Review a branch or pull request with an agent. |
 
-## Workspaces
+### Workspaces
 
-Manage Remuda-managed workspaces under `repos.base_dir`.
+| Command | Purpose |
+| --- | --- |
+| [`workspaces list`](#workspaces) | List Remuda-managed workspaces. |
+| [`workspaces remove`](#workspaces) | Remove explicitly targeted workspaces. |
+| [`workspaces edit`](#workspaces) | Open a workspace in the configured editor. |
 
-```bash
-# List all Remuda-managed workspaces (active + inactive)
-remuda workspaces list
+### Manage sessions
 
-# Restrict output to active workspaces only
-remuda workspaces list --active
-
-# Restrict output to inactive workspaces only
-remuda workspaces list --inactive
-
-# Dry-run removal without deleting
-remuda workspaces remove --dry-run ~/.remuda/repos/acme-org/example-repo/feature-login-audit
-
-# Force-remove a dirty/desynced linked worktree
-remuda workspaces remove --force acme-org/example-repo/feature-login-audit
-
-# Remove by identifier
-remuda workspaces remove acme-org/example-repo/feature-login-audit
-
-# Remove multiple explicit targets
-remuda workspaces remove \
-  acme-org/example-repo/feature-login-audit \
-  acme-org/example-repo/feature-cache-index
-
-# Open a workspace (active or inactive) in your editor
-remuda workspaces edit acme-org/example-repo/feature-login-audit
-```
-
-Behavior:
-
-- Output is one absolute workspace path per line.
-- Discovery uses the same candidate rules as `session inactive`.
-- `.repo_cache` is never listed.
-- `workspaces.ignore` config patterns are applied.
-- `--active` and `--inactive` cannot be combined.
-- Remove targets must be absolute paths or `org/repo/workspace` identifiers.
-- Remove refuses active-session workspaces and special directories such as `.repo_cache`.
-- Linked worktrees with untracked/desynced state are refused unless `--force` is set.
-
----
+See [Session Management](session-management.md) for `list`, `attach`,
+`readbuf`, `send`, `path`, `kill`, `inactive`, `resume`, `reap`, and `shell`.
+That guide also covers resume defaults, the `session-manifest` experiment, and
+session cleanup behavior.
 
 ## Clone
 
@@ -83,13 +38,12 @@ remuda clone --name feature-auth-hardening
 # ➜ ~/.remuda/repos/acme-org/example-repo/feature-auth-hardening
 ```
 
-It is recommended to set `REMUDA_REPOS_BASE_DIR` so that no matter where you run
-remuda, the worktrees show up in a consistent place in your filesystem.
-
 Options:
 
-- `--name <name>` – required unless you use `--wizard`; used for folder and branch.
-- `--branch <name>` – checkout this git branch (workspace folder still derives from `--name`). Defaults to the name when omitted.
+- `--name <name>` – required unless you use `--wizard`; used for the workspace
+  folder, while the branch defaults to the name unless `--branch` is provided.
+- `--branch <name>` – checkout this git branch (workspace folder still derives
+  from `--name`). Defaults to the name when omitted.
 - `--repo <alias>` – shorthand for a configured repository alias. Alias values
   come from merged repo-alias configuration (defaults plus `repos.aliases` in
   config). Use `remuda repo list` to see aliases available in your environment.
@@ -103,6 +57,7 @@ Options:
 - `[repo_url]` – clone a different repository instead of the configured default URL.
 
 First-run repo prompt:
+
 - If no repo is specified via flags/args/env/config and you're on an interactive TTY, `remuda clone`
   will prompt you to pick a default repo and optionally remember it (persisting to
   `repos.default_repo` or `repos.default_repo_url`).
@@ -154,7 +109,7 @@ Run `remuda vibe --help` for more options. Common flags:
   `defaults.agent_args.<agent>` (and per-repo overlays); CLI `--agent-arg`
   values append after resolved config defaults. Ignored when `--agent-cmd` is set.
 - `--agent-cmd <cmd>` – provide a complete custom command; your prompt will be
-  appended as the final argument.
+  appended as the final argument. This is not supported by the `herdr` backend.
 - `--use <prompt-name>` – apply a saved prompt (repeatable); `--no-use` excludes
   selected prompts.
 - `--use-position before|after` – place saved prompts before or after the main
@@ -165,6 +120,10 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--jira-user <email>` – override Jira user/email for `--jira` context fetches.
 - `--jira-token <token>` – override Jira API token for `--jira` context fetches
   (prefer env/config in normal usage).
+- `--slack-thread <url>` – prepend Slack thread context (repeatable; requires
+  `SLACK_TOKEN`).
+- `--github-issue <url-or-number>` – prepend GitHub issue context (repeatable;
+  a number requires repository inference). `--gh-issue` is an alias.
 - `--in <path>` – launch inside an existing workspace instead of cloning a new one.
 - `--repo <alias>` – shorthand for a configured repo alias; expands to a full
   URL. Alias values come from merged alias configuration (defaults plus
@@ -177,8 +136,8 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--experiments cow-clone` – copy the cache copy-on-write; see the [Clone](#clone) options.
 - `--no-clone-hooks` – skip running all post-clone hooks (built-in and config-defined).
 - `--[no-]detached` – run the agent in the current terminal instead of using the configured session manager.
-- `--session-manager tmux|zellij` – override the session manager for this invocation (tmux remains the default).
-- `REMUDA_SESSION_MANAGER=tmux|zellij` – environment override for the default session manager (falls back to `tmux`).
+- `--session-manager tmux|zellij|herdr` – override the session manager for this invocation (tmux remains the default).
+- `REMUDA_SESSION_MANAGER=tmux|zellij|herdr` – environment override for the default session manager (falls back to `tmux`).
 - Containerized Claude runs forward `ANTHROPIC_API_KEY` and mount `~/.claude`
   plus `~/.claude.json` when present so Claude auth/session state is reused.
 - Containerized Codex runs persist ChatGPT account logins (not API-key auth):
@@ -189,6 +148,7 @@ Run `remuda vibe --help` for more options. Common flags:
   mounted.
 
 First-run repo prompt:
+
 - If no repo is specified via flags/args/env/config and you're on an interactive TTY, `remuda vibe`
   will prompt you to pick a default repo and optionally remember it (persisting to
   `repos.default_repo` or `repos.default_repo_url`).
@@ -204,6 +164,7 @@ exclusions win over inclusions and apply to defaults from `REMUDA_USE_PROMPTS`.
 These prompt flags are shared by `vibe`, `vibe-check`, and `session resume`.
 
 Notes:
+
 - `--no-use` accepts comma-separated prompt names and can be repeated.
 - `--use-position after` places only the saved prompts after the main prompt;
   fetched Jira, Slack, and GitHub issue context stays before it.
@@ -226,7 +187,7 @@ remuda vibe --use small-commits --use-position after --name feature/pagination "
 # You can set your favorite prompts (built-in or custom) as defaults with
 # REMUDA_USE_PROMPTS. make-pr will instruct the agent to try and open a PR with
 # the gh cli when it is done with its work.
-export REMUDA_USE_PROMPTS 'make-pr,small-commits'
+export REMUDA_USE_PROMPTS='make-pr,small-commits'
 remuda vibe --name feature/pagination "Implement pagination for transactions"
 
 # Exclude a default prompt for a single run.
@@ -270,7 +231,7 @@ Requirements:
 
 Notes:
 
-- Artifacts are written under `.vibe/check/` (pr.json + diff.patch); the Markdown report is emitted in the session output.
+- The review instructions ask the agent to emit a Markdown report in the session output; Remuda does not save a separate report file.
 - `vibe-check` defaults to a full clone (`--full-clone`); use `--no-full-clone` to review via linked worktrees.
 - `--experiments cow-clone` copies the cache copy-on-write; see the [Clone](#clone) options.
 - `--no-clone-hooks` is supported and skips all post-clone hooks (built-in + config-defined).
@@ -303,6 +264,51 @@ Profile defaults are supported here as well: `--profile <name>` (or
 `REMUDA_PROFILE`) applies a named profile from `config.yaml` for agent/container
 defaults. If neither is set, `per_repo.<slug>.profile` can auto-select one for
 the resolved repo.
+
+---
+
+## Workspaces
+
+Manage Remuda-managed workspaces under `repos.base_dir`.
+
+```bash
+# List all Remuda-managed workspaces (active + inactive)
+remuda workspaces list
+
+# Restrict output to active workspaces only
+remuda workspaces list --active
+
+# Restrict output to inactive workspaces only
+remuda workspaces list --inactive
+
+# Dry-run removal without deleting
+remuda workspaces remove --dry-run ~/.remuda/repos/acme-org/example-repo/feature-login-audit
+
+# Force-remove a dirty/desynced linked worktree
+remuda workspaces remove --force acme-org/example-repo/feature-login-audit
+
+# Remove by identifier
+remuda workspaces remove acme-org/example-repo/feature-login-audit
+
+# Remove multiple explicit targets
+remuda workspaces remove \
+  acme-org/example-repo/feature-login-audit \
+  acme-org/example-repo/feature-cache-index
+
+# Open a workspace (active or inactive) in your editor
+remuda workspaces edit acme-org/example-repo/feature-login-audit
+```
+
+Behavior:
+
+- Output is one absolute workspace path per line.
+- Discovery uses the same candidate rules as `session inactive`.
+- You can prevent certain workspaces from being shown by setting
+  `workspaces.ignore` in your config.
+- Remove targets must be absolute paths or `org/repo/workspace` identifiers.
+- Remove refuses active-session workspaces and special directories such as `.repo_cache`.
+- Linked worktrees with untracked/desynced state are refused unless `--force`
+  is set.
 
 ---
 
