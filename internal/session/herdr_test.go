@@ -35,7 +35,7 @@ case "$1 $2" in
     printf '%s\n' '{"result":{"workspaces":[]}}'
     ;;
   "workspace create")
-    printf '%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"root_pane":{"pane_id":"w7:p1"}}}'
+    printf '%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"tab":{"tab_id":"w7:t1"},"root_pane":{"pane_id":"w7:p1"}}}'
     ;;
 esac
 `)
@@ -64,20 +64,21 @@ esac
 			require.Equal(t, "workspace list", calls[0])
 			require.Contains(t, calls[1], "workspace create --cwd /workspaces/rm-ypr2 --label yendo/remuda/rm-ypr2 --no-focus")
 			require.Contains(t, calls[1], "--env PATH=/usr/bin --env OPENAI_API_KEY=secret")
-			require.Contains(t, calls[2], "workspace report-metadata w7 --source remuda")
-			require.Contains(t, calls[2], "--token remuda=1")
-			require.Contains(t, calls[2], "--token org=yendo")
-			require.Contains(t, calls[2], "--token repo=remuda")
-			require.Contains(t, calls[2], "--token folder=rm-ypr2")
-			require.Contains(t, calls[2], "--token created_at=")
+			require.Contains(t, calls[2], "tab rename w7:t1 agent")
+			require.Contains(t, calls[3], "workspace report-metadata w7 --source remuda")
+			require.Contains(t, calls[3], "--token remuda=1")
+			require.Contains(t, calls[3], "--token org=yendo")
+			require.Contains(t, calls[3], "--token repo=remuda")
+			require.Contains(t, calls[3], "--token folder=rm-ypr2")
+			require.Contains(t, calls[3], "--token created_at=")
 			if tt.wantStart {
-				require.Len(t, calls, 5)
-				require.Contains(t, calls[3], "agent start remuda-")
-				require.Contains(t, calls[3], "--kind codex --pane w7:p1 -- --model gpt-5.5 fix it")
-				require.NotContains(t, calls[3], "finish")
-				require.Contains(t, calls[4], "agent prompt remuda-")
+				require.Len(t, calls, 6)
+				require.Contains(t, calls[4], "agent start remuda-")
+				require.Contains(t, calls[4], "--kind codex --pane w7:p1 -- --model gpt-5.5 fix it")
+				require.NotContains(t, calls[4], "finish")
+				require.Contains(t, calls[5], "agent prompt remuda-")
 			} else {
-				require.Len(t, calls, 3)
+				require.Len(t, calls, 4)
 			}
 		})
 	}
@@ -97,7 +98,7 @@ case "$1 $2" in
     printf '%%s\n' '{"result":{"workspaces":[]}}'
     ;;
   "workspace create")
-    printf '%%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"root_pane":{"pane_id":"w7:p1"}}}'
+    printf '%%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"tab":{"tab_id":"w7:t1"},"root_pane":{"pane_id":"w7:p1"}}}'
     ;;
   "pane run")
     cat "$4" > "$REMUDA_HERDR_SCRIPT"
@@ -131,10 +132,11 @@ esac
 	}))
 
 	calls := readHerdrCalls(t, logPath)
-	require.Len(t, calls, 4)
+	require.Len(t, calls, 5)
 	require.Contains(t, calls[1], "--env HERDR_AGENT=codex")
-	require.Contains(t, calls[2], "workspace report-metadata w7 --source remuda")
-	require.Contains(t, calls[3], "pane run w7:p1")
+	require.Contains(t, calls[2], "tab rename w7:t1 agent")
+	require.Contains(t, calls[3], "workspace report-metadata w7 --source remuda")
+	require.Contains(t, calls[4], "pane run w7:p1")
 	require.NotContains(t, strings.Join(calls, "\n"), "agent start")
 
 	script, err := os.ReadFile(scriptPath)
@@ -155,7 +157,7 @@ case "$1 $2" in
     printf '%s\n' '{"result":{"workspaces":[]}}'
     ;;
   "workspace create")
-    printf '%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"root_pane":{"pane_id":"w7:p1"}}}'
+    printf '%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"tab":{"tab_id":"w7:t1"},"root_pane":{"pane_id":"w7:p1"}}}'
     ;;
   "agent start")
     if [ ! -e "$REMUDA_HERDR_BUSY_MARKER" ]; then
@@ -196,7 +198,7 @@ case "$1 $2" in
     printf '%s\n' '{"result":{"workspaces":[]}}'
     ;;
   "workspace create")
-    printf '%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"root_pane":{"pane_id":"w7:p1"}}}'
+    printf '%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"tab":{"tab_id":"w7:t1"},"root_pane":{"pane_id":"w7:p1"}}}'
     ;;
   "agent start")
     for arg in "$@"; do
@@ -292,7 +294,7 @@ case "$1 $2" in
     printf '%s\n' '{"result":{"workspaces":[]}}'
     ;;
   "workspace create")
-    printf '%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"root_pane":{"pane_id":"w7:p1"}}}'
+    printf '%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"tab":{"tab_id":"w7:t1"},"root_pane":{"pane_id":"w7:p1"}}}'
     ;;
   "workspace report-metadata")
     if [ "$REMUDA_HERDR_FAIL_STAGE" = metadata ]; then exit 1; fi

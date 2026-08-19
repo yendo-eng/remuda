@@ -69,6 +69,10 @@ type herdrPane struct {
 	PaneID string `json:"pane_id"`
 }
 
+type herdrTab struct {
+	TabID string `json:"tab_id"`
+}
+
 func NewHerdr() Multiplexer {
 	return NewHerdrWithLogger(logging.DefaultLogger())
 }
@@ -124,6 +128,7 @@ func (h *herdr) StartAgent(start AgentStart) error {
 
 	var created herdrResponse[struct {
 		Workspace herdrWorkspace `json:"workspace"`
+		Tab       herdrTab       `json:"tab"`
 		RootPane  herdrPane      `json:"root_pane"`
 	}]
 	if err := json.Unmarshal([]byte(output), &created); err != nil {
@@ -140,6 +145,12 @@ func (h *herdr) StartAgent(start AgentStart) error {
 	}()
 	if created.Result.RootPane.PaneID == "" {
 		return pkgerrors.New("herdr workspace create response is missing workspace or pane id")
+	}
+	if created.Result.Tab.TabID == "" {
+		return pkgerrors.New("herdr workspace create response is missing tab id")
+	}
+	if _, err := h.runOutput("tab", "rename", created.Result.Tab.TabID, "agent"); err != nil {
+		return err
 	}
 
 	metadataArgs := []string{
