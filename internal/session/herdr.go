@@ -1,7 +1,6 @@
 package session
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -16,6 +15,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/logging"
+	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 const (
@@ -67,10 +67,6 @@ type herdrWorkspace struct {
 
 type herdrPane struct {
 	PaneID string `json:"pane_id"`
-}
-
-type herdrTab struct {
-	TabID string `json:"tab_id"`
 }
 
 func NewHerdr() Multiplexer {
@@ -128,7 +124,6 @@ func (h *herdr) StartAgent(start AgentStart) error {
 
 	var created herdrResponse[struct {
 		Workspace herdrWorkspace `json:"workspace"`
-		Tab       herdrTab       `json:"tab"`
 		RootPane  herdrPane      `json:"root_pane"`
 	}]
 	if err := json.Unmarshal([]byte(output), &created); err != nil {
@@ -161,16 +156,7 @@ func (h *herdr) StartAgent(start AgentStart) error {
 	}
 
 	if start.Container {
-		if created.Result.Tab.TabID == "" {
-			return pkgerrors.New("herdr workspace create response is missing tab id")
-		}
-		if err := h.applyLayout(
-			created.Result.Tab.TabID,
-			start.Workspace,
-			start.CommandArgv,
-			start.Env,
-			start.Agent,
-		); err != nil {
+		if err := h.startContainerInPane(created.Result.RootPane.PaneID, start.CommandArgv); err != nil {
 			return err
 		}
 		started = true
@@ -208,87 +194,57 @@ func (h *herdr) StartAgent(start AgentStart) error {
 	return nil
 }
 
-func (h *herdr) applyLayout(tabID, cwd string, command, envValues []string, agent string) error {
+// Herdr's root pane is an interactive shell, so it survives the container
+// process exiting. The script keeps Docker as the foreground process for
+// HERDR_AGENT detection while handing pane ownership back to that shell.
+func (h *herdr) startContainerInPane(paneID string, command []string) error {
 	if len(command) == 0 {
 		return pkgerrors.New("herdr container launch is missing command argv")
 	}
 
-	statusOutput, err := h.runOutput("status", "server", "--json")
+	commandPath, err := writeHerdrLaunchScript(command)
 	if err != nil {
 		return err
 	}
-	var status struct {
-		Socket string `json:"socket"`
-	}
-	if err := json.Unmarshal([]byte(statusOutput), &status); err != nil {
-		return pkgerrors.Wrap(err, "decode herdr server status response")
-	}
-	if strings.TrimSpace(status.Socket) == "" {
-		return pkgerrors.New("herdr server status response is missing socket path")
-	}
-
-	conn, err := dialHerdrSocket(status.Socket, herdrAgentStartRetryTimeout)
-	if err != nil {
-		return pkgerrors.Wrap(err, "connect to herdr API socket")
-	}
-	defer func() { _ = conn.Close() }()
-	if err := conn.SetDeadline(time.Now().Add(herdrAgentStartRetryTimeout)); err != nil {
-		return pkgerrors.Wrap(err, "set herdr API socket deadline")
-	}
-
-	launchEnv := make(map[string]string, len(envValues)+1)
-	for _, value := range envValues {
-		key, envValue, ok := strings.Cut(value, "=")
-		if ok {
-			launchEnv[key] = envValue
-		}
-	}
-	launchEnv["HERDR_AGENT"] = agent
-
-	request := struct {
-		ID     string `json:"id"`
-		Method string `json:"method"`
-		Params struct {
-			TabID string `json:"tab_id"`
-			Focus bool   `json:"focus"`
-			Root  struct {
-				Type    string            `json:"type"`
-				CWD     string            `json:"cwd"`
-				Command []string          `json:"command"`
-				Env     map[string]string `json:"env"`
-			} `json:"root"`
-		} `json:"params"`
-	}{
-		ID:     "remuda:layout",
-		Method: "layout.apply",
-	}
-	request.Params.TabID = tabID
-	request.Params.Root.Type = "pane"
-	request.Params.Root.CWD = cwd
-	request.Params.Root.Command = command
-	request.Params.Root.Env = launchEnv
-
-	if err := json.NewEncoder(conn).Encode(request); err != nil {
-		return pkgerrors.Wrap(err, "send herdr layout.apply request")
-	}
-
-	var response struct {
-		Error *struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if err := json.NewDecoder(bufio.NewReader(conn)).Decode(&response); err != nil {
-		return pkgerrors.Wrap(err, "decode herdr layout.apply response")
-	}
-	if response.Error != nil {
-		message := response.Error.Message
-		if message == "" {
-			message = response.Error.Code
-		}
-		return pkgerrors.Errorf("herdr layout.apply failed: %s", message)
+	if _, err := h.runOutput("pane", "run", paneID, commandPath); err != nil {
+		_ = os.Remove(commandPath)
+		return err
 	}
 	return nil
+}
+
+func writeHerdrLaunchScript(command []string) (string, error) {
+	quoted := make([]string, len(command))
+	for i, arg := range command {
+		quoted[i] = shellutil.SingleQuote(arg)
+	}
+
+	file, err := os.CreateTemp("", "remuda-herdr-*.sh")
+	if err != nil {
+		return "", pkgerrors.Wrap(err, "create Herdr container launch script")
+	}
+	path := file.Name()
+	removeOnError := true
+	defer func() {
+		if removeOnError {
+			_ = os.Remove(path)
+		}
+	}()
+
+	script := "#!/bin/sh\nrm -f -- \"$0\"\nexec " + strings.Join(quoted, " ") + "\n"
+	if _, err := file.WriteString(script); err != nil {
+		_ = file.Close()
+		return "", pkgerrors.Wrap(err, "write Herdr container launch script")
+	}
+	if err := file.Chmod(0o700); err != nil {
+		_ = file.Close()
+		return "", pkgerrors.Wrap(err, "make Herdr container launch script executable")
+	}
+	if err := file.Close(); err != nil {
+		return "", pkgerrors.Wrap(err, "close Herdr container launch script")
+	}
+	removeOnError = false
+	return path, nil
 }
 
 func (h *herdr) startAgent(args []string) error {

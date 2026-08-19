@@ -97,7 +97,7 @@ case "$1 $2" in
     printf '%%s\n' '{"result":{"workspaces":[]}}'
     ;;
   "workspace create")
-    printf '%%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"tab":{"tab_id":"w7:t1"},"root_pane":{"pane_id":"w7:p1"}}}'
+    printf '%%s\n' '{"result":{"workspace":{"workspace_id":"w7"},"root_pane":{"pane_id":"w7:p1"}}}'
     ;;
   "pane run")
     cat "$4" > "$REMUDA_HERDR_SCRIPT"
@@ -131,6 +131,7 @@ esac
 	}))
 
 	calls := readHerdrCalls(t, logPath)
+	require.Len(t, calls, 4)
 	require.Contains(t, calls[1], "--env HERDR_AGENT=codex")
 	require.Contains(t, calls[2], "workspace report-metadata w7 --source remuda")
 	require.Contains(t, calls[3], "pane run w7:p1")
@@ -140,7 +141,7 @@ esac
 	require.NoError(t, err)
 	require.Contains(t, string(script), `rm -f -- "$0"`)
 	require.Contains(t, string(script), "exec 'docker' 'run' '--rm' '-it'")
-	require.Contains(t, string(script), "'mount-00:/workspaces/mount-00:ro'")
+	require.Contains(t, string(script), "'/Users/devin/Library/Application Support/remuda/mount-00:/workspaces/mount-00:ro'")
 	require.Contains(t, string(script), "'exec codex'")
 }
 
