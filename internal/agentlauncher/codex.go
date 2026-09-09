@@ -66,6 +66,7 @@ func (c codexLauncher) WithRemoteControl(sessionName string) (AgentLauncher, boo
 // Not an exhaustive list, nor is this guaranteed to be up to date.
 func (c codexLauncher) SupportedModels() []string {
 	return []string{
+		"gpt-6-astra",
 		"gpt-5.6-sol",
 		"gpt-5.6-terra",
 		"gpt-5.6-luna",
