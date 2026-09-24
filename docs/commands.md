@@ -93,9 +93,10 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--model <m>` – pass a model override to the chosen agent when supported.
 - `--reasoning-level <level>` – set agent reasoning effort. For Codex this maps to
   `--config model_reasoning_effort=<level>`. Completion suggests
-  `none|minimal|low|medium|high|xhigh` for older models and also `max|ultra` for
-  `gpt-5.6*`; unknown values are passed through with a warning for Codex to
-  validate. For Claude this maps to `--effort <level>`.
+  `none|minimal|low|medium|high|xhigh` for older models and `max` or `ultra`
+  for GPT-5.6 and GPT-6 models that support each level; unknown values are
+  passed through with a warning for Codex to validate. For Claude this maps to
+  `--effort <level>`.
 - `--yolo` – enable agent-specific approval/sandbox bypass behavior. Codex maps
   this to `--dangerously-bypass-approvals-and-sandbox` plus
   `--dangerously-bypass-hook-trust`; Claude maps this to

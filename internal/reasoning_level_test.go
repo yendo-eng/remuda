@@ -83,6 +83,7 @@ func TestResolveReasoningLevel_CodexWarnsAndPassesThroughUnsupportedLevels(t *te
 		level string
 	}{
 		{name: "high tier on older model", model: "gpt-5.5", level: "max"},
+		{name: "ultra on gpt 6 luna", model: "gpt-6-luna", level: "ultra"},
 		{name: "unknown level", model: "gpt-5.6-sol", level: "turbo"},
 	}
 
@@ -107,18 +108,34 @@ func TestResolveReasoningLevel_CodexWarnsAndPassesThroughUnsupportedLevels(t *te
 	}
 }
 
-func TestResolveReasoningLevel_CodexSupportsGPT56HighTierWithoutWarning(t *testing.T) {
+func TestResolveReasoningLevel_CodexSupportsHighTierWithoutWarning(t *testing.T) {
 	t.Parallel()
 
-	var logs bytes.Buffer
-	got, err := resolveReasoningLevel(
-		zerolog.New(&logs),
-		string(agentlauncher.AgentCodex),
-		"gpt-5.6-luna",
-		"",
-		"max",
-	)
-	require.NoError(t, err)
-	require.Equal(t, "max", got)
-	require.Empty(t, logs.String())
+	tests := []struct {
+		model string
+		level string
+	}{
+		{model: "gpt-5.6-sol", level: "ultra"},
+		{model: "gpt-5.6-luna", level: "max"},
+		{model: "gpt-6-astra", level: "ultra"},
+		{model: "gpt-6-sol", level: "ultra"},
+		{model: "gpt-6-luna", level: "max"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.model+"/"+tt.level, func(t *testing.T) {
+			t.Parallel()
+
+			var logs bytes.Buffer
+			got, err := resolveReasoningLevel(
+				zerolog.New(&logs),
+				string(agentlauncher.AgentCodex),
+				tt.model,
+				"",
+				tt.level,
+			)
+			require.NoError(t, err)
+			require.Equal(t, tt.level, got)
+			require.Empty(t, logs.String())
+		})
+	}
 }
