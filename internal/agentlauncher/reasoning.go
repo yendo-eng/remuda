@@ -35,17 +35,21 @@ func SupportedReasoningLevels(agent, model string) []string {
 	switch SupportedAgent(agent) {
 	case AgentCodex:
 		levels := append([]string(nil), codexBaseReasoningLevels...)
-		if codexSupportsHighTierEffort(model) {
-			levels = append(levels, "max", "ultra")
-		}
-		return levels
+		return append(levels, codexAdditionalReasoningLevels(model)...)
 	default:
 		return nil
 	}
 }
 
-func codexSupportsHighTierEffort(model string) bool {
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-5.6")
+func codexAdditionalReasoningLevels(model string) []string {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "gpt-5.6-sol", "gpt-5.6-terra", "gpt-6-astra", "gpt-6-sol":
+		return []string{"max", "ultra"}
+	case "gpt-5.6-luna", "gpt-6-luna":
+		return []string{"max"}
+	default:
+		return nil
+	}
 }
 
 // SuggestedReasoningLevels returns shell-completion suggestions for reasoning levels.

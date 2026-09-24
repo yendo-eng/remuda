@@ -160,12 +160,20 @@ func TestCompleteReasoningLevel_UsesConfigDefaults(t *testing.T) {
 	require.NotContains(t, got, "ultra")
 }
 
-func TestCompleteReasoningLevel_CodexGPT56OffersHighTierLevels(t *testing.T) {
+func TestCompleteReasoningLevel_CodexGPT56LunaOffersMaxOnly(t *testing.T) {
 	home := t.TempDir()
 
 	got := runComplete(t, cli.EnvMap{}, home,
 		"vibe", "--agent", "codex", "--model", "gpt-5.6-luna", "--reasoning-level", "")
-	require.Equal(t, agentlauncher.CodexReasoningLevels, got)
+	require.Contains(t, got, "max")
+	require.NotContains(t, got, "ultra")
+}
+
+func TestCompleteReasoningLevel_CodexGPT6AstraOffersHighTierLevels(t *testing.T) {
+	home := t.TempDir()
+
+	got := runComplete(t, cli.EnvMap{}, home,
+		"vibe", "--agent", "codex", "--model", "gpt-6-astra", "--reasoning-level", "")
 	require.Contains(t, got, "max")
 	require.Contains(t, got, "ultra")
 }
