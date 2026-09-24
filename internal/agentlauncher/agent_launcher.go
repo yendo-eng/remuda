@@ -68,7 +68,7 @@ const ModelAgentDefault = "agent-default"
 func DefaultModel(agent string) string {
 	switch SupportedAgent(agent) {
 	case AgentCodex:
-		return "gpt-5.5"
+		return "gpt-6-astra"
 	case AgentClaude:
 		return ""
 	case AgentOpenCode:

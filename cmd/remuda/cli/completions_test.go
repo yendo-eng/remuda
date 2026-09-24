@@ -156,8 +156,8 @@ func TestCompleteReasoningLevel_UsesConfigDefaults(t *testing.T) {
 
 	got := runComplete(t, cli.EnvMap{}, home, "vibe", "--reasoning-level", "")
 	require.Equal(t, agentlauncher.SuggestedReasoningLevels("codex", agentlauncher.EffectiveModel("codex", "")), got)
-	require.NotContains(t, got, "max")
-	require.NotContains(t, got, "ultra")
+	require.Contains(t, got, "max")
+	require.Contains(t, got, "ultra")
 }
 
 func TestCompleteReasoningLevel_CodexGPT56LunaOffersMaxOnly(t *testing.T) {
