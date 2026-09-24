@@ -7,6 +7,15 @@ import (
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
+func TestParse_DefaultCodexModelUsesAstra(t *testing.T) {
+	t.Parallel()
+
+	launcher, model, err := Parse(string(AgentCodex), "", false)
+	require.NoError(t, err)
+	require.Equal(t, "gpt-6-astra", model)
+	require.Equal(t, []string{"--model", "gpt-6-astra", "--", "prompt"}, launcher.Arguments("prompt"))
+}
+
 func TestCodexLauncher_Command_DashPrefixedPromptUsesArgumentTerminator(t *testing.T) {
 	l := Codex("", false, "")
 
