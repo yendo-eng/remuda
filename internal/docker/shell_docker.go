@@ -29,7 +29,7 @@ func (s *shellDocker) SetLogger(logger zerolog.Logger) {
 }
 
 func (s shellDocker) CheckRunning() error {
-	output, err := util.RunCmdCombinedOutputWithLogger(s.logger, "docker", "ps")
+	output, err := util.RunCmdCombinedOutput(s.logger, "docker", "ps")
 	if err != nil {
 		msg := strings.TrimSpace(string(output))
 		if msg != "" {
@@ -42,7 +42,7 @@ func (s shellDocker) CheckRunning() error {
 }
 
 func (s shellDocker) ContainerRunning(container string) (bool, error) {
-	cmd := util.CmdWithLogger(s.logger, "docker", "inspect", "-f", "{{.State.Running}}", container)
+	cmd := util.Cmd(s.logger, "docker", "inspect", "-f", "{{.State.Running}}", container)
 	out, err := cmd.Output()
 	if err != nil {
 		var ee *exec.ExitError
@@ -65,7 +65,7 @@ func (s shellDocker) ContainerRunning(container string) (bool, error) {
 }
 
 func (s shellDocker) Exec(container string, command string) error {
-	cmd := util.CmdWithLogger(s.logger, "docker", "exec", "-it", container, "bash", "-lc", command)
+	cmd := util.Cmd(s.logger, "docker", "exec", "-it", container, "bash", "-lc", command)
 	cmd.Stdout, cmd.Stdin, cmd.Stderr = os.Stderr, os.Stdin, os.Stderr
 	return cmd.Run()
 }

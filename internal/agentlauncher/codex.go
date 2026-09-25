@@ -3,6 +3,7 @@ package agentlauncher
 import (
 	"strings"
 
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
@@ -89,7 +90,7 @@ func (c codexLauncher) SupportedModels() []string {
 }
 
 func (c codexLauncher) Version() (string, error) {
-	out, err := util.RunCmdOutput("codex", "--version")
+	out, err := util.RunCmdOutput(logging.DefaultLogger(), "codex", "--version")
 	if err != nil {
 		return "", err
 	}

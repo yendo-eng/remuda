@@ -53,7 +53,7 @@ func (m *tmux) StartWithEnv(sessionName, command string, env []string) error {
 		command = tmuxCommandWithEnvFile(envFile, command)
 	}
 	args = append(args, "bash", "-lc", command)
-	if err := util.RunCmdWithEnvAndLogger(m.logger, env, "tmux", args...); err != nil {
+	if err := util.RunCmdWithEnv(m.logger, env, "tmux", args...); err != nil {
 		if envFile != "" {
 			_ = os.Remove(envFile)
 		}
@@ -162,7 +162,7 @@ func (m *tmux) List() ([]SessionInfo, error) {
 	// NOTE: We intentionally avoid a literal TAB delimiter here. Some tmux builds
 	// appear to sanitize control characters in this output (rendering TAB as "_"),
 	// which breaks parsing and causes Remuda to incorrectly report "no sessions".
-	out, err := util.RunCmdCombinedOutputWithLogger(m.logger, "tmux", "list-sessions", "-F", "#{session_name} #{?session_attached,1,0} #{session_created}")
+	out, err := util.RunCmdCombinedOutput(m.logger, "tmux", "list-sessions", "-F", "#{session_name} #{?session_attached,1,0} #{session_created}")
 	if err != nil {
 		// If tmux exits with status 1 (common when no server is running),
 		// interpret that as "no sessions" regardless of stderr wording.
@@ -252,7 +252,7 @@ func (m *tmux) Attach(name string) error {
 	// interpretation as a session target even when the session name contains dots.
 	target := resolved + ":"
 
-	cmd := util.CmdWithLogger(m.logger, "tmux", "attach", "-t", target)
+	cmd := util.Cmd(m.logger, "tmux", "attach", "-t", target)
 	// Ensures the tmux session has access to your terminal.
 	cmd.Stdout, cmd.Stdin, cmd.Stderr = os.Stderr, os.Stdin, os.Stderr
 	return cmd.Run()
@@ -269,7 +269,7 @@ func (m *tmux) ReadBuffer(name string, lines int) (string, error) {
 
 	// Capture from the first pane of the first window.
 	target := fmt.Sprintf("%s:0.0", resolved)
-	out, err := util.RunCmdOutputWithLogger(m.logger, "tmux", "capture-pane", "-p", "-S", "-", "-t", target)
+	out, err := util.RunCmdOutput(m.logger, "tmux", "capture-pane", "-p", "-S", "-", "-t", target)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "tmux capture-pane")
 	}
@@ -296,7 +296,7 @@ func (m *tmux) Send(name string, payload string, appendNewline bool) error {
 	target := resolved + ":"
 
 	if payload != "" {
-		if err := util.RunCmdWithLogger(m.logger, "tmux", "send-keys", "-t", target, "-l", payload); err != nil {
+		if err := util.RunCmd(m.logger, "tmux", "send-keys", "-t", target, "-l", payload); err != nil {
 			return pkgerrors.Wrap(err, "tmux send-keys")
 		}
 	}
@@ -305,7 +305,7 @@ func (m *tmux) Send(name string, payload string, appendNewline bool) error {
 		// Codex has a paste burst detector in its TUI; a short delay helps it
 		// treat the follow-up Enter as a submit instead of more pasted text.
 		time.Sleep(200 * time.Millisecond)
-		if err := util.RunCmdWithLogger(m.logger, "tmux", "send-keys", "-t", target, "Enter"); err != nil {
+		if err := util.RunCmd(m.logger, "tmux", "send-keys", "-t", target, "Enter"); err != nil {
 			return pkgerrors.Wrap(err, "tmux send-keys")
 		}
 	}
@@ -319,5 +319,5 @@ func (m *tmux) Kill(name string) error {
 		return err
 	}
 	target := resolved + ":"
-	return util.RunCmdWithLogger(m.logger, "tmux", "kill-session", "-t", target)
+	return util.RunCmd(m.logger, "tmux", "kill-session", "-t", target)
 }

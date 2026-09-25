@@ -3,6 +3,7 @@ package agentlauncher
 import (
 	"strings"
 
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -88,5 +89,5 @@ func (c claudeLauncher) SupportedModels() []string {
 }
 
 func (c claudeLauncher) Version() (string, error) {
-	return util.RunCmdOutput("claude", "--version")
+	return util.RunCmdOutput(logging.DefaultLogger(), "claude", "--version")
 }

@@ -106,7 +106,7 @@ func (k Remuda) cleanupWorkspaceForSession(sessionName string) error {
 func (k Remuda) closeBDIssue(workspacePath string) bool {
 	logger := k.logger()
 	// determine the git branch at the workspace path
-	branchName, err := util.RunCmdOutputWithLogger(logger, "git", "-C", workspacePath, "rev-parse", "--abbrev-ref", "HEAD")
+	branchName, err := util.RunCmdOutput(logger, "git", "-C", workspacePath, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		logger.Warn().Err(err).Msg("unable to determine git branch for beads issue closure")
 		return false
@@ -116,7 +116,7 @@ func (k Remuda) closeBDIssue(workspacePath string) bool {
 	branchName = strings.TrimSpace(branchName)
 
 	cmdEnv := env.Environ(k.envProvider())
-	err = util.RunCmdWithEnvAndLogger(logger, cmdEnv, "br", "close", branchName)
+	err = util.RunCmdWithEnv(logger, cmdEnv, "br", "close", branchName)
 	if err != nil {
 		logger.Warn().Err(err).Str("issue_id", branchName).Msg("unable to close beads issue")
 		return false

@@ -151,7 +151,7 @@ func (gh *ghCLI) MergePullRequest(workspacePath string, mergeFlags []string) (*P
 }
 
 func (gh *ghCLI) CheckAuthStatus() error {
-	cmd := util.CmdWithLogger(gh.logger, "gh", "auth", "status")
+	cmd := util.Cmd(gh.logger, "gh", "auth", "status")
 	cmd.Env = env.Environ(gh.env)
 	err := cmd.Run()
 	return pkgerrors.Wrap(err, "gh auth status")
@@ -166,7 +166,7 @@ func (gh *ghCLI) PRViewWithRepo(repoSlug, ref string) (map[string]any, error) {
 }
 
 func (gh *ghCLI) PRDiff(cwd, ref string) (string, error) {
-	cmd := util.CmdWithLogger(gh.logger, "gh", "pr", "diff", ref)
+	cmd := util.Cmd(gh.logger, "gh", "pr", "diff", ref)
 	cmd.Dir = cwd
 	cmd.Env = env.Environ(gh.env)
 	out, err := cmd.Output()
@@ -182,7 +182,7 @@ func (gh *ghCLI) PRDiff(cwd, ref string) (string, error) {
 }
 
 func (gh *ghCLI) PRCheckout(cwd, ref string) error {
-	cmd := util.CmdWithLogger(gh.logger, "gh", "pr", "checkout", ref)
+	cmd := util.Cmd(gh.logger, "gh", "pr", "checkout", ref)
 	cmd.Dir = cwd
 	cmd.Env = env.Environ(gh.env)
 	err := cmd.Run()
@@ -194,7 +194,7 @@ func ghPRView(logger zerolog.Logger, cwd, repoSlug, ref string, provider env.Pro
 	if strings.TrimSpace(repoSlug) != "" && !strings.Contains(ref, "://") {
 		args = append(args, "--repo", repoSlug)
 	}
-	cmd := util.CmdWithLogger(logger, args[0], args[1:]...)
+	cmd := util.Cmd(logger, args[0], args[1:]...)
 	if strings.TrimSpace(cwd) != "" {
 		cmd.Dir = cwd
 	}
@@ -223,7 +223,7 @@ func (gh *ghCLI) IssueView(repoSlug, ref string) (*Issue, error) {
 	if repoSlug != "" && !strings.Contains(ref, "://") {
 		args = append(args, "--repo", repoSlug)
 	}
-	cmd := util.CmdWithLogger(gh.logger, args[0], args[1:]...)
+	cmd := util.Cmd(gh.logger, args[0], args[1:]...)
 	cmd.Env = env.Environ(gh.env)
 	out, err := cmd.Output()
 	if err != nil {
@@ -264,7 +264,7 @@ type ghPRInfo struct {
 var errNoPRFound = pkgerrors.New("no pull request found")
 
 func fetchPRInfoFromGh(logger zerolog.Logger, workspace string, provider env.Provider) (*ghPRInfo, error) {
-	cmd := util.CmdWithLogger(logger, "gh", "pr", "view", "--json", "number,state,url,mergedAt")
+	cmd := util.Cmd(logger, "gh", "pr", "view", "--json", "number,state,url,mergedAt")
 	cmd.Dir = workspace
 	cmd.Env = env.Environ(provider)
 	out, err := cmd.CombinedOutput()
@@ -291,7 +291,7 @@ func closePRWithGh(logger zerolog.Logger, workspace string, number int, comment 
 	if strings.TrimSpace(comment) != "" {
 		args = append(args, "--comment", comment)
 	}
-	cmd := util.CmdWithLogger(logger, "gh", args...)
+	cmd := util.Cmd(logger, "gh", args...)
 	cmd.Dir = workspace
 	cmd.Env = append(env.Environ(provider), "GH_PROMPT_DISABLED=true")
 	out, err := cmd.CombinedOutput()
@@ -311,7 +311,7 @@ func mergePRWithGh(logger zerolog.Logger, workspace string, number int, mergeFla
 		args = append(args, mergeFlag)
 	}
 
-	cmd := util.CmdWithLogger(logger, "gh", args...)
+	cmd := util.Cmd(logger, "gh", args...)
 	cmd.Dir = workspace
 	cmd.Env = append(env.Environ(provider), "GH_PROMPT_DISABLED=true")
 	out, err := cmd.CombinedOutput()

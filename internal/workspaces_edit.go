@@ -50,7 +50,7 @@ func launchEditor(logger zerolog.Logger, io IO, editorCmd, workspace string, pro
 	}
 
 	command := fmt.Sprintf("%s %s", editorCmd, shell.SingleQuote(workspace))
-	cmd := util.CmdWithLogger(logger, shellPath, "-lc", command)
+	cmd := util.Cmd(logger, shellPath, "-lc", command)
 	cmd.Stdin = io.In
 	cmd.Stdout = io.Out
 	cmd.Stderr = io.Err

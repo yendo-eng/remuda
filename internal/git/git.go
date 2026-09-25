@@ -56,40 +56,40 @@ func (g *shellGit) SetLogger(logger zerolog.Logger) {
 
 func (g *shellGit) Clone(repoURL, dir string) error {
 	// Use -- to prevent repoURL from being interpreted as a git option.
-	return util.RunCmdWithLogger(g.logger, "git", "clone", "--", repoURL, dir)
+	return util.RunCmd(g.logger, "git", "clone", "--", repoURL, dir)
 }
 
 func (g *shellGit) Pull(dir string) error {
-	return util.RunCmdWithLogger(g.logger, "git", "-C", dir, "pull")
+	return util.RunCmd(g.logger, "git", "-C", dir, "pull")
 }
 
 func (g *shellGit) WorktreeAdd(baseDir, dir string, args ...string) error {
-	return util.RunCmdWithLogger(g.logger, "git", append([]string{"-C", baseDir, "worktree", "add", dir}, args...)...)
+	return util.RunCmd(g.logger, "git", append([]string{"-C", baseDir, "worktree", "add", dir}, args...)...)
 }
 
 func (g *shellGit) WorktreeRemove(dir string, args ...string) error {
 	args = append([]string{"-C", dir, "worktree", "remove"}, args...)
-	return util.RunCmdWithLogger(g.logger, "git", args...)
+	return util.RunCmd(g.logger, "git", args...)
 }
 
 func (g *shellGit) Checkout(dir string, args ...string) error {
-	return util.RunCmdWithLogger(g.logger, "git", append([]string{"-C", dir, "checkout"}, args...)...)
+	return util.RunCmd(g.logger, "git", append([]string{"-C", dir, "checkout"}, args...)...)
 }
 
 func (g *shellGit) ShowRef(dir, ref string, opts ...string) error {
 	args := []string{"-C", dir, "show-ref", ref}
 	args = append(args, opts...)
-	return util.RunCmdWithLogger(g.logger, "git", args...)
+	return util.RunCmd(g.logger, "git", args...)
 }
 
 func (g *shellGit) RevParse(dir, rev string, opts ...string) (string, error) {
 	args := []string{"-C", dir, "rev-parse"}
 	args = append(args, opts...)
 	args = append(args, rev)
-	return util.RunCmdOutputWithLogger(g.logger, "git", args...)
+	return util.RunCmdOutput(g.logger, "git", args...)
 }
 
 func (g *shellGit) Branch(dir string, args ...string) error {
 	args = append([]string{"-C", dir, "branch"}, args...)
-	return util.RunCmdWithLogger(g.logger, "git", args...)
+	return util.RunCmd(g.logger, "git", args...)
 }
