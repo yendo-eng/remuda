@@ -56,7 +56,7 @@ func (k Remuda) SessionShell(sessionName string) error {
 		return pkgerrors.Errorf("container %q is not running (use --host to open a host shell in the workspace)", containerName)
 	}
 
-	if err := k.Docker.Exec(containerName, "cd /workspace && exec ${SHELL:-/bin/bash}"); err != nil {
+	if err := k.Docker.Exec(containerName, "exec ${SHELL:-/bin/bash}"); err != nil {
 		return pkgerrors.Wrapf(err, "docker exec %q failed", containerName)
 	}
 
