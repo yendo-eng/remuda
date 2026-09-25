@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -541,7 +540,7 @@ func pickSessionNames(ctx Context, multi bool) ([]string, error) {
 		return nil, pkgerrors.New("--pick requires an interactive TTY")
 	}
 
-	selected, err := pickSessionsWithFZF(logging.FromContext(ctx.ctx), ctx.Remuda.Multiplexer, multi)
+	selected, err := pickSessionsWithFZF(logging.FromContext(ctx.ctx), ctx.env(), ctx.Remuda.Multiplexer, multi)
 	if err != nil {
 		return nil, err
 	}
@@ -603,48 +602,26 @@ func openTTY() (*os.File, error) {
 	return os.OpenFile("/dev/tty", os.O_RDWR, 0)
 }
 
-func pickSessionsWithFZF(
-	logger zerolog.Logger,
-	mgr session.Multiplexer,
-	multi bool,
-) ([]string, error) {
-	if _, err := exec.LookPath("fzf"); err != nil {
-		return nil, pkgerrors.Errorf("fzf not found in PATH; please install fzf or pass a session name")
-	}
-	sessions, err := mgr.List()
-	if err != nil {
-		return nil, err
-	}
-	var b bytes.Buffer
-	for _, s := range sessions {
-		if !s.IsRemudaSession() {
-			continue
-		}
-		fmt.Fprintln(&b, s.Name)
-	}
-	if b.Len() == 0 {
-		return nil, pkgerrors.Errorf("no sessions available to pick")
-	}
+var errFZFUnavailable = pkgerrors.New("fzf not found in PATH; please install fzf or omit --pick")
 
-	fzfCmd := "fzf"
-	args := []string{}
+func runFZF(logger zerolog.Logger, env EnvProvider, lines []string, multi bool, preview string, args ...string) ([]string, error) {
+	fzfArgs := make([]string, 0, len(args)+5)
 	if multi {
-		args = append(args, "--multi")
+		fzfArgs = append(fzfArgs, "--multi")
+	}
+	if preview != "" {
+		fzfArgs = append(fzfArgs, "--preview", preview, "--preview-window", "up:66%")
+	}
+	fzfArgs = append(fzfArgs, args...)
+
+	cmd := util.CmdWithEnvAndLogger(logger, environFromEnvProvider(env), "fzf", fzfArgs...)
+	if cmd.Err != nil {
+		return nil, errFZFUnavailable
 	}
 
-	if preview := session.FZFPreviewCommand(mgr); preview != "" {
-		args = append(args, "--preview", preview)
-		args = append(args, "--preview-window", "up:66%")
-	}
-
-	cmd := util.CmdWithLogger(logger, fzfCmd, args...)
-	cmd.Stdin = &b
-
-	// When stdout is piped (e.g., `cd $(remuda session path --pick)`), fzf
-	// cannot display its UI. Connect it to /dev/tty so the user can interact
-	// with fzf even when the command's stdout is captured for substitution.
-	tty, ttyErr := openTTY()
-	if ttyErr == nil {
+	cmd.Stdin = strings.NewReader(strings.Join(lines, "\n") + "\n")
+	tty, err := openTTY()
+	if err == nil {
 		defer func() {
 			_ = tty.Close()
 		}()
@@ -653,12 +630,42 @@ func pickSessionsWithFZF(
 
 	out, err := cmd.Output()
 	if err != nil {
-		// If user cancels fzf (exit code 130), return a friendly error.
 		return nil, pkgerrors.Wrap(err, "fzf selection error")
 	}
+	selection := strings.TrimSpace(string(out))
+	if selection == "" {
+		return nil, nil
+	}
 
-	sessionNames := strings.Split(strings.TrimSpace(string(out)), "\n")
-	return sessionNames, nil
+	selected := strings.Split(selection, "\n")
+	for i := range selected {
+		selected[i] = strings.TrimSpace(selected[i])
+	}
+	return selected, nil
+}
+
+func pickSessionsWithFZF(
+	logger zerolog.Logger,
+	env EnvProvider,
+	mgr session.Multiplexer,
+	multi bool,
+) ([]string, error) {
+	sessions, err := mgr.List()
+	if err != nil {
+		return nil, err
+	}
+	var lines []string
+	for _, s := range sessions {
+		if !s.IsRemudaSession() {
+			continue
+		}
+		lines = append(lines, s.Name)
+	}
+	if len(lines) == 0 {
+		return nil, pkgerrors.Errorf("no sessions available to pick")
+	}
+
+	return runFZF(logger, env, lines, multi, session.FZFPreviewCommand(mgr))
 }
 
 func pickOneWorkspaceWithFZF(logger zerolog.Logger, env EnvProvider, candidates []string, base string) (string, error) {
