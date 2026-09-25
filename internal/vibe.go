@@ -122,7 +122,6 @@ type VibeCommand struct {
 
 func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	logger := logging.FromContext(ctx)
-	k.SetLogger(logger)
 	logger.Debug().Str("agent", cmd.Agent).Msg("starting vibe command")
 	if err := validateMultiplexerLaunch(k.Multiplexer, cmd.AgentCmd); err != nil {
 		return err
@@ -333,7 +332,7 @@ func (k Remuda) composeLaunchCommandParts(
 	workspace, agentCmd, sessionName, containerName string,
 	envProvider env.Provider,
 ) (composedLaunchCommand, error) {
-	logger := k.logger()
+	logger := k.Logger
 	if !cmd.Container {
 		return composedLaunchCommand{shell: agentCmd}, nil
 	}
@@ -379,7 +378,7 @@ func (k Remuda) composeLaunchCommandParts(
 		containerOpts = append([]string{"-v", mountVal}, containerOpts...)
 	}
 
-	containerOpts = append(containerOpts, docker.BuildGoCacheMountOptsWithLogger(logger)...)
+	containerOpts = append(containerOpts, docker.BuildGoCacheMountOpts(logger)...)
 	if strings.TrimSpace(cmd.Agent) == "" || strings.EqualFold(cmd.Agent, "codex") || strings.EqualFold(cmd.Agent, "bash") {
 		containerOpts = append(containerOpts, codexDockerVolumeMountOptions(logger, envProvider)...)
 	}
@@ -390,13 +389,13 @@ func (k Remuda) composeLaunchCommandParts(
 		containerOpts = append(containerOpts, "-e", "IS_SANDBOX")
 	}
 
-	authOpts := docker.BuildContainerAuthOptsWithProvider(envProvider)
+	authOpts := docker.BuildContainerAuthOpts(envProvider)
 	allOpts := append(append([]string{}, containerOpts...), authOpts...)
 	if strings.EqualFold(cmd.Agent, "opencode") || strings.EqualFold(cmd.Agent, "bash") {
-		allOpts = append(allOpts, docker.BuildOpenCodeStateMountOptsWithLogger(logger, envProvider)...)
+		allOpts = append(allOpts, docker.BuildOpenCodeStateMountOpts(logger, envProvider)...)
 	}
 	if strings.EqualFold(cmd.Agent, "claude") || strings.EqualFold(cmd.Agent, "bash") {
-		allOpts = append(allOpts, docker.BuildClaudeStateMountOptsWithLogger(logger, envProvider)...)
+		allOpts = append(allOpts, docker.BuildClaudeStateMountOpts(logger, envProvider)...)
 	}
 	containerAgent := util.SSHRewriteSnippet() + "\n" + agentCmd
 	launchCmd := docker.BuildRunCommand(absWS, containerImage, allOpts, containerAgent, false, containerName)

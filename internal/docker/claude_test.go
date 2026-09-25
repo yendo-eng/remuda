@@ -30,7 +30,7 @@ func TestBuildClaudeStateMountOpts_BothPathsPresent(t *testing.T) {
 	)
 }
 
-func TestBuildClaudeStateMountOptsWithProvider_Permutations(t *testing.T) {
+func TestBuildClaudeStateMountOpts_Permutations(t *testing.T) {
 	tcs := []struct {
 		name      string
 		withDir   bool
@@ -56,7 +56,7 @@ func TestBuildClaudeStateMountOptsWithProvider_Permutations(t *testing.T) {
 				require.NoError(t, os.WriteFile(claudeJSON, []byte(`{"token":"redacted"}`), 0o600))
 			}
 
-			opts := BuildClaudeStateMountOptsWithProvider(env.StaticProvider{HomeDir: tmp})
+			opts := BuildClaudeStateMountOpts(logging.NewDisabledLogger(), env.StaticProvider{HomeDir: tmp})
 			if tc.expectNil {
 				require.Nil(t, opts)
 				return
@@ -74,22 +74,22 @@ func TestBuildClaudeStateMountOptsWithProvider_Permutations(t *testing.T) {
 	}
 }
 
-func TestBuildClaudeStateMountOptsWithProvider_IgnoresUnexpectedNodeTypes(t *testing.T) {
+func TestBuildClaudeStateMountOpts_IgnoresUnexpectedNodeTypes(t *testing.T) {
 	tmp := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, ".claude"), []byte("not-a-dir"), 0o600))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".claude.json"), 0o700))
 
-	opts := BuildClaudeStateMountOptsWithProvider(env.StaticProvider{HomeDir: tmp})
+	opts := BuildClaudeStateMountOpts(logging.NewDisabledLogger(), env.StaticProvider{HomeDir: tmp})
 	require.Nil(t, opts)
 }
 
-func TestBuildClaudeStateMountOptsWithProvider_BlankHome(t *testing.T) {
-	opts := BuildClaudeStateMountOptsWithProvider(env.StaticProvider{HomeDir: "   "})
+func TestBuildClaudeStateMountOpts_BlankHome(t *testing.T) {
+	opts := BuildClaudeStateMountOpts(logging.NewDisabledLogger(), env.StaticProvider{HomeDir: "   "})
 	require.Nil(t, opts)
 }
 
-func TestBuildClaudeStateMountOptsWithProvider_HomeUnavailable(t *testing.T) {
+func TestBuildClaudeStateMountOpts_HomeUnavailable(t *testing.T) {
 	provider := env.StaticProvider{HomeErr: errors.New("no home")}
-	opts := BuildClaudeStateMountOptsWithProvider(provider)
+	opts := BuildClaudeStateMountOpts(logging.NewDisabledLogger(), provider)
 	require.Nil(t, opts)
 }

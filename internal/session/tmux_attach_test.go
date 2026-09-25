@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -42,7 +43,7 @@ func TestTmuxAttach_ResolvesDotsToUnderscores(t *testing.T) {
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+old)
 	t.Setenv("TMUX_ARGS_FILE", argsFile)
 
-	mgr := session.NewTmux()
+	mgr := session.NewTmux(logging.DefaultLogger())
 	require.NoError(t, mgr.Attach("acme/remuda/session-123.6-code-review"))
 
 	got, err := os.ReadFile(argsFile)

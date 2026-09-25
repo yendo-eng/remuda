@@ -12,9 +12,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/configfile"
+	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/enums"
 	expregistry "github.com/yendo-eng/remuda/internal/experiments"
+	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/github"
+	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
@@ -219,8 +222,20 @@ func (a *app) finishSetup() {
 		logLevel = zerolog.DebugLevel
 	}
 	logger := logging.NewConsoleLogger(cliCtx.Remuda.IO.Err, logLevel)
-	cliCtx.Remuda.SetLogger(logger)
+	cliCtx.Remuda.Logger = logger
 	cliCtx.ctx = logging.WithLogger(cliCtx.ctx, logger)
+	if cliCtx.Remuda.Git == nil {
+		cliCtx.Remuda.Git = git.NewShellGit(logger)
+	}
+	if cliCtx.Remuda.Jira == nil {
+		cliCtx.Remuda.Jira = jira.NewHTTPJira(logger)
+	}
+	if cliCtx.Remuda.Docker == nil {
+		cliCtx.Remuda.Docker = docker.NewShellDocker(logger)
+	}
+	if cliCtx.Remuda.GitHub == nil {
+		cliCtx.Remuda.GitHub = github.NewGhCLI(cliCtx.Remuda.Env, logger)
+	}
 
 	// Wire the selected session manager after resolution so --session-manager
 	// and config-file defaults take effect for this invocation. Preserve
@@ -253,7 +268,7 @@ func buildMultiplexer(createTargetName session.SupportedMultiplexer, logger zero
 		}
 		backends = append(backends, backend)
 	}
-	return session.NewAggregateMultiplexerWithLogger(createTarget, logger, backends...)
+	return session.NewAggregateMultiplexer(createTarget, logger, backends...)
 }
 
 func (a *app) buildRoot() *cobra.Command {
@@ -349,10 +364,9 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 	env := cliCtx.env()
 	multiplexerFactory := cliCtx.MultiplexerFactory
 	if multiplexerFactory == nil {
-		multiplexerFactory = session.NewMultiplexerWithLogger
+		multiplexerFactory = session.NewMultiplexer
 	}
 	logger := logging.NewConsoleLogger(cliCtx.Remuda.IO.Err, zerolog.InfoLevel)
-	cliCtx.Remuda.SetLogger(logger)
 	cliCtx.ctx = logging.WithLogger(cliCtx.ctx, logger)
 
 	cfg, discovery, err := loadConfigV1(cliCtx)

@@ -10,7 +10,6 @@ import (
 	"github.com/yendo-eng/remuda/cmd/remuda/cli"
 	"github.com/yendo-eng/remuda/e2e/testutils"
 	"github.com/yendo-eng/remuda/internal"
-	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/jira"
 )
 
@@ -45,7 +44,7 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 		runDir := t.TempDir()
 		k := internal.NewRemuda(
 			internal.Config{ReposBaseDir: runDir},
-			git.NewShellGit(),
+			nil,
 			&testutils.MockMultiplexer{},
 			jira.Mock{},
 			nil,
@@ -65,7 +64,7 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 		runDir := t.TempDir()
 		k := internal.NewRemuda(
 			internal.Config{ReposBaseDir: runDir},
-			git.NewShellGit(),
+			nil,
 			&testutils.MockMultiplexer{},
 			jira.Mock{},
 			nil,

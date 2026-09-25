@@ -104,7 +104,7 @@ func (k Remuda) cleanupWorkspaceForSession(sessionName string) error {
 }
 
 func (k Remuda) closeBDIssue(workspacePath string) bool {
-	logger := k.logger()
+	logger := k.Logger
 	// determine the git branch at the workspace path
 	branchName, err := util.RunCmdOutput(logger, "git", "-C", workspacePath, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {

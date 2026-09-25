@@ -93,7 +93,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	}
 
 	if !cmd.Detached {
-		execCmd := util.CmdWithEnv(k.logger(), launchEnvValues(envProvider), "bash", "-lc", launchCmd)
+		execCmd := util.CmdWithEnv(k.Logger, launchEnvValues(envProvider), "bash", "-lc", launchCmd)
 		execCmd.Dir = workspaceAbs
 		execCmd.Stdin = k.IO.In
 		execCmd.Stdout = k.IO.Out
@@ -105,7 +105,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	// name so the relaunched workspace starts cleanly.
 	if cmd.ReplaceExisting {
 		if _, err := k.Multiplexer.Find(sessionName); err == nil {
-			logger := k.logger()
+			logger := k.Logger
 			logger.Debug().Str("session", sessionName).Msg("existing session found; killing due to --force")
 			if err := k.Multiplexer.Kill(sessionName); err != nil {
 				return agentLaunchResult{}, pkgerrors.Wrapf(err, "killing existing session %q", sessionName)

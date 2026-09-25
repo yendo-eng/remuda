@@ -10,17 +10,18 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/cmd/remuda/cli/forms"
+	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/prompts"
 )
 
-func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeCheckCmd, error) {
+func launchVibeCheckWizard(logger zerolog.Logger, provider env.Provider, pref VibeCheckCmd) ([]VibeCheckCmd, error) {
 	sel := pref
 
 	jiraJoined := strings.Join(pref.Jira, ",")
 	issueJoined := strings.Join(pref.GitHubIssue, ",")
 
-	promptList, err := prompts.List()
+	promptList, err := prompts.List(provider)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to load prompts")
 	}

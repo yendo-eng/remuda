@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/docker"
+	"github.com/yendo-eng/remuda/internal/env"
+	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 func TestBuildContainerAuthOpts_ProducesMountsWhenAvailable(t *testing.T) {
@@ -39,7 +41,7 @@ func TestBuildContainerAuthOpts_ProducesMountsWhenAvailable(t *testing.T) {
 	require.NoError(t, os.Setenv("HOME", tmp))
 	require.NoError(t, os.Setenv("SSH_AUTH_SOCK", sock))
 
-	opts := docker.BuildContainerAuthOpts()
+	opts := docker.BuildContainerAuthOpts(env.Default())
 
 	// On Windows, docker path quoting/volume semantics differ; our CLI targets macOS/Linux.
 	if runtime.GOOS == "windows" {
@@ -137,7 +139,7 @@ func TestBuildGoCacheMountOpts_UsesGoEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("GOCACHE", hostCache))
 	require.NoError(t, os.Setenv("GOMODCACHE", hostMod))
 
-	opts := docker.BuildGoCacheMountOpts()
+	opts := docker.BuildGoCacheMountOpts(logging.DefaultLogger())
 	require.Contains(t, opts, hostCache+":/root/.cache/go-build")
 	require.Contains(t, opts, hostMod+":/go/pkg/mod")
 

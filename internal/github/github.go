@@ -13,7 +13,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -32,39 +31,13 @@ type GitHub interface {
 	IssueView(repoSlug, ref string) (*Issue, error)
 }
 
-// EnvProviderSetter allows wiring a per-invocation environment provider.
-type EnvProviderSetter interface {
-	WithEnv(provider env.Provider) GitHub
-}
-
-// LoggerSetter allows wiring a per-invocation logger.
-type LoggerSetter interface {
-	SetLogger(logger zerolog.Logger)
-}
-
 type ghCLI struct {
 	env    env.Provider
 	logger zerolog.Logger
 }
 
-func NewGhCLI() GitHub {
-	return NewGhCLIWithEnvAndLogger(env.Default(), logging.DefaultLogger())
-}
-
-func NewGhCLIWithEnv(provider env.Provider) GitHub {
-	return NewGhCLIWithEnvAndLogger(provider, logging.DefaultLogger())
-}
-
-func NewGhCLIWithEnvAndLogger(provider env.Provider, logger zerolog.Logger) GitHub {
+func NewGhCLI(provider env.Provider, logger zerolog.Logger) GitHub {
 	return &ghCLI{env: env.OrDefault(provider), logger: logger}
-}
-
-func (gh *ghCLI) WithEnv(provider env.Provider) GitHub {
-	return &ghCLI{env: env.OrDefault(provider), logger: gh.logger}
-}
-
-func (gh *ghCLI) SetLogger(logger zerolog.Logger) {
-	gh.logger = logger
 }
 
 func (gh *ghCLI) ClosePullRequest(workspacePath string, comment string) (*PRCloseResult, error) {

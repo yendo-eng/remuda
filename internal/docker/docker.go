@@ -11,7 +11,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -27,11 +26,6 @@ type Docker interface {
 	Exec(container string, command string) error
 }
 
-// LoggerSetter allows wiring a per-invocation logger into Docker implementations.
-type LoggerSetter interface {
-	SetLogger(logger zerolog.Logger)
-}
-
 var ErrNotRunning = pkgerrors.New("docker is not running")
 
 var ErrContainerNotFound = pkgerrors.New("docker container not found")
@@ -42,13 +36,7 @@ var ErrContainerNotFound = pkgerrors.New("docker container not found")
 // - Mounts ~/.config/gh to /root/.config/gh (ro) if present.
 // - Mounts ~/.gitconfig to /root/.gitconfig (ro) if present.
 // - Forwards the SSH agent socket if present.
-func BuildContainerAuthOpts() []string {
-	return BuildContainerAuthOptsWithProvider(env.Default())
-}
-
-// BuildContainerAuthOptsWithProvider returns recommended docker run options to forward
-// GitHub and SSH auth into the container, when available on the host.
-func BuildContainerAuthOptsWithProvider(provider env.Provider) []string {
+func BuildContainerAuthOpts(provider env.Provider) []string {
 	provider = env.OrDefault(provider)
 	var opts []string
 
@@ -80,11 +68,7 @@ func BuildContainerAuthOptsWithProvider(provider env.Provider) []string {
 
 // BuildGoCacheMountOpts returns docker volume mounts that bind the host's Go build and module caches
 // into the container so successive containerized sessions can reuse compiled artifacts.
-func BuildGoCacheMountOpts() []string {
-	return BuildGoCacheMountOptsWithLogger(logging.DefaultLogger())
-}
-
-func BuildGoCacheMountOptsWithLogger(logger zerolog.Logger) []string {
+func BuildGoCacheMountOpts(logger zerolog.Logger) []string {
 	var opts []string
 
 	for _, mapping := range []struct {
@@ -221,7 +205,7 @@ func ContainerNameFromSession(session string) string {
 	return name
 }
 
-func BuildOpenCodeStateMountOptsWithLogger(logger zerolog.Logger, provider env.Provider) []string {
+func BuildOpenCodeStateMountOpts(logger zerolog.Logger, provider env.Provider) []string {
 	provider = env.OrDefault(provider)
 	home, err := provider.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
@@ -262,13 +246,9 @@ func opencodeStateDirCandidates(goos, home string) []string {
 	return []string{linuxDir, macDir}
 }
 
-// BuildClaudeStateMountOptsWithProvider returns docker mount options that expose host Claude
+// BuildClaudeStateMountOpts returns docker mount options that expose host Claude
 // OAuth/session state in the container, when available.
-func BuildClaudeStateMountOptsWithProvider(provider env.Provider) []string {
-	return BuildClaudeStateMountOptsWithLogger(logging.DefaultLogger(), provider)
-}
-
-func BuildClaudeStateMountOptsWithLogger(logger zerolog.Logger, provider env.Provider) []string {
+func BuildClaudeStateMountOpts(logger zerolog.Logger, provider env.Provider) []string {
 	provider = env.OrDefault(provider)
 	home, err := provider.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {

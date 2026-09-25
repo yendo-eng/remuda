@@ -38,10 +38,10 @@ func (a *app) llmCmd() *cobra.Command {
 }
 
 func (c *LLMSlugifyCmd) Run(ctx Context) error {
-	service := llm.NewFromEnvProvider(
+	service := llm.NewFromEnv(
 		ctx.Remuda.Env,
+		logging.FromContext(ctx.ctx),
 		llm.WithSlugifyReasoningLevel(c.SlugifyReasoningLevel),
-		llm.WithLogger(logging.FromContext(ctx.ctx)),
 	)
 	slug, err := service.Slugify(context.Background(), c.Prompt)
 	if err != nil {

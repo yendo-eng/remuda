@@ -9,7 +9,6 @@ import (
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/github"
 )
 
 type Context struct {
@@ -89,11 +88,6 @@ func NewContext(
 		base: cliCtx.Env,
 		dirs: cliCtx.dirs,
 	})
-	if cliCtx.Remuda.GitHub == nil {
-		cliCtx.Remuda.GitHub = github.NewGhCLIWithEnv(cliCtx.Remuda.Env)
-	} else if setter, ok := cliCtx.Remuda.GitHub.(github.EnvProviderSetter); ok {
-		cliCtx.Remuda.GitHub = setter.WithEnv(cliCtx.Remuda.Env)
-	}
 
 	return cliCtx
 }

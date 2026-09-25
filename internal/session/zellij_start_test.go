@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 func TestZellijStart_UnsupportedCreateBackground(t *testing.T) {
@@ -28,7 +29,7 @@ exit 1
 
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	mgr := NewZellij()
+	mgr := NewZellij(logging.DefaultLogger())
 	err := mgr.Start("org/repo/feature", "echo hi")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "create-background")
@@ -84,7 +85,7 @@ exit 1
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("ZELLIJ_STUB_STATE_DIR", tmp)
 
-	mgr := NewZellij()
+	mgr := NewZellij(logging.DefaultLogger())
 	err := mgr.Start("org/repo/feature", "echo hi")
 	require.NoError(t, err)
 

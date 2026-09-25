@@ -39,7 +39,7 @@ func (k Remuda) WorkspacesEdit(workspace, editorCmd string) error {
 		return pkgerrors.Errorf("workspace %q is not a directory", workspaceAbs)
 	}
 
-	return launchEditor(k.logger(), k.IO, cmd, workspaceAbs, k.envProvider())
+	return launchEditor(k.Logger, k.IO, cmd, workspaceAbs, k.envProvider())
 }
 
 func launchEditor(logger zerolog.Logger, io IO, editorCmd, workspace string, provider env.Provider) error {

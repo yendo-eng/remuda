@@ -12,26 +12,17 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
-
-func NewTmux() Multiplexer {
-	return NewTmuxWithLogger(logging.DefaultLogger())
-}
 
 // tmux is the production implementation backed by the `tmux` CLI.
 type tmux struct {
 	logger zerolog.Logger
 }
 
-func NewTmuxWithLogger(logger zerolog.Logger) Multiplexer {
+func NewTmux(logger zerolog.Logger) Multiplexer {
 	return &tmux{logger: logger}
-}
-
-func (m *tmux) SetLogger(logger zerolog.Logger) {
-	m.logger = logger
 }
 
 func (m *tmux) Name() string {

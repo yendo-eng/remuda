@@ -2,7 +2,6 @@ package git
 
 import (
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -33,25 +32,12 @@ type Git interface {
 	Branch(dir string, args ...string) error
 }
 
-// LoggerSetter allows wiring a per-invocation logger into Git implementations.
-type LoggerSetter interface {
-	SetLogger(logger zerolog.Logger)
-}
-
 type shellGit struct {
 	logger zerolog.Logger
 }
 
-func NewShellGit() Git {
-	return NewShellGitWithLogger(logging.DefaultLogger())
-}
-
-func NewShellGitWithLogger(logger zerolog.Logger) Git {
+func NewShellGit(logger zerolog.Logger) Git {
 	return &shellGit{logger: logger}
-}
-
-func (g *shellGit) SetLogger(logger zerolog.Logger) {
-	g.logger = logger
 }
 
 func (g *shellGit) Clone(repoURL, dir string) error {

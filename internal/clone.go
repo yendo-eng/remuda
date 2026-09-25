@@ -50,7 +50,7 @@ type CloneCommand struct {
 func (k Remuda) Clone(
 	cmd CloneCommand,
 ) (string, error) {
-	logger := k.logger()
+	logger := k.Logger
 	repoURL := strings.TrimSpace(cmd.RepoURL)
 	org, repo, err := github.ParseRepo(repoURL)
 	if err != nil {
