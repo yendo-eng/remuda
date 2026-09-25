@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -20,7 +20,6 @@ type aggregateBackend struct {
 	killed     []string
 	agentStart []session.AgentStart
 	env        []string
-	loggerSet  bool
 }
 
 func (b *aggregateBackend) Name() string { return b.name }
@@ -67,7 +66,6 @@ func (b *aggregateBackend) Kill(name string) error {
 	b.killed = append(b.killed, name)
 	return nil
 }
-func (b *aggregateBackend) SetLogger(zerolog.Logger) { b.loggerSet = true }
 
 func TestAggregateMultiplexerListSkipsUnavailableBackends(t *testing.T) {
 	t.Parallel()
@@ -75,7 +73,7 @@ func TestAggregateMultiplexerListSkipsUnavailableBackends(t *testing.T) {
 	tmux := &aggregateBackend{name: "tmux", sessions: []session.SessionInfo{{Name: "org/repo/tmux", Multiplexer: "tmux"}}}
 	zellij := &aggregateBackend{name: "zellij", listErr: errors.New("zellij unavailable")}
 	herdr := &aggregateBackend{name: "herdr", sessions: []session.SessionInfo{{Name: "org/repo/herdr", Multiplexer: "herdr"}}}
-	mgr := session.NewAggregateMultiplexer(tmux, tmux, zellij, herdr)
+	mgr := session.NewAggregateMultiplexer(tmux, logging.DefaultLogger(), tmux, zellij, herdr)
 
 	got, err := mgr.List()
 
@@ -106,7 +104,7 @@ func TestAggregateMultiplexerDispatchesToSessionOwner(t *testing.T) {
 
 			unavailable := &aggregateBackend{name: "tmux", listErr: errors.New("tmux unavailable")}
 			owner := &aggregateBackend{name: "herdr", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
-			mgr := session.NewAggregateMultiplexer(unavailable, unavailable, owner)
+			mgr := session.NewAggregateMultiplexer(unavailable, logging.DefaultLogger(), unavailable, owner)
 
 			require.NoError(t, tt.run(mgr))
 			require.Equal(t, []string{"org/repo/owned"}, tt.got(owner))
@@ -122,7 +120,7 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 
 		createTarget := &aggregateBackend{name: "tmux"}
 		owner := &aggregateBackend{name: "herdr", sessions: []session.SessionInfo{{Name: "org/repo/existing"}}}
-		mgr := session.NewAggregateMultiplexer(createTarget, createTarget, owner)
+		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget, owner)
 
 		err := mgr.Start("org/repo/existing", "command")
 
@@ -135,7 +133,7 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 		t.Parallel()
 
 		createTarget := &aggregateBackend{name: "herdr"}
-		mgr := session.NewAggregateMultiplexer(createTarget, createTarget)
+		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget)
 		envStarter, ok := mgr.(session.EnvStarter)
 		require.True(t, ok)
 		agentStarter, ok := mgr.(session.AgentStarter)
@@ -149,19 +147,4 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 		require.Equal(t, []string{"KEY=value"}, createTarget.env)
 		require.Equal(t, "org/repo/agent", createTarget.agentStart[0].SessionName)
 	})
-}
-
-func TestAggregateMultiplexerSetsLoggerOnAllBackends(t *testing.T) {
-	t.Parallel()
-
-	tmux := &aggregateBackend{name: "tmux"}
-	herdr := &aggregateBackend{name: "herdr"}
-	mgr := session.NewAggregateMultiplexer(tmux, tmux, herdr)
-	setter, ok := mgr.(session.LoggerSetter)
-	require.True(t, ok)
-
-	setter.SetLogger(zerolog.Nop())
-
-	require.True(t, tmux.loggerSet)
-	require.True(t, herdr.loggerSet)
 }

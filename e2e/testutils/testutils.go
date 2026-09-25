@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -23,7 +24,7 @@ func RunGitWithOverrides(t *testing.T, dir string, overrides map[string]string, 
 func RunGitWithEnv(t *testing.T, baseEnv map[string]string, dir string, overrides map[string]string, args ...string) string {
 	t.Helper()
 	t.Logf("git %s (dir %s)", strings.Join(args, " "), dir)
-	cmd := util.Cmd("git", args...)
+	cmd := util.Cmd(logging.DefaultLogger(), "git", args...)
 	require.NoError(t, ApplyE2EEnvIsolationToCmd(cmd, baseEnv, overrides))
 	cmd.Dir = dir
 	output := mustRun(t, cmd)

@@ -13,24 +13,15 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-func NewZellij() Multiplexer {
-	return NewZellijWithLogger(logging.DefaultLogger())
-}
-
-func NewZellijWithLogger(logger zerolog.Logger) Multiplexer {
+func NewZellij(logger zerolog.Logger) Multiplexer {
 	return &zellij{logger: logger}
 }
 
 type zellij struct {
 	logger zerolog.Logger
-}
-
-func (z *zellij) SetLogger(logger zerolog.Logger) {
-	z.logger = logger
 }
 
 func (z *zellij) Name() string {
@@ -76,7 +67,7 @@ func (z *zellij) StartWithEnv(sessionName, command string, env []string) error {
 }
 
 func runZellijCmdCombinedOutput(logger zerolog.Logger, env []string, args ...string) (string, error) {
-	cmd := util.CmdWithEnvAndLogger(logger, env, "zellij", args...)
+	cmd := util.CmdWithEnv(logger, env, "zellij", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), err
@@ -85,7 +76,7 @@ func runZellijCmdCombinedOutput(logger zerolog.Logger, env []string, args ...str
 }
 
 func (z *zellij) List() ([]SessionInfo, error) {
-	out, err := util.RunCmdCombinedOutputWithLogger(z.logger, "zellij", "list-sessions", "--no-formatting")
+	out, err := util.RunCmdCombinedOutput(z.logger, "zellij", "list-sessions", "--no-formatting")
 	if err != nil {
 		// When no server is running, treat as zero sessions.
 		var exitErr *exec.ExitError
@@ -222,7 +213,7 @@ func parseZellijDurationToken(token string) (time.Duration, bool) {
 }
 
 func (z *zellij) Attach(name string) error {
-	cmd := util.CmdWithLogger(z.logger, "zellij", "attach", encodeZellijSessionName(name))
+	cmd := util.Cmd(z.logger, "zellij", "attach", encodeZellijSessionName(name))
 	cmd.Stdout, cmd.Stdin, cmd.Stderr = os.Stderr, os.Stdin, os.Stderr
 	return cmd.Run()
 }
@@ -250,7 +241,7 @@ func (z *zellij) ReadBuffer(name string, lines int) (string, error) {
 		abs = filename
 	}
 
-	if err := util.RunCmdWithLogger(z.logger, "zellij", "--session", encodeZellijSessionName(name), "action", "dump-screen", abs); err != nil {
+	if err := util.RunCmd(z.logger, "zellij", "--session", encodeZellijSessionName(name), "action", "dump-screen", abs); err != nil {
 		return "", pkgerrors.Wrap(err, "zellij dump-screen")
 	}
 
@@ -269,7 +260,7 @@ func (z *zellij) ReadBuffer(name string, lines int) (string, error) {
 }
 
 func (z *zellij) Send(name string, payload string, appendNewline bool) error {
-	out, err := util.RunCmdCombinedOutputWithLogger(z.logger, "zellij", "--session", encodeZellijSessionName(name), "action", "write-chars", payload)
+	out, err := util.RunCmdCombinedOutput(z.logger, "zellij", "--session", encodeZellijSessionName(name), "action", "write-chars", payload)
 	if err != nil {
 		msg := strings.TrimSpace(out)
 		if msg == "" {
@@ -282,7 +273,7 @@ func (z *zellij) Send(name string, payload string, appendNewline bool) error {
 		// Codex has a paste burst detector in its TUI; a short delay helps it
 		// treat the follow-up Enter as a submit instead of more pasted text.
 		time.Sleep(200 * time.Millisecond)
-		out, err = util.RunCmdCombinedOutputWithLogger(z.logger, "zellij", "--session", encodeZellijSessionName(name), "action", "write-chars", "\n")
+		out, err = util.RunCmdCombinedOutput(z.logger, "zellij", "--session", encodeZellijSessionName(name), "action", "write-chars", "\n")
 		if err != nil {
 			msg := strings.TrimSpace(out)
 			if msg == "" {
@@ -295,7 +286,7 @@ func (z *zellij) Send(name string, payload string, appendNewline bool) error {
 }
 
 func (z *zellij) Kill(name string) error {
-	return util.RunCmdWithLogger(z.logger, "zellij", "delete-session", "--force", encodeZellijSessionName(name))
+	return util.RunCmd(z.logger, "zellij", "delete-session", "--force", encodeZellijSessionName(name))
 }
 
 // Zellij session names have a maximum length, and this is what it appears to be

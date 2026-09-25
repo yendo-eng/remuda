@@ -6,6 +6,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/github"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -87,7 +88,7 @@ func (m *MockGitHub) PRDiff(cwd, ref string) (string, error) {
 
 func (m *MockGitHub) PRCheckout(cwd, ref string) error {
 	// Just checkout the branch with git instead
-	cmd := util.Cmd("git", "-C", cwd, "checkout", ref)
+	cmd := util.Cmd(logging.DefaultLogger(), "git", "-C", cwd, "checkout", ref)
 	baseEnv := m.Env
 	if baseEnv == nil {
 		baseEnv = ProcessEnvMap()

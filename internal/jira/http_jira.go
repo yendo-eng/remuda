@@ -6,15 +6,10 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 // NewHTTPJira builds a Jira implementation backed by Jira Cloud REST APIs.
-func NewHTTPJira() Jira {
-	return NewHTTPJiraWithLogger(logging.DefaultLogger())
-}
-
-func NewHTTPJiraWithLogger(logger zerolog.Logger) Jira {
+func NewHTTPJira(logger zerolog.Logger) Jira {
 	return &httpJira{
 		logger: logger,
 		newClient: func(cfg AuthConfig) (Client, error) {
@@ -26,10 +21,6 @@ func NewHTTPJiraWithLogger(logger zerolog.Logger) Jira {
 type httpJira struct {
 	logger    zerolog.Logger
 	newClient func(AuthConfig) (Client, error)
-}
-
-func (j *httpJira) SetLogger(logger zerolog.Logger) {
-	j.logger = logger
 }
 
 func (j *httpJira) GetTicket(id string, auth AuthConfig) (issue Issue, err error) {
