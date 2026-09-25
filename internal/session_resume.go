@@ -60,7 +60,7 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		return pkgerrors.Wrap(err, "failed to expand workspace path")
 	}
 
-	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
+	if err := ValidateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
 		return pkgerrors.Wrapf(err, "invalid workspace %q", workspaceAbs)
 	}
 	if err := k.ensureWorkspaceInactive(workspaceAbs); err != nil {
@@ -207,31 +207,13 @@ func claudeResumeCommand(model string, yolo bool, reasoningLevel, prompt string)
 }
 
 func (k Remuda) ensureWorkspaceInactive(workspaceAbs string) error {
-	sessions, err := k.Multiplexer.List()
+	active, err := k.activeWorkspaceSessions()
 	if err != nil {
 		return err
 	}
 
-	targetAbs, err := filepath.Abs(workspaceAbs)
-	if err != nil {
-		targetAbs = workspaceAbs
-	}
-
-	for _, s := range sessions {
-		if !s.IsRemudaSession() {
-			continue
-		}
-		ws, err := s.WorkspacePath(k.Config.ReposBaseDir)
-		if err != nil {
-			continue
-		}
-		wsAbs, err := filepath.Abs(ws)
-		if err != nil {
-			wsAbs = ws
-		}
-		if wsAbs == targetAbs {
-			return pkgerrors.Errorf("workspace %q is active (session %q); refuse to resume", targetAbs, s.Name)
-		}
+	if sessionName, ok := active[workspaceAbs]; ok {
+		return pkgerrors.Errorf("workspace %q is active (session %q); refuse to resume", workspaceAbs, sessionName)
 	}
 	return nil
 }

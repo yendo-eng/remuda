@@ -41,7 +41,7 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) (
 		}
 		seen[workspaceAbs] = struct{}{}
 
-		if err := validateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
+		if err := ValidateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
 			failures = append(failures, pkgerrors.Wrapf(err, "invalid workspace %q", workspaceAbs).Error())
 			continue
 		}
@@ -118,7 +118,7 @@ func (k Remuda) PruneOneSession(
 	force bool,
 ) error {
 	logger := k.logger()
-	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspace); err != nil {
+	if err := ValidateWorkspacePath(k.Config.ReposBaseDir, workspace); err != nil {
 		return pkgerrors.Wrapf(err, "invalid workspace %q", workspace)
 	}
 	if dryRun {

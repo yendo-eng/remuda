@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,75 +16,30 @@ type PrunedWorkspace struct {
 	Bytes int64
 }
 
-func (k Remuda) Workspaces() ([]string, error) {
-	return k.WorkspacesWithIgnore(nil)
-}
+type WorkspaceActivity uint8
 
-func (k Remuda) WorkspacesWithIgnore(ignore []string) ([]string, error) {
-	candidates := listWorkspaceDirs(k.Config.ReposBaseDir)
-	return filterInactiveWorkspaces(k.Config.ReposBaseDir, candidates, map[string]struct{}{}, ignore)
-}
+const (
+	WorkspaceActivityAll WorkspaceActivity = iota
+	WorkspaceActivityActive
+	WorkspaceActivityInactive
+)
 
-func (k Remuda) ActiveWorkspaces() ([]string, error) {
-	return k.activeWorkspaces(nil)
-}
-
-func (k Remuda) ActiveWorkspacesWithIgnore(ignore []string) ([]string, error) {
-	return k.activeWorkspaces(ignore)
-}
-
-func (k Remuda) InactiveWorkspaces() ([]string, error) {
-	return k.inactiveWorkspaces(nil)
-}
-
-func (k Remuda) InactiveWorkspacesWithIgnore(ignore []string) ([]string, error) {
-	return k.inactiveWorkspaces(ignore)
-}
-
-func (k Remuda) activeWorkspaces(ignore []string) ([]string, error) {
-	active, err := k.activeWorkspaceSet()
-	if err != nil {
-		return nil, err
+func (k Remuda) Workspaces(activity WorkspaceActivity, ignore []string) ([]string, error) {
+	if activity > WorkspaceActivityInactive {
+		panic(fmt.Sprintf("unknown workspace activity %d", activity))
 	}
 
-	// Enumerate candidate workspaces: <base>/<org>/<repo>/<folder> (exclude .repo_cache).
 	candidates := listWorkspaceDirs(k.Config.ReposBaseDir)
-
-	return filterActiveWorkspaces(k.Config.ReposBaseDir, candidates, active, ignore)
-}
-
-func (k Remuda) inactiveWorkspaces(ignore []string) ([]string, error) {
-	active, err := k.activeWorkspaceSet()
-	if err != nil {
-		return nil, err
-	}
-
-	// Enumerate candidate workspaces: <base>/<org>/<repo>/<folder> (exclude .repo_cache).
-	candidates := listWorkspaceDirs(k.Config.ReposBaseDir)
-
-	return filterInactiveWorkspaces(k.Config.ReposBaseDir, candidates, active, ignore)
-}
-
-func (k Remuda) activeWorkspaceSet() (map[string]struct{}, error) {
-	// Build a set of active workspace paths (absolute) from sessions.
-	sessions, err := k.Multiplexer.List()
-	if err != nil {
-		return nil, err
-	}
-
-	active := map[string]struct{}{}
-	for _, s := range sessions {
-		if !s.IsRemudaSession() {
-			continue
-		}
-
-		if ws, err := s.WorkspacePath(k.Config.ReposBaseDir); err == nil {
-			abs, _ := filepath.Abs(ws)
-			active[abs] = struct{}{}
+	active := map[string]string{}
+	if activity != WorkspaceActivityAll {
+		var err error
+		active, err = k.activeWorkspaceSessions()
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return active, nil
+	return filterWorkspaces(k.Config.ReposBaseDir, candidates, active, ignore, activity)
 }
 
 func isLinkedGitWorktree(workspace string) bool {
@@ -139,30 +95,12 @@ func listWorkspaceDirs(base string) []string {
 	return out
 }
 
-func filterInactiveWorkspaces(
+func filterWorkspaces(
 	base string,
 	candidates []string,
-	active map[string]struct{},
+	active map[string]string,
 	ignore []string,
-) ([]string, error) {
-	return filterWorkspacesByActivity(base, candidates, active, ignore, false)
-}
-
-func filterActiveWorkspaces(
-	base string,
-	candidates []string,
-	active map[string]struct{},
-	ignore []string,
-) ([]string, error) {
-	return filterWorkspacesByActivity(base, candidates, active, ignore, true)
-}
-
-func filterWorkspacesByActivity(
-	base string,
-	candidates []string,
-	active map[string]struct{},
-	ignore []string,
-	activeOnly bool,
+	activity WorkspaceActivity,
 ) ([]string, error) {
 	if len(ignore) > 0 {
 		if err := validateIgnorePatterns(ignore); err != nil {
@@ -173,10 +111,10 @@ func filterWorkspacesByActivity(
 	for _, ws := range candidates {
 		abs, _ := filepath.Abs(ws)
 		_, isActive := active[abs]
-		if activeOnly && !isActive {
+		if activity == WorkspaceActivityActive && !isActive {
 			continue
 		}
-		if !activeOnly && isActive {
+		if activity == WorkspaceActivityInactive && isActive {
 			continue
 		}
 		if len(ignore) > 0 {
@@ -198,7 +136,7 @@ func filterWorkspacesByActivity(
 }
 
 func workspaceRelPath(base, workspace string) (string, error) {
-	if err := validateWorkspacePath(base, workspace); err != nil {
+	if err := ValidateWorkspacePath(base, workspace); err != nil {
 		return "", err
 	}
 	org, repo, folder := util.SplitWorkspacePath(base, workspace)
@@ -238,7 +176,7 @@ func matchIgnorePatterns(patterns []string, rel string) (bool, error) {
 	return false, nil
 }
 
-func validateWorkspacePath(base, workspace string) error {
+func ValidateWorkspacePath(base, workspace string) error {
 	if base == "" {
 		return pkgerrors.New("repos base dir is empty")
 	}
@@ -285,8 +223,4 @@ func validateWorkspacePath(base, workspace string) error {
 	}
 
 	return nil
-}
-
-func ValidateWorkspacePath(base, workspace string) error {
-	return validateWorkspacePath(base, workspace)
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/yendo-eng/remuda/internal"
 )
 
 // SessionInactiveCmd prints inactive workspace paths (one per line).
@@ -19,7 +20,7 @@ func (a *app) sessionInactiveCmd() *cobra.Command {
 }
 
 func (c SessionInactiveCmd) Run(ctx Context) error {
-	inactive, err := ctx.Remuda.SessionInactive()
+	inactive, err := ctx.Remuda.Workspaces(internal.WorkspaceActivityInactive, nil)
 	if err != nil {
 		return pkgerrors.Wrap(err, "session inactive")
 	}
