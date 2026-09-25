@@ -66,8 +66,8 @@ type jiraLoggerSetterStub struct {
 	calls int
 }
 
-func (s *jiraLoggerSetterStub) GetTicket(string) (string, error) {
-	return "", nil
+func (s *jiraLoggerSetterStub) GetTicket(string, jira.AuthConfig) (jira.Issue, error) {
+	return jira.Issue{}, nil
 }
 
 func (s *jiraLoggerSetterStub) SetLogger(zerolog.Logger) {

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/yendo-eng/remuda/internal/jira"
 )
 
 func TestContextEngineeringOptionsNoUseFiltersUse(t *testing.T) {
@@ -188,47 +187,4 @@ func TestContextEngineeringOptionsAfterApplyMergesGhIssueAlias(t *testing.T) {
 	}
 	require.NoError(t, opts.afterApply(ctx))
 	require.Equal(t, []string{"https://github.com/acme/utils/issues/1", "42"}, opts.GitHubIssue)
-}
-
-func TestContextEngineeringOptionsPassesJiraAuthOverrideToRuntime(t *testing.T) {
-	t.Parallel()
-
-	j := &jiraAuthCapture{
-		ticketBody: "ticket details",
-	}
-	ctx := newTestContextWithEnv(t, EnvMap{}, func(c *Context) {
-		c.Remuda.Jira = j
-	})
-	opts := ContextEngineeringOptions{
-		Jira:         []string{"PROJ-101"},
-		JiraEndpoint: "https://jira.example.atlassian.net",
-		JiraUser:     "dev@example.com",
-		JiraToken:    "secret-token",
-	}
-
-	added, err := opts.AddedPromptContext(ctx, PromptContextInput{})
-	require.NoError(t, err)
-	require.Empty(t, added.UsePrompts)
-	require.Len(t, added.Reference, 1)
-	require.Equal(t, jira.AuthConfig{
-		Endpoint: "https://jira.example.atlassian.net",
-		User:     "dev@example.com",
-		Token:    "secret-token",
-	}, j.lastAuthConfig)
-	require.Equal(t, []string{"PROJ-101"}, j.requestedTickets)
-}
-
-type jiraAuthCapture struct {
-	lastAuthConfig   jira.AuthConfig
-	requestedTickets []string
-	ticketBody       string
-}
-
-func (j *jiraAuthCapture) SetAuthConfigOverride(cfg jira.AuthConfig) {
-	j.lastAuthConfig = cfg
-}
-
-func (j *jiraAuthCapture) GetTicket(id string) (string, error) {
-	j.requestedTickets = append(j.requestedTickets, id)
-	return j.ticketBody, nil
 }

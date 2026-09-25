@@ -23,6 +23,13 @@ const (
 
 const issueFieldsParam = "summary,status,assignee,reporter,priority,created,updated,description,issuetype"
 
+const (
+	missingEndpointHint   = "REMUDA_JIRA_ENDPOINT"
+	missingUserHint       = "REMUDA_JIRA_USER"
+	missingAPITokenHint   = "REMUDA_JIRA_API_TOKEN (or REMUDA_JIRA_TOKEN)" //nolint:gosec // G101: user-facing env-var hint, not a credential.
+	missingConfigKeysHint = "jira.endpoint, jira.user, jira.api_token"
+)
+
 // HTTPClientOption allows overriding HTTP client behavior.
 type HTTPClientOption func(*httpClient)
 
@@ -64,6 +71,12 @@ type httpClient struct {
 
 // NewHTTPClient builds a Jira Cloud REST API v3 client.
 func NewHTTPClient(cfg AuthConfig, opts ...HTTPClientOption) (Client, error) {
+	cfg = normalizeAuthConfig(cfg)
+	missing := missingFields(cfg.Endpoint, cfg.User, cfg.Token)
+	if len(missing) > 0 {
+		return nil, missingConfigError(missing)
+	}
+
 	endpoint, err := parseJiraEndpoint(cfg.Endpoint)
 	if err != nil {
 		return nil, err
@@ -71,8 +84,8 @@ func NewHTTPClient(cfg AuthConfig, opts ...HTTPClientOption) (Client, error) {
 
 	client := &httpClient{
 		endpoint:        endpoint,
-		user:            strings.TrimSpace(cfg.User),
-		token:           strings.TrimSpace(cfg.Token),
+		user:            cfg.User,
+		token:           cfg.Token,
 		httpClient:      &http.Client{},
 		requestTimeout:  defaultRequestTimeout,
 		commentPageSize: defaultCommentPageSize,
@@ -84,19 +97,48 @@ func NewHTTPClient(cfg AuthConfig, opts ...HTTPClientOption) (Client, error) {
 		}
 	}
 
-	missing := missingFields(endpoint.String(), client.user, client.token)
-	if len(missing) > 0 {
-		return nil, missingConfigError(missing, "")
-	}
-
 	return client, nil
+}
+
+func normalizeAuthConfig(cfg AuthConfig) AuthConfig {
+	cfg.Endpoint = strings.TrimRight(strings.TrimSpace(cfg.Endpoint), "/")
+	cfg.User = strings.TrimSpace(cfg.User)
+	cfg.Token = strings.TrimSpace(cfg.Token)
+	return cfg
+}
+
+func missingFields(endpoint, user, token string) []string {
+	var missing []string
+	if endpoint == "" {
+		missing = append(missing, "endpoint")
+	}
+	if user == "" {
+		missing = append(missing, "user")
+	}
+	if token == "" {
+		missing = append(missing, "token")
+	}
+	return missing
+}
+
+func missingConfigError(missing []string) error {
+	var sb strings.Builder
+	sb.WriteString("missing Jira configuration fields: ")
+	sb.WriteString(strings.Join(missing, ", "))
+	sb.WriteString(". Set ")
+	sb.WriteString(missingEndpointHint)
+	sb.WriteString(", ")
+	sb.WriteString(missingUserHint)
+	sb.WriteString(", and ")
+	sb.WriteString(missingAPITokenHint)
+	sb.WriteString(". You can also set ")
+	sb.WriteString(missingConfigKeysHint)
+	sb.WriteString(" in remuda config.yaml.")
+	return pkgerrors.New(sb.String())
 }
 
 func parseJiraEndpoint(raw string) (*url.URL, error) {
 	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return nil, pkgerrors.New("missing Jira configuration fields: endpoint. Set REMUDA_JIRA_ENDPOINT")
-	}
 
 	parsed, err := url.Parse(trimmed)
 	if err != nil {

@@ -20,12 +20,12 @@ const (
 
 var jiraTitleSeedPattern = regexp.MustCompile(`[A-Za-z0-9]`)
 
-func deriveDefaultVibeWorkspaceName(ctx Context, cmd VibeCmd) (string, bool, error) {
+func deriveDefaultVibeWorkspaceName(ctx Context, cmd VibeCmd, issues []jira.Issue) (string, bool, error) {
 	if strings.TrimSpace(cmd.Name) != "" || strings.TrimSpace(cmd.In) != "" {
 		return "", false, nil
 	}
 
-	if jiraName, ok, err := deriveWorkspaceNameFromJira(ctx, cmd.ContextEngineeringOptions, cmd.SlugifyReasoningLevel); err != nil {
+	if jiraName, ok, err := deriveWorkspaceNameFromJira(ctx, cmd.SlugifyReasoningLevel, issues); err != nil {
 		return "", false, err
 	} else if ok {
 		return jiraName, true, nil
@@ -47,32 +47,15 @@ func deriveDefaultVibeWorkspaceName(ctx Context, cmd VibeCmd) (string, bool, err
 	return generated, true, nil
 }
 
-func deriveWorkspaceNameFromJira(ctx Context, opts ContextEngineeringOptions, slugifyReasoningLevel string) (string, bool, error) {
-	normalizedJira, err := normalizeAndValidateJiraKeys(opts.Jira)
-	if err != nil {
-		return "", false, err
-	}
-	if len(normalizedJira) == 0 {
+func deriveWorkspaceNameFromJira(ctx Context, slugifyReasoningLevel string, issues []jira.Issue) (string, bool, error) {
+	if len(issues) == 0 {
 		return "", false, nil
 	}
-	if ctx.Remuda.Jira == nil {
-		return "", true, pkgerrors.New("jira client is not configured")
+	firstKey := issues[0].Key
+	title := strings.TrimSpace(issues[0].Summary)
+	if strings.EqualFold(title, jiraNoSummaryPlaceholder) {
+		title = ""
 	}
-
-	firstKey := normalizedJira[0]
-	if setter, ok := ctx.Remuda.Jira.(jira.AuthConfigSetter); ok {
-		setter.SetAuthConfigOverride(jira.AuthConfig{
-			Endpoint: opts.JiraEndpoint,
-			User:     opts.JiraUser,
-			Token:    opts.JiraToken,
-		})
-	}
-
-	ticketText, err := ctx.Remuda.Jira.GetTicket(firstKey)
-	if err != nil {
-		return "", true, pkgerrors.Wrapf(err, "get ticket %s", firstKey)
-	}
-	title := extractJiraTitleFromTicketText(ticketText, firstKey)
 	logger := logging.FromContext(ctx.ctx)
 	if !jiraTitleCanProduceSlug(title) {
 		logger.Warn().
@@ -121,44 +104,6 @@ func slugifyNameSeed(ctx Context, seed string, slugifyReasoningLevel string) (st
 	}
 
 	return slug, nil
-}
-
-func extractJiraTitleFromTicketText(ticketText string, jiraKey string) string {
-	firstLine := strings.TrimSpace(ticketText)
-	if firstLine == "" {
-		return ""
-	}
-	if idx := strings.IndexByte(firstLine, '\n'); idx >= 0 {
-		firstLine = strings.TrimSpace(firstLine[:idx])
-	}
-	if firstLine == "" {
-		return ""
-	}
-
-	if key := strings.ToUpper(strings.TrimSpace(jiraKey)); key != "" {
-		prefix := key + ":"
-		if strings.HasPrefix(strings.ToUpper(firstLine), prefix) {
-			title := strings.TrimSpace(firstLine[len(prefix):])
-			if strings.EqualFold(title, jiraNoSummaryPlaceholder) {
-				return ""
-			}
-			return title
-		}
-	}
-
-	if idx := strings.IndexByte(firstLine, ':'); idx >= 0 {
-		title := strings.TrimSpace(firstLine[idx+1:])
-		if strings.EqualFold(title, jiraNoSummaryPlaceholder) {
-			return ""
-		}
-		return title
-	}
-
-	if strings.EqualFold(firstLine, jiraNoSummaryPlaceholder) {
-		return ""
-	}
-
-	return firstLine
 }
 
 func jiraTitleCanProduceSlug(title string) bool {

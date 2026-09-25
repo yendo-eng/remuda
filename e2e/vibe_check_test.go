@@ -235,7 +235,7 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
 		testutils.WithMultiplexer(sess),
-		testutils.WithJira(jira.Mock{Tickets: map[string]string{jiraID: jiraBody}}),
+		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{jiraID: {Key: jiraID, Summary: jiraBody}}}),
 		testutils.WithDocker(&docker.Mock{}),
 		testutils.WithGitHub(mockGitHub),
 		testutils.WithSlack(testutils.MockSlack{Threads: map[string]string{slackThreadURL: slackBody}}),
@@ -269,7 +269,7 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 	require.NotNil(t, foundSession)
 	prompt := extractPromptFromCommand(t, foundSession.CommandRan)
 
-	expectedJira := "---------- Ticket " + jiraID + " ----------\n" + jiraBody + "\n"
+	expectedJira := "---------- Ticket " + jiraID + " ----------\n" + jiraID + ": " + jiraBody + "\n"
 	expectedSlack := "---------- Slack Thread " + slackThreadURL + " ----------\n" + slackBody + "\n"
 	expectedIssue := "---------- GitHub Issue " + issueSlug + "#" + issueNumber + " ----------\n" +
 		"Title: Tighten checkout logging\n" +

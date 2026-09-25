@@ -231,9 +231,9 @@ func TestVibeAutoGeneratesWorkspaceNameFromFirstJiraTicket(t *testing.T) {
 	remoteURL := testutils.InitTestRemote(t)
 	runDir := t.TempDir()
 	jiraClient := &requestCountingJira{
-		tickets: map[string]string{
-			"RBL-1234": "RBL-1234: Fix login timeout handling\nStatus: Open",
-			"RBL-9999": "RBL-9999: Secondary ticket context",
+		tickets: map[string]jira.Issue{
+			"RBL-1234": {Key: "RBL-1234", Summary: "Fix login timeout handling"},
+			"RBL-9999": {Key: "RBL-9999", Summary: "Secondary ticket context"},
 		},
 	}
 
@@ -274,18 +274,20 @@ func TestVibeAutoGeneratesWorkspaceNameFromFirstJiraTicket(t *testing.T) {
 }
 
 type requestCountingJira struct {
-	tickets map[string]string
-	calls   map[string]int
+	tickets        map[string]jira.Issue
+	calls          map[string]int
+	lastAuthConfig jira.AuthConfig
 }
 
-func (j *requestCountingJira) GetTicket(id string) (string, error) {
+func (j *requestCountingJira) GetTicket(id string, auth jira.AuthConfig) (jira.Issue, error) {
+	j.lastAuthConfig = auth
 	if j.calls == nil {
 		j.calls = make(map[string]int)
 	}
 	j.calls[id]++
 	ticket, ok := j.tickets[id]
 	if !ok {
-		return "", fmt.Errorf("ticket not found: %s", id)
+		return jira.Issue{}, fmt.Errorf("ticket not found: %s", id)
 	}
 	return ticket, nil
 }
@@ -300,8 +302,8 @@ func TestVibeAutoGeneratesWorkspaceNameFromJiraFallsBackToKeyWhenSummaryMissing(
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 		testutils.WithJira(jira.Mock{
-			Tickets: map[string]string{
-				"RBL-1234": "RBL-1234: (no summary)\nStatus: Open",
+			Tickets: map[string]jira.Issue{
+				"RBL-1234": {Key: "RBL-1234", Summary: "(no summary)"},
 			},
 		}),
 	)
@@ -337,8 +339,8 @@ func TestVibeAutoGeneratesWorkspaceNameFromJiraErrorsWhenFirstTicketMissing(t *t
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 		testutils.WithJira(jira.Mock{
-			Tickets: map[string]string{
-				"RBL-9999": "RBL-9999: Secondary ticket context",
+			Tickets: map[string]jira.Issue{
+				"RBL-9999": {Key: "RBL-9999", Summary: "Secondary ticket context"},
 			},
 		}),
 	)
@@ -370,7 +372,7 @@ func TestVibeContextEngineering(t *testing.T) {
 
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-123": "product requirements here"}}),
+		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-123": {Key: "ABC-123", Summary: "product requirements here"}}}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{
 			RepoURL: remoteURL,
@@ -405,7 +407,7 @@ func TestVibeContextEngineering(t *testing.T) {
 	res := h.RunOK(args...)
 	outStr := res.Stdout
 	// errStr := stderr.String()
-	expectedJira := "---------- Ticket ABC-123 ----------\nproduct requirements here\n"
+	expectedJira := "---------- Ticket ABC-123 ----------\nABC-123: product requirements here\n"
 	expectedSlack := "---------- Slack Thread " + threadURL + " ----------\nslack messages lol\n"
 	issueBlock := "---------- GitHub Issue " + issueSlug + "#" + issueNumber + " ----------\n" +
 		"Title: Resolve login flake\n" +

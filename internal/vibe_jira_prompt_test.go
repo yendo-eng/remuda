@@ -46,14 +46,7 @@ func TestVibeBuildsPromptWithJiraCodeBlocks(t *testing.T) {
 );</code></pre><p>Likely queries we’ll want to support</p>`,
 	}
 
-	ticketText, err := jira.FormatIssue(issue, nil)
-	require.NoError(t, err)
-
-	jiraContext, err := jira.BuildContext(jira.Mock{
-		Tickets: map[string]string{
-			"RBL-3027": ticketText,
-		},
-	}, []string{"RBL-3027"})
+	jiraContext, err := jira.BuildContext([]jira.Issue{issue})
 	require.NoError(t, err)
 
 	sm := &captureMultiplexer{}

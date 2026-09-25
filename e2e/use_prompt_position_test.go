@@ -62,7 +62,7 @@ func runVibeWithUsePromptPosition(t *testing.T, position, prompt string) string 
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
 		testutils.WithMultiplexer(mgr),
-		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
+		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-1": {Key: "ABC-1", Summary: "reference context"}}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
 
@@ -88,7 +88,7 @@ func runVibeCheckWithUsePromptPosition(t *testing.T, position, prompt string) st
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
 		testutils.WithMultiplexer(mgr),
-		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
+		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-1": {Key: "ABC-1", Summary: "reference context"}}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
 	h.RunOK("clone", "--repo-url", remoteURL, "--name", "initial")
@@ -120,7 +120,7 @@ func runSessionResumeWithUsePromptPosition(t *testing.T, position, prompt string
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
 		testutils.WithMultiplexer(mgr),
-		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
+		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-1": {Key: "ABC-1", Summary: "reference context"}}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
 
@@ -146,7 +146,7 @@ func runSessionResumeWithExperiments(t *testing.T, prompt string, experiments ..
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
 		testutils.WithMultiplexer(mgr),
-		testutils.WithJira(jira.Mock{Tickets: map[string]string{"ABC-1": "reference context"}}),
+		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-1": {Key: "ABC-1", Summary: "reference context"}}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
 

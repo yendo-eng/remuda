@@ -14,6 +14,7 @@ import (
 	"github.com/yendo-eng/remuda/e2e/testutils"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/docker"
+	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -191,6 +192,52 @@ profiles:
 			"profile's make-pr should be merged in ahead of the explicit --use value",
 		)
 	})
+}
+
+func TestConfigLayeringJiraAuthPrecedence(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	workspace := filepath.Join(base, "org", "repo", "wk")
+	testutils.InitWorkspace(t, workspace)
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(`
+version: 1
+jira:
+  endpoint: https://config.example.atlassian.net
+  user: config@example.com
+  api_token: config-token
+`), 0o644))
+
+	jiraClient := &requestCountingJira{tickets: map[string]jira.Issue{
+		"PROJ-101": {Key: "PROJ-101", Summary: "ticket details"},
+	}}
+	h := testutils.NewHarness(t,
+		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
+		testutils.WithDocker(&docker.Mock{Running: false}),
+		testutils.WithJira(jiraClient),
+	)
+	h.SetEnv("REMUDA_CONFIG", configPath)
+	h.SetEnv("REMUDA_JIRA_ENDPOINT", "https://env.example.atlassian.net")
+	h.SetEnv("REMUDA_JIRA_USER", "env@example.com")
+
+	h.RunOK(
+		"vibe",
+		"--in", workspace,
+		"--no-tmux",
+		"--no-container",
+		"--agent-cmd", "true",
+		"--jira", "PROJ-101",
+		"--jira-endpoint", "https://flag.example.atlassian.net",
+		"prompt",
+	)
+
+	require.Equal(t, jira.AuthConfig{
+		Endpoint: "https://flag.example.atlassian.net",
+		User:     "env@example.com",
+		Token:    "config-token",
+	}, jiraClient.lastAuthConfig)
+	require.Equal(t, map[string]int{"PROJ-101": 1}, jiraClient.calls)
 }
 
 // TestConfigLayeringSessionResumeAgentCoercion covers resolveSessionResumeAgent:

@@ -12,6 +12,12 @@ type Client interface {
 	GetComments(ctx context.Context, key string) ([]Comment, error)
 }
 
+type AuthConfig struct {
+	Endpoint string
+	User     string
+	Token    string
+}
+
 type Issue struct {
 	Key                 string
 	Summary             string
@@ -24,6 +30,7 @@ type Issue struct {
 	Updated             time.Time
 	Description         json.RawMessage
 	RenderedDescription string
+	Comments            []Comment
 }
 
 type Comment struct {
