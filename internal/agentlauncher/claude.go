@@ -28,6 +28,7 @@ type claudeLauncher struct {
 	ReasoningLevel string
 	RemoteControl  bool
 	RemoteSession  string
+	prefix         []string
 }
 
 func Claude(model string, yolo bool, reasoningLevel string) AgentLauncher {
@@ -50,6 +51,7 @@ func (c claudeLauncher) Command(prompt string, extraArgs ...string) string {
 
 func (c claudeLauncher) launch(prompt string, extraArgs ...string) launch {
 	command := launch{executable: "claude"}
+	command.raw(c.prefix...)
 	if c.Model != "" && c.Model != ModelAgentDefault {
 		command.raw("--model")
 		command.quoted(c.Model)
