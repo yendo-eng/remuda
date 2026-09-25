@@ -86,6 +86,24 @@ func TestSessionKill(t *testing.T) {
 		require.NoDirExists(t, workspacePath)
 	})
 
+	t.Run("warns and cleans up locked worktree", func(t *testing.T) {
+		h, remoteURL := setup(t, nil)
+
+		baseDir := h.RemudaConfig.ReposBaseDir
+		name := "locked-worktree"
+		org, repo, _ := github.ParseRepo(remoteURL)
+		workspacePath := filepath.Join(baseDir, org, repo, name)
+		sessionName := session.SessionNameFromWorkspaceName(workspacePath)
+
+		h.RunOK("vibe", "--name", name, "--repo-url", remoteURL)
+		testutils.RunGit(t, filepath.Join(baseDir, org, repo, ".repo_cache"), "worktree", "lock", workspacePath)
+
+		res := h.RunOK("session", "kill", "--name", sessionName, "--cleanup")
+
+		require.Contains(t, res.Stderr, "worktree remove failed")
+		require.NoDirExists(t, workspacePath)
+	})
+
 	t.Run("kills, closes PR, and cleans up existing session", func(t *testing.T) {
 		mockGitHub := &testutils.MockGitHub{}
 		h, remoteURL := setup(t, mockGitHub)

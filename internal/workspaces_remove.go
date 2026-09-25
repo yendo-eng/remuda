@@ -12,7 +12,7 @@ import (
 
 // WorkspacesRemove removes explicitly targeted workspaces.
 // It refuses to remove workspaces with active Remuda sessions.
-func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) ([]PrunedWorkspace, error) {
+func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) ([]RemovedWorkspace, error) {
 	active, err := k.activeWorkspaceSessions()
 	if err != nil {
 		return nil, err
@@ -20,7 +20,7 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) (
 
 	logger := k.logger()
 	seen := map[string]struct{}{}
-	removed := make([]PrunedWorkspace, 0, len(workspaces))
+	removed := make([]RemovedWorkspace, 0, len(workspaces))
 	var failures []string
 
 	for _, workspace := range workspaces {
@@ -70,12 +70,12 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) (
 			logger.Warn().Err(err).Str("workspace", workspaceAbs).Msg("failed to compute workspace size")
 		}
 
-		if err := k.PruneOneSession(workspaceAbs, true, dryRun, force); err != nil {
+		if err := k.RemoveWorkspace(workspaceAbs, dryRun, force); err != nil {
 			failures = append(failures, err.Error())
 			continue
 		}
 
-		removed = append(removed, PrunedWorkspace{Path: workspaceAbs, Bytes: bytes})
+		removed = append(removed, RemovedWorkspace{Path: workspaceAbs, Bytes: bytes})
 	}
 
 	if len(failures) > 0 {
@@ -111,12 +111,7 @@ func (k Remuda) activeWorkspaceSessions() (map[string]string, error) {
 	return active, nil
 }
 
-func (k Remuda) PruneOneSession(
-	workspace string,
-	clean bool,
-	dryRun bool,
-	force bool,
-) error {
+func (k Remuda) RemoveWorkspace(workspace string, dryRun bool, force bool) error {
 	logger := k.logger()
 	if err := ValidateWorkspacePath(k.Config.ReposBaseDir, workspace); err != nil {
 		return pkgerrors.Wrapf(err, "invalid workspace %q", workspace)

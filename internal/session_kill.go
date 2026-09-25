@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -106,34 +105,12 @@ func (k Remuda) workspacePathForSession(sessionName string) (string, error) {
 
 // cleanupWorkspaceForSession removes the workspace directory and its git worktree.
 func (k Remuda) cleanupWorkspaceForSession(sessionName string) error {
-	logger := k.logger()
-	ws, err := session.SessionInfo{Name: sessionName}.WorkspacePath(k.Config.ReposBaseDir)
+	ws, err := k.workspacePathForSession(sessionName)
 	if err != nil {
-		return pkgerrors.Wrap(err, "get workspace path from session name")
+		return err
 	}
-
-	// Compute cache dir to remove worktree from.
-	// Layout: <base>/<org>/<repo>/<folder>; cache at <base>/<org>/<repo>/.repo_cache
-	parts := strings.Split(sessionName, "/")
-	baseDir := filepath.Join(k.Config.ReposBaseDir, parts[0], parts[1])
-	cacheDir := filepath.Join(baseDir, ".repo_cache")
-	if err := k.Git.WorktreeRemove(cacheDir, ws); err != nil {
-		logger.Warn().Err(err).Msgf("removing git worktree %q from cache %q", ws, cacheDir)
-	}
-	return os.RemoveAll(ws)
+	return k.RemoveWorkspace(ws, false, true)
 }
-
-// // deriveWorkspacePathFromSessionName maps org/repo/folder → base/org/repo/folder.
-// func deriveWorkspacePathFromSessionName(base, name string) (string, bool) {
-// 	parts := strings.Split(strings.TrimSpace(name), "/")
-// 	if len(parts) != 3 {
-// 		return "", false
-// 	}
-// 	if parts[0] == "" || parts[1] == "" || parts[2] == "" {
-// 		return "", false
-// 	}
-// 	return filepath.Join(base, parts[0], parts[1], parts[2]), true
-// }
 
 func (k Remuda) closeBDIssue(workspacePath string) bool {
 	logger := k.logger()

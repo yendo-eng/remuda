@@ -44,45 +44,47 @@ func TestWorkspaces_InvalidIgnorePattern(t *testing.T) {
 	require.Error(t, err)
 }
 
-type pruneSpyGit struct {
+type workspaceRemovalSpyGit struct {
 	worktreeRemoveCalls int
 	worktreeRemoveArgs  []string
 }
 
-func (g *pruneSpyGit) Clone(repoURL, dir string) error                          { return nil }
-func (g *pruneSpyGit) Pull(dir string) error                                    { return nil }
-func (g *pruneSpyGit) WorktreeAdd(dir, branch string, args ...string) error     { return nil }
-func (g *pruneSpyGit) Checkout(dir string, args ...string) error                { return nil }
-func (g *pruneSpyGit) ShowRef(dir, ref string, opts ...string) error            { return nil }
-func (g *pruneSpyGit) RevParse(dir, rev string, opts ...string) (string, error) { return "", nil }
-func (g *pruneSpyGit) Branch(dir string, args ...string) error                  { return nil }
-func (g *pruneSpyGit) WorktreeRemove(dir string, args ...string) error {
+func (g *workspaceRemovalSpyGit) Clone(repoURL, dir string) error                      { return nil }
+func (g *workspaceRemovalSpyGit) Pull(dir string) error                                { return nil }
+func (g *workspaceRemovalSpyGit) WorktreeAdd(dir, branch string, args ...string) error { return nil }
+func (g *workspaceRemovalSpyGit) Checkout(dir string, args ...string) error            { return nil }
+func (g *workspaceRemovalSpyGit) ShowRef(dir, ref string, opts ...string) error        { return nil }
+func (g *workspaceRemovalSpyGit) RevParse(dir, rev string, opts ...string) (string, error) {
+	return "", nil
+}
+func (g *workspaceRemovalSpyGit) Branch(dir string, args ...string) error { return nil }
+func (g *workspaceRemovalSpyGit) WorktreeRemove(dir string, args ...string) error {
 	g.worktreeRemoveCalls++
 	g.worktreeRemoveArgs = append([]string(nil), args...)
 	return nil
 }
 
-var _ git.Git = (*pruneSpyGit)(nil)
+var _ git.Git = (*workspaceRemovalSpyGit)(nil)
 
-func TestPruneOneSession_SkipsWorktreeRemovalForFullClone(t *testing.T) {
+func TestRemoveWorkspace_SkipsWorktreeRemovalForFullClone(t *testing.T) {
 	t.Parallel()
 
 	base := t.TempDir()
 	workspace := filepath.Join(base, "org", "repo", "full")
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".git"), 0o755))
 
-	spy := &pruneSpyGit{}
+	spy := &workspaceRemovalSpyGit{}
 	k := Remuda{
 		Config: Config{ReposBaseDir: base},
 		Git:    spy,
 	}
 
-	require.NoError(t, k.PruneOneSession(workspace, true, false, false))
+	require.NoError(t, k.RemoveWorkspace(workspace, false, false))
 	require.Equal(t, 0, spy.worktreeRemoveCalls)
 	require.NoDirExists(t, workspace)
 }
 
-func TestPruneOneSession_RemovesLinkedWorktreeFromGit(t *testing.T) {
+func TestRemoveWorkspace_RemovesLinkedWorktreeFromGit(t *testing.T) {
 	t.Parallel()
 
 	base := t.TempDir()
@@ -90,19 +92,19 @@ func TestPruneOneSession_RemovesLinkedWorktreeFromGit(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(workspace, ".git"), []byte("gitdir: /tmp/fake"), 0o644))
 
-	spy := &pruneSpyGit{}
+	spy := &workspaceRemovalSpyGit{}
 	k := Remuda{
 		Config: Config{ReposBaseDir: base},
 		Git:    spy,
 	}
 
-	require.NoError(t, k.PruneOneSession(workspace, true, false, false))
+	require.NoError(t, k.RemoveWorkspace(workspace, false, false))
 	require.Equal(t, 1, spy.worktreeRemoveCalls)
 	require.Equal(t, []string{workspace}, spy.worktreeRemoveArgs)
 	require.NoDirExists(t, workspace)
 }
 
-func TestPruneOneSession_RemovesLinkedWorktreeFromGitWithForce(t *testing.T) {
+func TestRemoveWorkspace_RemovesLinkedWorktreeFromGitWithForce(t *testing.T) {
 	t.Parallel()
 
 	base := t.TempDir()
@@ -110,13 +112,13 @@ func TestPruneOneSession_RemovesLinkedWorktreeFromGitWithForce(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(workspace, ".git"), []byte("gitdir: /tmp/fake"), 0o644))
 
-	spy := &pruneSpyGit{}
+	spy := &workspaceRemovalSpyGit{}
 	k := Remuda{
 		Config: Config{ReposBaseDir: base},
 		Git:    spy,
 	}
 
-	require.NoError(t, k.PruneOneSession(workspace, true, false, true))
+	require.NoError(t, k.RemoveWorkspace(workspace, false, true))
 	require.Equal(t, 1, spy.worktreeRemoveCalls)
 	require.Equal(t, []string{workspace, "--force"}, spy.worktreeRemoveArgs)
 	require.NoDirExists(t, workspace)
