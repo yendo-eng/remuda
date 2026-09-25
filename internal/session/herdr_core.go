@@ -236,7 +236,7 @@ func (h *herdrCore) Attach(name string) error {
 			return err
 		}
 	}
-	cmd := util.CmdWithEnvAndLogger(h.logger, append(env.Environ(h.env), "HC_SOCKET="+client.socket), h.hc, "attach", terminal.Address)
+	cmd := util.CmdWithEnv(h.logger, append(env.Environ(h.env), "HC_SOCKET="+client.socket), h.hc, "attach", terminal.Address)
 	cmd.Stdout, cmd.Stdin, cmd.Stderr = os.Stderr, os.Stdin, os.Stderr
 	return cmd.Run()
 }

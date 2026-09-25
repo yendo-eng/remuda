@@ -628,7 +628,7 @@ func runFZF(logger zerolog.Logger, env EnvProvider, lines []string, multi bool, 
 	}
 	fzfArgs = append(fzfArgs, args...)
 
-	cmd := util.CmdWithEnvAndLogger(logger, environFromEnvProvider(env), "fzf", fzfArgs...)
+	cmd := util.CmdWithEnv(logger, environFromEnvProvider(env), "fzf", fzfArgs...)
 	if cmd.Err != nil {
 		return nil, errFZFUnavailable
 	}

@@ -123,11 +123,11 @@ func (k Remuda) Clone(
 			// freshly copied repository is clean before proceeding.
 			// Best‑effort: if cleanup fails, fall back to returning the error so the
 			// caller gets a clear failure instead of later, confusing errors.
-			if err := util.RunCmdWithLogger(logger, "git", "-C", target, "reset", "--hard"); err != nil {
+			if err := util.RunCmd(logger, "git", "-C", target, "reset", "--hard"); err != nil {
 				_ = os.RemoveAll(target)
 				return pkgerrors.Wrap(err, "reset copied repo to HEAD")
 			}
-			if err := util.RunCmdWithLogger(logger, "git", "-C", target, "clean", "-fdx"); err != nil {
+			if err := util.RunCmd(logger, "git", "-C", target, "clean", "-fdx"); err != nil {
 				_ = os.RemoveAll(target)
 				return pkgerrors.Wrap(err, "clean copied repo working tree")
 			}

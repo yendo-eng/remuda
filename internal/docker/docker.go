@@ -126,7 +126,7 @@ func absPath(p string) string {
 }
 
 func goEnvPath(logger zerolog.Logger, key string) string {
-	out, err := util.RunCmdOutputWithLogger(logger, "go", "env", key)
+	out, err := util.RunCmdOutput(logger, "go", "env", key)
 	if err != nil {
 		logger.Warn().Err(err).Str("key", key).Msg("go env lookup failed")
 		return ""

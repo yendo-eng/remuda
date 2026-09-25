@@ -220,7 +220,7 @@ func (r *rex) Attach(name string) error {
 	if err != nil {
 		return err
 	}
-	if err := util.RunCmdWithLogger(r.logger, r.open, "-a", app.Info.Name); err != nil {
+	if err := util.RunCmd(r.logger, r.open, "-a", app.Info.Name); err != nil {
 		return err
 	}
 	// The app refuses actions until Remote Control is turned on in its
