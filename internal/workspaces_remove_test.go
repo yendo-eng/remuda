@@ -7,30 +7,40 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/git"
+	"github.com/yendo-eng/remuda/internal/session"
 )
 
-func TestFilterInactiveWorkspaces_IgnorePatterns(t *testing.T) {
+func TestWorkspaces_InactiveIgnorePatterns(t *testing.T) {
+	t.Parallel()
+
 	base := t.TempDir()
 
-	wsKeep := filepath.Join(base, "org", "repo", "keep")
-	wsPrune := filepath.Join(base, "org", "repo", "prune")
-	require.NoError(t, os.MkdirAll(wsKeep, 0o755))
-	require.NoError(t, os.MkdirAll(wsPrune, 0o755))
+	wsIgnore := filepath.Join(base, "org", "repo", "ignore")
+	wsInactive := filepath.Join(base, "org", "repo", "inactive")
+	wsActive := filepath.Join(base, "org", "repo", "active")
+	for _, workspace := range []string{wsIgnore, wsInactive, wsActive} {
+		require.NoError(t, os.MkdirAll(workspace, 0o755))
+	}
 
-	candidates := []string{wsKeep, wsPrune}
-	active := map[string]struct{}{}
+	k := Remuda{
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: &fakeMultiplexer{sessions: []session.SessionInfo{{Name: "org/repo/active"}}},
+	}
 
-	inactive, err := filterInactiveWorkspaces(base, candidates, active, []string{"org/repo/keep"})
+	inactive, err := k.Workspaces(WorkspaceActivityInactive, []string{"org/repo/ignore"})
 	require.NoError(t, err)
-	require.Equal(t, []string{wsPrune}, inactive)
+	require.Equal(t, []string{wsInactive}, inactive)
 }
 
-func TestFilterInactiveWorkspaces_InvalidIgnorePattern(t *testing.T) {
+func TestWorkspaces_InvalidIgnorePattern(t *testing.T) {
+	t.Parallel()
+
 	base := t.TempDir()
 	ws := filepath.Join(base, "org", "repo", "ws")
 	require.NoError(t, os.MkdirAll(ws, 0o755))
 
-	_, err := filterInactiveWorkspaces(base, []string{ws}, map[string]struct{}{}, []string{"["})
+	k := Remuda{Config: Config{ReposBaseDir: base}}
+	_, err := k.Workspaces(WorkspaceActivityAll, []string{"["})
 	require.Error(t, err)
 }
 

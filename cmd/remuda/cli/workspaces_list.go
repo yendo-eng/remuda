@@ -5,6 +5,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/configfile"
 )
 
@@ -41,17 +42,13 @@ func (c WorkspacesListCmd) Validate() error {
 func (c WorkspacesListCmd) Run(ctx Context) error {
 	ignore := configuredWorkspacesIgnorePatterns(ctx.ConfigFile)
 
-	var (
-		workspaces []string
-		err        error
-	)
+	activity := internal.WorkspaceActivityAll
 	if c.Active {
-		workspaces, err = ctx.Remuda.ActiveWorkspacesWithIgnore(ignore)
+		activity = internal.WorkspaceActivityActive
 	} else if c.Inactive {
-		workspaces, err = ctx.Remuda.InactiveWorkspacesWithIgnore(ignore)
-	} else {
-		workspaces, err = ctx.Remuda.WorkspacesWithIgnore(ignore)
+		activity = internal.WorkspaceActivityInactive
 	}
+	workspaces, err := ctx.Remuda.Workspaces(activity, ignore)
 	if err != nil {
 		return pkgerrors.Wrap(err, "workspaces list")
 	}
@@ -80,7 +77,7 @@ func configuredWorkspacesIgnorePatterns(cfg *configfile.V1) []string {
 	return out
 }
 
-func configuredPruneIgnorePatterns(cfg *configfile.V1) []string {
+func configuredResumeIgnorePatterns(cfg *configfile.V1) []string {
 	if cfg == nil || cfg.Session == nil || cfg.Session.Prune == nil || cfg.Session.Prune.Ignore == nil {
 		return nil
 	}

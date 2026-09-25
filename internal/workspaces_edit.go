@@ -27,7 +27,7 @@ func (k Remuda) WorkspacesEdit(workspace, editorCmd string) error {
 	}
 	workspaceAbs = filepath.Clean(workspaceAbs)
 
-	if err := validateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
+	if err := ValidateWorkspacePath(k.Config.ReposBaseDir, workspaceAbs); err != nil {
 		return pkgerrors.Wrapf(err, "invalid workspace %q", workspaceAbs)
 	}
 

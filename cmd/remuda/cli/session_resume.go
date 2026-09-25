@@ -153,7 +153,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 	logger := logging.FromContext(ctx.ctx)
 	var selected string
 	if c.Pick {
-		inactive, err := ctx.Remuda.InactiveWorkspacesWithIgnore(configuredPruneIgnorePatterns(ctx.ConfigFile))
+		inactive, err := ctx.Remuda.Workspaces(internal.WorkspaceActivityInactive, configuredResumeIgnorePatterns(ctx.ConfigFile))
 		if err != nil {
 			return pkgerrors.Wrap(err, "list inactive workspaces")
 		}
