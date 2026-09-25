@@ -10,8 +10,6 @@ import (
 	"github.com/yendo-eng/remuda/e2e/testutils"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/docker"
-	"github.com/yendo-eng/remuda/internal/git"
-	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/jira"
 )
 
@@ -25,11 +23,11 @@ func TestSessionResume(t *testing.T) {
 		mgr := &testutils.MockMultiplexer{}
 		k := internal.NewRemuda(
 			internal.Config{ReposBaseDir: baseDir},
-			git.NewShellGit(),
+			nil,
 			mgr,
 			jira.Mock{},
 			&docker.Mock{Running: false},
-			github.NewGhCLI(),
+			nil,
 		)
 		return baseDir, mgr, k
 	}

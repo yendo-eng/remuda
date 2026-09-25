@@ -12,7 +12,7 @@ import (
 
 func TestListAndGet(t *testing.T) {
 	t.Setenv(promptsDirEnv, t.TempDir())
-	ps, err := List()
+	ps, err := List(env.Default())
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(ps), 1)
 
@@ -25,12 +25,12 @@ func TestListAndGet(t *testing.T) {
 func TestComposeOrderAndJoin(t *testing.T) {
 	t.Setenv(promptsDirEnv, t.TempDir())
 	// Single built-in + user prompt
-	out, err := Compose([]string{"small-commits"}, "User body")
+	out, err := Compose([]string{"small-commits"}, "User body", env.Default())
 	require.NoError(t, err)
 	require.True(t, strings.HasSuffix(out, "\n\nUser body"))
 
 	// Unknown name should error
-	_, err = Compose([]string{"nope"}, "X")
+	_, err = Compose([]string{"nope"}, "X", env.Default())
 	require.Error(t, err)
 }
 
@@ -76,18 +76,18 @@ func TestResolveCustomPrompt(t *testing.T) {
 	content := "please end your work by telling a joke"
 	require.NoError(t, os.WriteFile(filepath.Join(customDir, "tell-jokes"), []byte(content), 0o644))
 
-	p, err := Resolve("tell-jokes")
+	p, err := Resolve("tell-jokes", env.Default())
 	require.NoError(t, err)
 	require.Equal(t, "tell-jokes", p.Name)
 	require.Equal(t, content, p.Content)
 	require.Equal(t, "please end your work by telling a joke", p.Description)
 
 	require.NoError(t, os.WriteFile(filepath.Join(customDir, "multiline"), []byte("first line\nsecond line"), 0o644))
-	p, err = Resolve("multiline")
+	p, err = Resolve("multiline", env.Default())
 	require.NoError(t, err)
 	require.Equal(t, "first line", p.Description)
 
-	_, err = Resolve("../escape")
+	_, err = Resolve("../escape", env.Default())
 	require.Error(t, err)
 	require.IsType(t, ErrInvalidPromptName(""), err)
 }
@@ -102,7 +102,7 @@ func TestResolveCustomOverridesBuiltin(t *testing.T) {
 	require.True(t, ok)
 	require.NotEqual(t, content, builtin.Content)
 
-	p, err := Resolve("small-commits")
+	p, err := Resolve("small-commits", env.Default())
 	require.NoError(t, err)
 	require.False(t, p.Builtin)
 	require.Equal(t, content, p.Content)
@@ -113,7 +113,7 @@ func TestListIncludesCustomPrompt(t *testing.T) {
 	t.Setenv(promptsDirEnv, customDir)
 	require.NoError(t, os.WriteFile(filepath.Join(customDir, "tell-jokes"), []byte("tell a joke"), 0o644))
 
-	ps, err := List()
+	ps, err := List(env.Default())
 	require.NoError(t, err)
 	found := false
 	for _, prompt := range ps {
@@ -125,7 +125,7 @@ func TestListIncludesCustomPrompt(t *testing.T) {
 	require.True(t, found, "expected custom prompt in list")
 }
 
-func TestListWithEnv_UsesProviderOverride(t *testing.T) {
+func TestList_UsesProviderOverride(t *testing.T) {
 	customDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(customDir, "tell-jokes"), []byte("tell a joke"), 0o644))
 
@@ -136,7 +136,7 @@ func TestListWithEnv_UsesProviderOverride(t *testing.T) {
 		HomeDir: t.TempDir(),
 	}
 
-	ps, err := ListWithEnv(provider)
+	ps, err := List(provider)
 	require.NoError(t, err)
 
 	found := false

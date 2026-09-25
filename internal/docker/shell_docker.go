@@ -8,7 +8,6 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -16,16 +15,8 @@ type shellDocker struct {
 	logger zerolog.Logger
 }
 
-func NewShellDocker() Docker {
-	return NewShellDockerWithLogger(logging.DefaultLogger())
-}
-
-func NewShellDockerWithLogger(logger zerolog.Logger) Docker {
+func NewShellDocker(logger zerolog.Logger) Docker {
 	return &shellDocker{logger: logger}
-}
-
-func (s *shellDocker) SetLogger(logger zerolog.Logger) {
-	s.logger = logger
 }
 
 func (s shellDocker) CheckRunning() error {

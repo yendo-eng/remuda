@@ -4,16 +4,10 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
-	"github.com/rs/zerolog"
 )
 
 type Jira interface {
 	GetTicket(id string, auth AuthConfig) (Issue, error)
-}
-
-// LoggerSetter allows wiring a per-invocation logger into Jira implementations.
-type LoggerSetter interface {
-	SetLogger(logger zerolog.Logger)
 }
 
 func FetchIssues(jira Jira, ids []string, auth AuthConfig) ([]Issue, error) {

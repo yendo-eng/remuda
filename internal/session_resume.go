@@ -7,7 +7,6 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -45,7 +44,6 @@ type SessionResumeCommand struct {
 }
 
 func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) error {
-	k.SetLogger(logging.FromContext(ctx))
 	if err := validateMultiplexerLaunch(k.Multiplexer, cmd.AgentCmd); err != nil {
 		return err
 	}

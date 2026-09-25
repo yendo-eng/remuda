@@ -10,7 +10,6 @@ import (
 	"github.com/yendo-eng/remuda/cmd/remuda/cli"
 	"github.com/yendo-eng/remuda/e2e/testutils"
 	"github.com/yendo-eng/remuda/internal"
-	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/prompts"
 )
@@ -22,7 +21,7 @@ func getRemuda(t *testing.T) (internal.Remuda, *bytes.Buffer, *bytes.Buffer, cli
 		internal.Config{
 			ReposBaseDir: reposDir,
 		},
-		git.NewShellGit(),
+		nil,
 		&testutils.MockMultiplexer{},
 		jira.Mock{},
 		nil,

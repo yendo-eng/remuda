@@ -13,24 +13,15 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-func NewZellij() Multiplexer {
-	return NewZellijWithLogger(logging.DefaultLogger())
-}
-
-func NewZellijWithLogger(logger zerolog.Logger) Multiplexer {
+func NewZellij(logger zerolog.Logger) Multiplexer {
 	return &zellij{logger: logger}
 }
 
 type zellij struct {
 	logger zerolog.Logger
-}
-
-func (z *zellij) SetLogger(logger zerolog.Logger) {
-	z.logger = logger
 }
 
 func (z *zellij) Name() string {

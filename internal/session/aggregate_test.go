@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/enums"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -22,7 +23,6 @@ type aggregateBackend struct {
 	killed     []string
 	agentStart []session.AgentStart
 	env        []string
-	loggerSet  bool
 }
 
 func (b *aggregateBackend) Name() string { return b.name }
@@ -69,7 +69,6 @@ func (b *aggregateBackend) Kill(name string) error {
 	b.killed = append(b.killed, name)
 	return nil
 }
-func (b *aggregateBackend) SetLogger(zerolog.Logger) { b.loggerSet = true }
 
 func TestAggregateMultiplexerSkipsOnlyUnavailableBackends(t *testing.T) {
 	tests := []struct {
@@ -117,9 +116,9 @@ exit 1
 			owner := &aggregateBackend{name: "owner", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
 			backends := make([]session.Multiplexer, 0, len(enums.ValidMultiplexers)+1)
 			for _, name := range enums.ValidMultiplexers {
-				backends = append(backends, session.NewMultiplexerWithLogger(session.SupportedMultiplexer(name), zerolog.Nop()))
+				backends = append(backends, session.NewMultiplexer(session.SupportedMultiplexer(name), zerolog.Nop()))
 			}
-			mgr := session.NewAggregateMultiplexer(owner, append(backends, owner)...)
+			mgr := session.NewAggregateMultiplexer(owner, logging.DefaultLogger(), append(backends, owner)...)
 
 			sessions, listErr := mgr.List()
 			info, findErr := mgr.Find("org/repo/owned")
@@ -156,7 +155,7 @@ func TestAggregateMultiplexerDispatchesToSessionOwner(t *testing.T) {
 
 			unavailable := &aggregateBackend{name: "tmux", listErr: session.ErrMultiplexerUnavailable}
 			owner := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
-			mgr := session.NewAggregateMultiplexer(unavailable, unavailable, owner)
+			mgr := session.NewAggregateMultiplexer(unavailable, logging.DefaultLogger(), unavailable, owner)
 
 			require.NoError(t, tt.run(mgr))
 			require.Equal(t, []string{"org/repo/owned"}, tt.got(owner))
@@ -187,7 +186,7 @@ func TestAggregateMultiplexerReturnsBackendErrors(t *testing.T) {
 
 			createTarget := &aggregateBackend{name: "tmux"}
 			failing := &aggregateBackend{name: "herdr-core", sessions: []session.SessionInfo{{Name: "org/repo/held"}}, listErr: backendErr}
-			mgr := session.NewAggregateMultiplexer(createTarget, createTarget, failing)
+			mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget, failing)
 
 			err := tt.run(mgr)
 
@@ -206,7 +205,7 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 
 		createTarget := &aggregateBackend{name: "tmux"}
 		owner := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/existing"}}}
-		mgr := session.NewAggregateMultiplexer(createTarget, createTarget, owner)
+		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget, owner)
 
 		err := mgr.Start("org/repo/existing", "command")
 
@@ -219,7 +218,7 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 		t.Parallel()
 
 		createTarget := &aggregateBackend{name: "herdr-tui"}
-		mgr := session.NewAggregateMultiplexer(createTarget, createTarget)
+		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget)
 		envStarter, ok := mgr.(session.EnvStarter)
 		require.True(t, ok)
 		agentStarter, ok := mgr.(session.AgentStarter)
@@ -233,19 +232,4 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 		require.Equal(t, []string{"KEY=value"}, createTarget.env)
 		require.Equal(t, "org/repo/agent", createTarget.agentStart[0].SessionName)
 	})
-}
-
-func TestAggregateMultiplexerSetsLoggerOnAllBackends(t *testing.T) {
-	t.Parallel()
-
-	tmux := &aggregateBackend{name: "tmux"}
-	herdrTUI := &aggregateBackend{name: "herdr-tui"}
-	mgr := session.NewAggregateMultiplexer(tmux, tmux, herdrTUI)
-	setter, ok := mgr.(session.LoggerSetter)
-	require.True(t, ok)
-
-	setter.SetLogger(zerolog.Nop())
-
-	require.True(t, tmux.loggerSet)
-	require.True(t, herdrTUI.loggerSet)
 }

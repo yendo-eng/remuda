@@ -1,14 +1,11 @@
 package internal
 
 import (
-	"bytes"
 	"path/filepath"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/jira"
 )
 
 func TestConfigFromEnvDefaultsToHomeRemuda(t *testing.T) {
@@ -50,29 +47,3 @@ func TestConfigFromEnvWithProvider_UsesFallbackWhenHomeUnavailable(t *testing.T)
 	cfg := ConfigFromEnvWithProvider(provider)
 	require.Equal(t, "./repos", cfg.ReposBaseDir)
 }
-
-func TestRemudaSetLoggerPropagatesToJiraLoggerSetter(t *testing.T) {
-	stub := &jiraLoggerSetterStub{}
-	k := NewRemuda(Config{}, nil, nil, stub, nil, nil)
-
-	var sink bytes.Buffer
-	logger := zerolog.New(&sink)
-	k.SetLogger(logger)
-
-	require.Equal(t, 1, stub.calls)
-}
-
-type jiraLoggerSetterStub struct {
-	calls int
-}
-
-func (s *jiraLoggerSetterStub) GetTicket(string, jira.AuthConfig) (jira.Issue, error) {
-	return jira.Issue{}, nil
-}
-
-func (s *jiraLoggerSetterStub) SetLogger(zerolog.Logger) {
-	s.calls++
-}
-
-var _ jira.Jira = (*jiraLoggerSetterStub)(nil)
-var _ jira.LoggerSetter = (*jiraLoggerSetterStub)(nil)
