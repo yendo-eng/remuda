@@ -10,80 +10,71 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-func (k Remuda) SessionKill(
-	name string,
-	cleanup bool,
-	closePRComment *string,
-	mergePR bool,
-	mergeFlags []string,
-	closeBD bool,
-) error {
-	return k.killOne(name, cleanup, closePRComment, mergePR, mergeFlags, closeBD)
+type SessionKillCommand struct {
+	Name           string
+	Cleanup        bool
+	ClosePRComment *string
+	MergePR        bool
+	MergeFlags     []string
+	CloseBD        bool
 }
 
-func (k Remuda) killOne(
-	name string,
-	cleanup bool,
-	closePRComment *string,
-	mergePR bool,
-	mergeFlags []string,
-	closeBD bool,
-) error {
+func (k Remuda) SessionKill(cmd SessionKillCommand) error {
 	var workspacePath string
-	needsWorkspace := closePRComment != nil || mergePR || closeBD
+	needsWorkspace := cmd.ClosePRComment != nil || cmd.MergePR || cmd.CloseBD
 	if needsWorkspace {
 		var err error
-		workspacePath, err = k.workspacePathForSession(name)
+		workspacePath, err = k.workspacePathForSession(cmd.Name)
 		if err != nil {
 			return err
 		}
 	}
 
-	if mergePR {
-		if len(mergeFlags) == 0 {
-			mergeFlags = []string{"--rebase"}
+	if cmd.MergePR {
+		if len(cmd.MergeFlags) == 0 {
+			cmd.MergeFlags = []string{"--rebase"}
 		}
-		res, err := k.GitHub.MergePullRequest(workspacePath, mergeFlags)
+		res, err := k.GitHub.MergePullRequest(workspacePath, cmd.MergeFlags)
 		if err != nil {
 			return err
 		}
 		if res == nil {
-			return pkgerrors.Errorf("no pull request associated with session %q; cannot merge", name)
+			return pkgerrors.Errorf("no pull request associated with session %q; cannot merge", cmd.Name)
 		}
 		if res.Merged {
-			k.IO.Outf("Merged PR #%d for session %q (%s) with flags: %s\n", res.Number, name, res.URL, strings.Join(mergeFlags, " "))
+			k.IO.Outf("Merged PR #%d for session %q (%s) with flags: %s\n", res.Number, cmd.Name, res.URL, strings.Join(cmd.MergeFlags, " "))
 		} else {
-			return pkgerrors.Errorf("failed to merge PR #%d for session %q", res.Number, name)
+			return pkgerrors.Errorf("failed to merge PR #%d for session %q", res.Number, cmd.Name)
 		}
-		closePRComment = nil
+		cmd.ClosePRComment = nil
 
 		// Attempt to close beads issue if applicable.
 		k.closeBDIssue(workspacePath)
-	} else if closeBD {
+	} else if cmd.CloseBD {
 		k.closeBDIssue(workspacePath)
 	}
 
-	if err := k.Multiplexer.Kill(name); err != nil {
+	if err := k.Multiplexer.Kill(cmd.Name); err != nil {
 		return err
 	}
 
-	if closePRComment != nil {
-		res, err := k.GitHub.ClosePullRequest(workspacePath, *closePRComment)
+	if cmd.ClosePRComment != nil {
+		res, err := k.GitHub.ClosePullRequest(workspacePath, *cmd.ClosePRComment)
 		if err != nil {
 			return err
 		}
 		switch {
 		case res == nil:
-			k.IO.Outf("No PR associated with session %q\n", name)
+			k.IO.Outf("No PR associated with session %q\n", cmd.Name)
 		case res.Closed:
-			k.IO.Outf("Closed PR #%d for session %q (%s)\n", res.Number, name, res.URL)
+			k.IO.Outf("Closed PR #%d for session %q (%s)\n", res.Number, cmd.Name, res.URL)
 		default:
-			k.IO.Outf("PR #%d already %s for session %q (%s)\n", res.Number, strings.ToLower(res.State), name, res.URL)
+			k.IO.Outf("PR #%d already %s for session %q (%s)\n", res.Number, strings.ToLower(res.State), cmd.Name, res.URL)
 		}
 	}
 
-	if cleanup {
-		if err := k.cleanupWorkspaceForSession(name); err != nil {
+	if cmd.Cleanup {
+		if err := k.cleanupWorkspaceForSession(cmd.Name); err != nil {
 			return err
 		}
 	}
