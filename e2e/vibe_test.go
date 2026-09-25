@@ -230,17 +230,18 @@ func TestVibeAutoGeneratesWorkspaceNameFromFirstJiraTicket(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
 	runDir := t.TempDir()
+	jiraClient := &requestCountingJira{
+		tickets: map[string]string{
+			"RBL-1234": "RBL-1234: Fix login timeout handling\nStatus: Open",
+			"RBL-9999": "RBL-9999: Secondary ticket context",
+		},
+	}
 
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
-		testutils.WithJira(jira.Mock{
-			Tickets: map[string]string{
-				"RBL-1234": "RBL-1234: Fix login timeout handling\nStatus: Open",
-				"RBL-9999": "RBL-9999: Secondary ticket context",
-			},
-		}),
+		testutils.WithJira(jiraClient),
 	)
 
 	res := h.RunOK(
@@ -269,6 +270,24 @@ func TestVibeAutoGeneratesWorkspaceNameFromFirstJiraTicket(t *testing.T) {
 	require.NotEqual(t, -1, firstIdx, "expected first jira ticket context in output")
 	require.NotEqual(t, -1, secondIdx, "expected second jira ticket context in output")
 	require.Less(t, firstIdx, secondIdx, "expected jira context order to match input order")
+	require.Equal(t, map[string]int{"RBL-1234": 1, "RBL-9999": 1}, jiraClient.calls)
+}
+
+type requestCountingJira struct {
+	tickets map[string]string
+	calls   map[string]int
+}
+
+func (j *requestCountingJira) GetTicket(id string) (string, error) {
+	if j.calls == nil {
+		j.calls = make(map[string]int)
+	}
+	j.calls[id]++
+	ticket, ok := j.tickets[id]
+	if !ok {
+		return "", fmt.Errorf("ticket not found: %s", id)
+	}
+	return ticket, nil
 }
 
 func TestVibeAutoGeneratesWorkspaceNameFromJiraFallsBackToKeyWhenSummaryMissing(t *testing.T) {
