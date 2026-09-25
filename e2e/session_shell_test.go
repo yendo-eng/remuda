@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
+	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -61,4 +62,33 @@ pwd > "$MARKER"
 	require.True(t, gotInfo.IsDir())
 	require.True(t, os.SameFile(wantInfo, gotInfo), "expected %q and %q to refer to the same directory", workspacePath, gotPath)
 	require.Empty(t, dock.Execs)
+}
+
+func TestSessionShellExecsShellInContainerWorkingDirectory(t *testing.T) {
+	t.Parallel()
+	workspaceRoot := t.TempDir()
+	workspace := filepath.Join(workspaceRoot, "org", "repo", "container-shell")
+	testutils.InitWorkspace(t, workspace)
+
+	sessionName := session.SessionNameFromWorkspaceName(workspace)
+	containerName := docker.ContainerNameFromSession(sessionName)
+	dock := &docker.Mock{
+		Running:           true,
+		RunningContainers: map[string]bool{containerName: true},
+	}
+	multiplexer := &testutils.MockMultiplexer{}
+	require.NoError(t, multiplexer.Start(sessionName, ""))
+
+	h := testutils.NewHarness(t,
+		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
+		testutils.WithMultiplexer(multiplexer),
+		testutils.WithDocker(dock),
+	)
+
+	h.RunOK("session", "shell", "--name", sessionName)
+
+	require.Len(t, dock.Execs, 1)
+	require.Equal(t, containerName, dock.Execs[0].Container)
+	require.NotContains(t, dock.Execs[0].Command, "/workspace")
+	require.Contains(t, dock.Execs[0].Command, "${SHELL:-/bin/bash}")
 }
