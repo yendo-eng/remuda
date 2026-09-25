@@ -134,7 +134,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 		cacheDir := filepath.Join(baseDir, org, repo, ".repo_cache")
 		res := h.Run("workspaces", "remove", cacheDir)
-		require.ErrorContains(t, res.Err, "workspace folder is not a prunable workspace")
+		require.ErrorContains(t, res.Err, "workspace folder is not a removable workspace")
 		require.DirExists(t, cacheDir)
 	})
 

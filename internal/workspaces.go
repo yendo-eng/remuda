@@ -11,7 +11,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-type PrunedWorkspace struct {
+type RemovedWorkspace struct {
 	Path  string
 	Bytes int64
 }
@@ -219,7 +219,7 @@ func ValidateWorkspacePath(base, workspace string) error {
 		".repo_cache": {},
 	}
 	if _, ok := excluded[segments[2]]; ok {
-		return pkgerrors.New("workspace folder is not a prunable workspace")
+		return pkgerrors.New("workspace folder is not a removable workspace")
 	}
 
 	return nil
