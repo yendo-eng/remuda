@@ -6,6 +6,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -170,7 +171,14 @@ func (c *SessionKillCmd) Run(ctx Context) error {
 			closePRComment = &comment
 		}
 
-		if err := ctx.Remuda.SessionKill(name, c.Cleanup, closePRComment, c.MergePR, mergeFlags, c.CloseBD); err != nil {
+		if err := ctx.Remuda.SessionKill(internal.SessionKillCommand{
+			Name:           name,
+			Cleanup:        c.Cleanup,
+			ClosePRComment: closePRComment,
+			MergePR:        c.MergePR,
+			MergeFlags:     mergeFlags,
+			CloseBD:        c.CloseBD,
+		}); err != nil {
 			return err
 		}
 
