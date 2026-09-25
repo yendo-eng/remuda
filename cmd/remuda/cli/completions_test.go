@@ -178,11 +178,18 @@ func TestCompleteReasoningLevel_CodexGPT6AstraOffersHighTierLevels(t *testing.T)
 	require.Contains(t, got, "ultra")
 }
 
-func TestCompleteReasoningLevel_ClaudeOffersCurrentEffortLevels(t *testing.T) {
+func TestCompleteReasoningLevel_ClaudeUsesStaticEffortOrder(t *testing.T) {
 	home := t.TempDir()
+	binDir := filepath.Join(home, "bin")
+	require.NoError(t, os.MkdirAll(binDir, 0o755))
+	fakeClaude := filepath.Join(binDir, "claude")
+	script := []byte("#!/bin/sh\n: > \"$HOME/claude-invoked\"\n")
+	require.NoError(t, os.WriteFile(fakeClaude, script, 0o755))
 
-	got := runComplete(t, cli.EnvMap{}, home, "vibe", "--agent", "claude", "--reasoning-level", "")
-	require.Equal(t, agentlauncher.ClaudeEffortLevels, got)
+	got := runComplete(t, cli.EnvMap{"HOME": home, "PATH": binDir}, home,
+		"vibe", "--agent", "claude", "--reasoning-level", "")
+	require.Equal(t, []string{"low", "medium", "high", "xhigh", "max"}, got)
+	require.NoFileExists(t, filepath.Join(home, "claude-invoked"))
 }
 
 func TestCompleteReasoningLevel_PreservesEffortOrder(t *testing.T) {
