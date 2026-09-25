@@ -1,31 +1,15 @@
 package cli
 
 import (
-	"context"
-	"os/exec"
 	"sort"
 	"strings"
-	"sync"
-	"time"
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/prompts"
-	"github.com/yendo-eng/remuda/internal/util"
 )
-
-const claudeHelpTimeout = 5 * time.Second
-
-var (
-	claudeCompletionCacheMu sync.RWMutex
-	claudeCompletionCache   = map[string]claudeCompletionHints{}
-)
-
-type claudeCompletionHints struct {
-	EffortSuggestions []string
-}
 
 // completionsCmd generates shell completion scripts. Source the output from
 // your shell profile, e.g. `source <(remuda completions bash)`.
@@ -223,10 +207,6 @@ func registerReasoningLevelCompletion(cmd *cobra.Command) {
 		}
 		model = agentlauncher.EffectiveModel(agentName, model)
 
-		if strings.EqualFold(agentName, string(agentlauncher.AgentClaude)) {
-			return claudeHintsForContext(*cliCtx).EffortSuggestions
-		}
-
 		return agentlauncher.SuggestedReasoningLevels(agentName, model)
 	})
 }
@@ -299,159 +279,4 @@ func defaultModelFromConfig(cliCtx Context) string {
 		return ""
 	}
 	return *cfg.Defaults.Model
-}
-
-func claudeHintsForContext(cliCtx Context) claudeCompletionHints {
-	cacheKey := strings.TrimSpace(cliCtx.env().Get("PATH"))
-	if cacheKey == "" {
-		cacheKey = "__empty_path__"
-	}
-
-	claudeCompletionCacheMu.RLock()
-	if cached, ok := claudeCompletionCache[cacheKey]; ok {
-		claudeCompletionCacheMu.RUnlock()
-		return cached
-	}
-	claudeCompletionCacheMu.RUnlock()
-
-	hints := claudeCompletionHints{
-		EffortSuggestions: nil,
-	}
-	helpText := loadClaudeHelpText(cliCtx)
-	hints.EffortSuggestions = mergeEffortSuggestions(
-		parseClaudeEffortSuggestions(helpText),
-		agentlauncher.ClaudeEffortLevels,
-	)
-
-	claudeCompletionCacheMu.Lock()
-	// Prefer first-write in case concurrent callers race a cache miss.
-	if cached, ok := claudeCompletionCache[cacheKey]; ok {
-		claudeCompletionCacheMu.Unlock()
-		return cached
-	}
-	claudeCompletionCache[cacheKey] = hints
-	claudeCompletionCacheMu.Unlock()
-	return hints
-}
-
-func loadClaudeHelpText(cliCtx Context) string {
-	baseCtx := cliCtx.ctx
-	if baseCtx == nil {
-		baseCtx = context.Background()
-	}
-
-	ctx, cancel := context.WithTimeout(baseCtx, claudeHelpTimeout)
-	defer cancel()
-
-	cmdEnv := environFromEnvProvider(cliCtx.env())
-	baseCmd := util.CmdWithEnv(cmdEnv, "claude", "--help")
-	if baseCmd.Err != nil {
-		return ""
-	}
-
-	//nolint:gosec // G204: this intentionally executes the resolved claude binary for local completion hints.
-	cmd := exec.CommandContext(ctx, baseCmd.Path, baseCmd.Args[1:]...)
-	cmd.Args[0] = "claude"
-	cmd.Env = cmdEnv
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return ""
-	}
-	return string(out)
-}
-
-func parseClaudeEffortSuggestions(helpText string) []string {
-	line := findLineContaining(helpText, "--effort <level>")
-	if line == "" {
-		return nil
-	}
-
-	open := strings.Index(line, "(")
-	close := strings.LastIndex(line, ")")
-	if open == -1 || close <= open {
-		return nil
-	}
-
-	inside := line[open+1 : close]
-	parts := strings.Split(inside, ",")
-	if len(parts) == 0 {
-		return nil
-	}
-
-	valid := map[string]struct{}{}
-	for _, level := range agentlauncher.ClaudeEffortLevels {
-		valid[level] = struct{}{}
-	}
-
-	levels := make([]string, 0, len(parts))
-	for _, part := range parts {
-		candidate := strings.TrimSpace(strings.Trim(part, `"'`))
-		if _, ok := valid[candidate]; !ok {
-			continue
-		}
-		levels = append(levels, candidate)
-	}
-	return uniqueNonEmpty(levels)
-}
-
-func mergeEffortSuggestions(preferred []string, fallback []string) []string {
-	merged := make([]string, 0, len(preferred)+len(fallback))
-	seen := map[string]struct{}{}
-
-	for _, level := range preferred {
-		level = strings.TrimSpace(level)
-		if level == "" {
-			continue
-		}
-		if _, ok := seen[level]; ok {
-			continue
-		}
-		merged = append(merged, level)
-		seen[level] = struct{}{}
-	}
-
-	for _, level := range fallback {
-		level = strings.TrimSpace(level)
-		if level == "" {
-			continue
-		}
-		if _, ok := seen[level]; ok {
-			continue
-		}
-		merged = append(merged, level)
-		seen[level] = struct{}{}
-	}
-
-	return merged
-}
-
-func findLineContaining(text string, needle string) string {
-	for _, line := range strings.Split(text, "\n") {
-		if strings.Contains(line, needle) {
-			return line
-		}
-	}
-	return ""
-}
-
-func uniqueNonEmpty(values []string) []string {
-	unique := make([]string, 0, len(values))
-	seen := map[string]struct{}{}
-
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		unique = append(unique, value)
-		seen[value] = struct{}{}
-	}
-
-	if len(unique) == 0 {
-		return nil
-	}
-	return unique
 }
