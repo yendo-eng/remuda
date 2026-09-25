@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"bytes"
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -620,6 +618,9 @@ func runFZF(logger zerolog.Logger, env EnvProvider, lines []string, multi bool, 
 	}
 
 	cmd.Stdin = strings.NewReader(strings.Join(lines, "\n") + "\n")
+	// When stdout is piped (e.g., `cd $(remuda session path --pick)`), fzf
+	// cannot display its UI. Connect it to /dev/tty so the user can interact
+	// with fzf even when the command's stdout is captured for substitution.
 	tty, err := openTTY()
 	if err == nil {
 		defer func() {
@@ -683,9 +684,7 @@ func pickOneWorkspaceWithFZF(logger zerolog.Logger, env EnvProvider, candidates 
 }
 
 func pickWorkspacesWithFZFMode(logger zerolog.Logger, env EnvProvider, candidates []string, base string, multi bool) ([]string, error) {
-	cmdEnv := environFromEnvProvider(env)
-
-	var buf bytes.Buffer
+	var lines []string
 	idx := map[string]string{} // display -> full path
 	for _, ws := range candidates {
 		org, repo, folder := util.SplitWorkspacePath(base, ws)
@@ -694,32 +693,19 @@ func pickWorkspacesWithFZFMode(logger zerolog.Logger, env EnvProvider, candidate
 		}
 		name := strings.Join([]string{org, repo, folder}, "/")
 		idx[name] = ws
-		fmt.Fprintln(&buf, name)
+		lines = append(lines, name)
 	}
-	if buf.Len() == 0 {
+	if len(lines) == 0 {
 		return nil, pkgerrors.New("no workspaces available to pick")
 	}
 
-	args := []string{}
-	if multi {
-		args = append(args, "--multi")
-	}
-	cmd := util.CmdWithEnvAndLogger(logger, cmdEnv, "fzf", args...)
-	if cmd.Err != nil {
-		return nil, pkgerrors.Errorf("fzf not found in PATH; please install fzf or omit --pick")
-	}
-	cmd.Stdin = &buf
-	out, err := cmd.Output()
+	selectedLines, err := runFZF(logger, env, lines, multi, "")
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "fzf selection error")
+		return nil, err
 	}
 
 	var selected []string
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
+	for _, line := range selectedLines {
 		if ws, ok := idx[line]; ok {
 			selected = append(selected, ws)
 		}
