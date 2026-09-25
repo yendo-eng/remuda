@@ -21,7 +21,7 @@ const (
 )
 
 // FormatIssue renders Jira issue and comments into prompt-ready text.
-func FormatIssue(issue Issue, comments []Comment) (string, error) {
+func FormatIssue(issue Issue) (string, error) {
 	key := strings.TrimSpace(issue.Key)
 	if key == "" {
 		return "", pkgerrors.New("jira issue key cannot be empty")
@@ -33,7 +33,7 @@ func FormatIssue(issue Issue, comments []Comment) (string, error) {
 	}
 
 	description := RenderADFToTextWithHTMLFallback(issue.Description, issue.RenderedDescription)
-	orderedComments := sortCommentsByCreated(comments)
+	orderedComments := sortCommentsByCreated(issue.Comments)
 	commentBodies := make([]string, len(orderedComments))
 	for i, comment := range orderedComments {
 		body, err := RenderADFToText(comment.Body)

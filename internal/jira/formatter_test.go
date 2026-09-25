@@ -45,8 +45,9 @@ func TestFormatIssueTypicalTicket(t *testing.T) {
 			Body:    json.RawMessage(`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Working on a patch."}]}]}`),
 		},
 	}
+	issue.Comments = comments
 
-	got, err := jira.FormatIssue(issue, comments)
+	got, err := jira.FormatIssue(issue)
 	require.NoError(t, err)
 
 	expected := "PROJ-123: Fix payment retry backoff\n" +
@@ -79,14 +80,15 @@ func TestFormatIssueMissingOptionalFields(t *testing.T) {
 		Reporter:  nil,
 		Created:   time.Time{},
 		Updated:   time.Time{},
+		Comments: []jira.Comment{{
+			ID:      "1",
+			Author:  nil,
+			Created: time.Date(2025, time.March, 1, 1, 2, 0, 0, time.FixedZone("PST", -8*60*60)),
+			Body:    json.RawMessage(`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":""}]}]}`),
+		}},
 	}
 
-	got, err := jira.FormatIssue(issue, []jira.Comment{{
-		ID:      "1",
-		Author:  nil,
-		Created: time.Date(2025, time.March, 1, 1, 2, 0, 0, time.FixedZone("PST", -8*60*60)),
-		Body:    json.RawMessage(`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":""}]}]}`),
-	}})
+	got, err := jira.FormatIssue(issue)
 	require.NoError(t, err)
 
 	assert.Contains(t, got, "Status: To Do | Type: Task | Priority: None")
@@ -112,7 +114,7 @@ func TestFormatIssueNoComments(t *testing.T) {
 		Updated:   time.Date(2025, time.May, 10, 9, 0, 0, 0, time.UTC),
 	}
 
-	got, err := jira.FormatIssue(issue, nil)
+	got, err := jira.FormatIssue(issue)
 	require.NoError(t, err)
 
 	assert.Contains(t, got, "Comments:\n(none)\n")

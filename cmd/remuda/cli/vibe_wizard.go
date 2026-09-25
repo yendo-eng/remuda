@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/huh"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/cmd/remuda/cli/forms"
+	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/prompts"
 )
 
@@ -103,7 +104,12 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 
 	// If the user has not explicitly set a name, suggest one from the first Jira key they provided.
 	if !explicitNameProvided {
-		if suggestedName, err := suggestVibeWizardNameFromJira(ctx, sel, explicitNameProvided); err != nil {
+		issues, err := sel.fetchJiraIssues(ctx, sel.Jira)
+		if err != nil {
+			return VibeCmd{}, pkgerrors.Wrap(err, "derive jira-based name suggestion")
+		}
+		sel.fetchedJiraIssues = issues
+		if suggestedName, err := suggestVibeWizardNameFromJira(ctx, sel, explicitNameProvided, issues); err != nil {
 			return VibeCmd{}, pkgerrors.Wrap(err, "derive jira-based name suggestion")
 		} else if strings.TrimSpace(suggestedName) != "" {
 			sel.Name = suggestedName
@@ -180,11 +186,11 @@ func applyVibeWizardContextSelections(sel *VibeCmd, jiraJoined, slackJoined, iss
 	}
 }
 
-func suggestVibeWizardNameFromJira(ctx Context, cmd VibeCmd, explicitNameProvided bool) (string, error) {
+func suggestVibeWizardNameFromJira(ctx Context, cmd VibeCmd, explicitNameProvided bool, issues []jira.Issue) (string, error) {
 	if explicitNameProvided {
 		return strings.TrimSpace(cmd.Name), nil
 	}
-	suggestion, ok, err := deriveWorkspaceNameFromJira(ctx, cmd.ContextEngineeringOptions, cmd.SlugifyReasoningLevel)
+	suggestion, ok, err := deriveWorkspaceNameFromJira(ctx, cmd.SlugifyReasoningLevel, issues)
 	if err != nil {
 		return "", err
 	}

@@ -125,9 +125,10 @@ Notes:
 
 ### 6.1 Package layout
 
-- `internal/jira/config.go`
-  - Loads config from Remuda config discovery + env overrides.
-  - Resolves endpoint, user/login, token.
+- `cmd/remuda/cli/shared.go`
+  - Resolves Jira auth through the shared flag, env, and config paths.
+- `internal/jira/http_jira.go`
+  - Builds an HTTP client from each `GetTicket` call's resolved auth and returns the issue with comments.
 - `internal/jira/client.go`
   - Defines structured types: `Issue`, `Comment`, `User`, `Status`, etc.
   - Interface: `Client` with `GetIssue(ctx, key)` and `GetComments(ctx, key)`.
@@ -135,9 +136,9 @@ Notes:
   - HTTP implementation for Jira Cloud REST API v3.
   - Handles auth, pagination, timeouts.
 - `internal/jira/formatter.go`
-  - Converts `Issue` + comments into plain text for `GetTicket`.
+  - Converts an `Issue`, including its comments, into prompt-ready text.
 - `internal/jira/jira.go`
-  - Keep `Jira` interface for compatibility; `GetTicket` delegates to client + formatter.
+  - Defines the `Jira` interface and fetches issues for prompt context.
 
 ### 6.2 Auth details
 

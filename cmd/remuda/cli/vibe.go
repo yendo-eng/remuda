@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
 	expregistry "github.com/yendo-eng/remuda/internal/experiments"
+	"github.com/yendo-eng/remuda/internal/jira"
 )
 
 type VibeCmd struct {
@@ -20,12 +21,13 @@ type VibeCmd struct {
 	SlugifyOptions
 	VibeContainerOptions
 
-	Prompt  string
-	In      string
-	Branch  string
-	Profile string
-	Yolo    bool
-	Remote  bool
+	Prompt            string
+	In                string
+	Branch            string
+	Profile           string
+	Yolo              bool
+	Remote            bool
+	fetchedJiraIssues []jira.Issue
 }
 
 // VibeNameWizardOption groups CLI switches for setting a workspace name or
@@ -207,9 +209,16 @@ func (c *VibeCmd) Run(ctx Context) error {
 	cmd.UsePromptIDs = usePromptIDs
 
 	if strings.TrimSpace(c.Prompt) != "" {
+		if len(c.Jira) > 0 && len(c.fetchedJiraIssues) == 0 {
+			c.fetchedJiraIssues, err = c.fetchJiraIssues(ctx, c.Jira)
+			if err != nil {
+				return pkgerrors.Wrap(err, "jira context")
+			}
+		}
 		parts, err := c.AddedPromptContext(ctx, PromptContextInput{
-			GitHubRepoSlug: repoSlug,
-			WrapUsePrompts: wrapUsePrompts,
+			GitHubRepoSlug:    repoSlug,
+			WrapUsePrompts:    wrapUsePrompts,
+			FetchedJiraIssues: c.fetchedJiraIssues,
 		})
 		if err != nil {
 			return pkgerrors.Wrap(err, "adding prompt context")
@@ -228,7 +237,7 @@ func (c *VibeCmd) Run(ctx Context) error {
 	cmd.Clone.Branch = c.Branch
 
 	// Auto-generate a workspace name when --name is omitted.
-	if generated, ok, err := deriveDefaultVibeWorkspaceName(ctx, *c); err != nil {
+	if generated, ok, err := deriveDefaultVibeWorkspaceName(ctx, *c, c.fetchedJiraIssues); err != nil {
 		return err
 	} else if ok {
 		c.Name = generated

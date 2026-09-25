@@ -129,8 +129,9 @@ func (c *ContextEngineeringOptions) register(cmd *cobra.Command, fl *flagSet) {
 }
 
 type PromptContextInput struct {
-	GitHubRepoSlug string
-	WrapUsePrompts bool
+	GitHubRepoSlug    string
+	WrapUsePrompts    bool
+	FetchedJiraIssues []jira.Issue
 }
 
 type PromptContextParts struct {
@@ -188,14 +189,14 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 	// JIRA context
 	var jiraContext string
 	if len(normalizedJira) > 0 {
-		if setter, ok := ctx.Remuda.Jira.(jira.AuthConfigSetter); ok {
-			setter.SetAuthConfigOverride(jira.AuthConfig{
-				Endpoint: c.JiraEndpoint,
-				User:     c.JiraUser,
-				Token:    c.JiraToken,
-			})
+		fetchedJiraIssues := input.FetchedJiraIssues
+		if len(fetchedJiraIssues) == 0 {
+			fetchedJiraIssues, err = c.fetchJiraIssues(ctx, normalizedJira)
+			if err != nil {
+				return PromptContextParts{}, pkgerrors.Wrap(err, "jira context")
+			}
 		}
-		jiraContext, err = jira.BuildContext(ctx.Remuda.Jira, normalizedJira)
+		jiraContext, err = jira.BuildContext(fetchedJiraIssues)
 		if err != nil {
 			return PromptContextParts{}, pkgerrors.Wrap(err, "jira context")
 		}
@@ -223,6 +224,21 @@ func (c ContextEngineeringOptions) AddedPromptContext(ctx Context, input PromptC
 	}
 
 	return parts, nil
+}
+
+func (c ContextEngineeringOptions) fetchJiraIssues(ctx Context, keys []string) ([]jira.Issue, error) {
+	keys, err := normalizeAndValidateJiraKeys(keys)
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	return jira.FetchIssues(ctx.Remuda.Jira, keys, jira.AuthConfig{
+		Endpoint: c.JiraEndpoint,
+		User:     c.JiraUser,
+		Token:    c.JiraToken,
+	})
 }
 
 func (c ContextEngineeringOptions) effectiveUsePromptsPosition() string {
