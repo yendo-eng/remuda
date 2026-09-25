@@ -5,11 +5,11 @@ import (
 )
 
 func (k Remuda) ListPrompts() ([]prompts.Prompt, error) {
-	return prompts.ListWithEnv(k.envProvider())
+	return prompts.List(k.envProvider())
 }
 
 func (k Remuda) ShowPrompt(name string) (string, error) {
-	p, err := prompts.ResolveWithEnv(name, k.envProvider())
+	p, err := prompts.Resolve(name, k.envProvider())
 	if err != nil {
 		return "", err
 	}

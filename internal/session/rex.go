@@ -111,12 +111,8 @@ type rexClient struct {
 	} `json:"info"`
 }
 
-func NewRexWithLogger(logger zerolog.Logger) Multiplexer {
+func NewRex(logger zerolog.Logger) Multiplexer {
 	return &rex{logger: logger, open: "open"}
-}
-
-func (r *rex) SetLogger(logger zerolog.Logger) {
-	r.logger = logger
 }
 
 func (r *rex) Name() string {

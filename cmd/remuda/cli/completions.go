@@ -254,7 +254,7 @@ func completionAgentName(c *cobra.Command, cliCtx Context) string {
 
 func allPromptNames(cliCtx Context) []string {
 	provider := cliCtx.Remuda.Env
-	promptList, err := prompts.ListWithEnv(provider)
+	promptList, err := prompts.List(provider)
 	if err != nil {
 		return nil
 	}

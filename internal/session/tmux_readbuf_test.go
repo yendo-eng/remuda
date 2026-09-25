@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -35,7 +36,7 @@ exit 1
 	oldPath := os.Getenv("PATH")
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+oldPath)
 
-	mgr := session.NewTmux()
+	mgr := session.NewTmux(logging.DefaultLogger())
 
 	got, err := mgr.ReadBuffer("org/repo/feat", 1)
 	require.NoError(t, err)

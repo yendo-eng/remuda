@@ -81,10 +81,10 @@ func deriveWorkspaceNameFromJira(ctx Context, slugifyReasoningLevel string, issu
 
 func slugifyNameSeed(ctx Context, seed string, slugifyReasoningLevel string) (string, error) {
 	logger := logging.FromContext(ctx.ctx)
-	service := llm.NewFromEnvProvider(
+	service := llm.NewFromEnv(
 		ctx.Remuda.Env,
+		logger,
 		llm.WithSlugifyReasoningLevel(slugifyReasoningLevel),
-		llm.WithLogger(logger),
 	)
 
 	slugCtx, cancel := context.WithTimeout(ctx.ctx, 6*time.Second)

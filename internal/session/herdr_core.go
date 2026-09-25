@@ -130,12 +130,8 @@ type herdrCoreClient struct {
 	lastID  int
 }
 
-func NewHerdrCoreWithLogger(logger zerolog.Logger) Multiplexer {
+func NewHerdrCore(logger zerolog.Logger) Multiplexer {
 	return &herdrCore{logger: logger, env: env.Default()}
-}
-
-func (h *herdrCore) SetLogger(logger zerolog.Logger) {
-	h.logger = logger
 }
 
 func (h *herdrCore) Name() string {
