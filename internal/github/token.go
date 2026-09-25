@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/yendo-eng/remuda/internal/env"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -19,7 +20,7 @@ func EnsureTokenInEnvWithProvider(provider env.Provider) {
 		if !ok {
 			return
 		}
-		out, err := util.RunCmdOutput("gh", "auth", "token")
+		out, err := util.RunCmdOutput(logging.DefaultLogger(), "gh", "auth", "token")
 		if err != nil {
 			return
 		}

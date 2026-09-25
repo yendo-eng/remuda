@@ -93,7 +93,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	}
 
 	if !cmd.Detached {
-		execCmd := util.CmdWithEnvAndLogger(k.logger(), launchEnvValues(envProvider), "bash", "-lc", launchCmd)
+		execCmd := util.CmdWithEnv(k.logger(), launchEnvValues(envProvider), "bash", "-lc", launchCmd)
 		execCmd.Dir = workspaceAbs
 		execCmd.Stdin = k.IO.In
 		execCmd.Stdout = k.IO.Out

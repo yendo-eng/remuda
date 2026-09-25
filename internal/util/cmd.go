@@ -9,20 +9,15 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 )
 
-func CmdWithLogger(logger zerolog.Logger, name string, args ...string) *exec.Cmd {
+func Cmd(logger zerolog.Logger, name string, args ...string) *exec.Cmd {
 	logger.Debug().Str("cmd", name+" "+strings.Join(args, " ")).Msg("command")
 	//nolint:gosec,noctx // G204: intentionally executes caller-provided commands; legacy helper has no context parameter.
 	return exec.Command(name, args...)
 }
 
-func Cmd(name string, args ...string) *exec.Cmd {
-	return CmdWithLogger(logging.DefaultLogger(), name, args...)
-}
-
-func CmdWithEnvAndLogger(logger zerolog.Logger, env []string, name string, args ...string) *exec.Cmd {
+func CmdWithEnv(logger zerolog.Logger, env []string, name string, args ...string) *exec.Cmd {
 	logger.Debug().Str("cmd", name+" "+strings.Join(args, " ")).Msg("command")
 	//nolint:gosec,noctx // G204: intentionally executes caller-provided commands; legacy helper has no context parameter.
 	cmd := exec.Command(name, args...)
@@ -41,20 +36,12 @@ func CmdWithEnvAndLogger(logger zerolog.Logger, env []string, name string, args 
 	return cmd
 }
 
-func CmdWithEnv(env []string, name string, args ...string) *exec.Cmd {
-	return CmdWithEnvAndLogger(logging.DefaultLogger(), env, name, args...)
+func RunCmd(logger zerolog.Logger, name string, args ...string) error {
+	return runCmd(logger, Cmd(logger, name, args...), name)
 }
 
-func RunCmdWithLogger(logger zerolog.Logger, name string, args ...string) error {
-	return runCmd(logger, CmdWithLogger(logger, name, args...), name)
-}
-
-func RunCmd(name string, args ...string) error {
-	return RunCmdWithLogger(logging.DefaultLogger(), name, args...)
-}
-
-func RunCmdWithEnvAndLogger(logger zerolog.Logger, env []string, name string, args ...string) error {
-	return runCmd(logger, CmdWithEnvAndLogger(logger, env, name, args...), name)
+func RunCmdWithEnv(logger zerolog.Logger, env []string, name string, args ...string) error {
+	return runCmd(logger, CmdWithEnv(logger, env, name, args...), name)
 }
 
 // runCmd executes cmd, always capturing its stdout/stderr so a failure's
@@ -87,12 +74,8 @@ func runCmd(logger zerolog.Logger, cmd *exec.Cmd, name string) error {
 	return nil
 }
 
-func RunCmdWithEnv(env []string, name string, args ...string) error {
-	return RunCmdWithEnvAndLogger(logging.DefaultLogger(), env, name, args...)
-}
-
-func RunCmdOutputWithLogger(logger zerolog.Logger, name string, args ...string) (string, error) {
-	cmd := CmdWithLogger(logger, name, args...)
+func RunCmdOutput(logger zerolog.Logger, name string, args ...string) (string, error) {
+	cmd := Cmd(logger, name, args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -100,19 +83,11 @@ func RunCmdOutputWithLogger(logger zerolog.Logger, name string, args ...string) 
 	return string(out), nil
 }
 
-func RunCmdOutput(name string, args ...string) (string, error) {
-	return RunCmdOutputWithLogger(logging.DefaultLogger(), name, args...)
-}
-
-func RunCmdCombinedOutputWithLogger(logger zerolog.Logger, name string, args ...string) (string, error) {
-	cmd := CmdWithLogger(logger, name, args...)
+func RunCmdCombinedOutput(logger zerolog.Logger, name string, args ...string) (string, error) {
+	cmd := Cmd(logger, name, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), err
 	}
 	return string(out), nil
-}
-
-func RunCmdCombinedOutput(name string, args ...string) (string, error) {
-	return RunCmdCombinedOutputWithLogger(logging.DefaultLogger(), name, args...)
 }
