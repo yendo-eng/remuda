@@ -69,6 +69,71 @@ func (f *fakeResumeMultiplexer) Kill(name string) error {
 	return nil
 }
 
+func TestSessionResume_BuildsCommandAndArgsFromLauncher(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		model   string
+		args    []string
+		command string
+	}{
+		{
+			name:  "codex",
+			model: "gpt-5.5",
+			args: []string{
+				"resume", "--last",
+				"--dangerously-bypass-approvals-and-sandbox",
+				"--dangerously-bypass-hook-trust",
+				"--config", "shell_environment_policy.ignore_default_excludes=true",
+				"--model", "gpt-5.5",
+				"--config", "model_reasoning_effort=high",
+			},
+			command: "codex resume --last --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --config shell_environment_policy.ignore_default_excludes=\"true\" --model 'gpt-5.5' --config model_reasoning_effort='high' -- 'continue from checkpoint'",
+		},
+		{
+			name:  "claude",
+			model: "claude-sonnet-4-6",
+			args: []string{
+				"--continue", "--model", "claude-sonnet-4-6",
+				"--dangerously-skip-permissions", "--effort", "high",
+			},
+			command: "claude --continue --model 'claude-sonnet-4-6' --dangerously-skip-permissions --effort 'high' 'continue from checkpoint'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			base := t.TempDir()
+			workspace := filepath.Join(base, "org", "repo", "folder")
+			require.NoError(t, os.MkdirAll(workspace, 0o755))
+
+			capture := &captureEnvSession{}
+			k := Remuda{
+				Config:      Config{ReposBaseDir: base},
+				Multiplexer: capture,
+				IO:          DefaultIO(),
+			}
+
+			err := k.SessionResume(context.Background(), SessionResumeCommand{
+				Workspace:      workspace,
+				Agent:          tt.name,
+				Model:          tt.model,
+				Detached:       true,
+				Yolo:           true,
+				ReasoningLevel: "high",
+				Prompt:         "continue from checkpoint",
+			})
+			require.NoError(t, err)
+			require.Equal(t, tt.args, capture.agentStart.Args)
+			require.Contains(t, capture.agentStart.Command, tt.command)
+			require.Equal(t, "continue from checkpoint", capture.agentStart.Prompt)
+		})
+	}
+}
+
 func TestSessionResume_StartsCodexDetachedSession(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -135,37 +200,6 @@ func TestSessionResume_ClaudeStartsDetachedSession(t *testing.T) {
 	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_AGENT")
 	require.True(t, ok)
 	require.Equal(t, "claude", value)
-}
-
-func TestSessionResume_ClaudeYoloAndReasoningFlags(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-
-	base := t.TempDir()
-	workspace := filepath.Join(base, "org", "repo", "folder")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
-	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
-
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
-	k := Remuda{
-		Config:      Config{ReposBaseDir: base},
-		Multiplexer: mgr,
-		IO:          DefaultIO(),
-	}
-
-	err := k.SessionResume(context.Background(), SessionResumeCommand{
-		Workspace:      workspace,
-		Agent:          "claude",
-		Detached:       true,
-		Yolo:           true,
-		ReasoningLevel: "high",
-	})
-	require.NoError(t, err)
-
-	cmd, ok := mgr.started["org/repo/folder"]
-	require.True(t, ok)
-	require.Contains(t, cmd, "claude --continue")
-	require.Contains(t, cmd, "--dangerously-skip-permissions")
-	require.Contains(t, cmd, "--effort 'high'")
 }
 
 func TestSessionResume_ClaudeModelAndPromptFlags(t *testing.T) {
@@ -335,63 +369,6 @@ func TestSessionResume_ValidatesWorkspaceEligibility(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "depth 3")
 	require.Empty(t, mgr.started)
-}
-
-func TestSessionResume_YoloAddsBypassFlags(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-
-	base := t.TempDir()
-	workspace := filepath.Join(base, "org", "repo", "folder")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
-	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
-
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
-	k := Remuda{
-		Config:      Config{ReposBaseDir: base},
-		Multiplexer: mgr,
-		IO:          DefaultIO(),
-	}
-
-	err := k.SessionResume(context.Background(), SessionResumeCommand{
-		Workspace: workspace,
-		Detached:  true,
-		Yolo:      true,
-	})
-	require.NoError(t, err)
-
-	cmd, ok := mgr.started["org/repo/folder"]
-	require.True(t, ok)
-	require.Contains(t, cmd, "codex resume --last")
-	require.Contains(t, cmd, "--dangerously-bypass-approvals-and-sandbox")
-	require.Contains(t, cmd, "--dangerously-bypass-hook-trust")
-	require.Contains(t, cmd, "shell_environment_policy.ignore_default_excludes")
-}
-
-func TestSessionResume_ReasoningLevelAddsConfigFlag(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-
-	base := t.TempDir()
-	workspace := filepath.Join(base, "org", "repo", "folder")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
-	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
-
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
-	k := Remuda{
-		Config:      Config{ReposBaseDir: base},
-		Multiplexer: mgr,
-		IO:          DefaultIO(),
-	}
-
-	err := k.SessionResume(context.Background(), SessionResumeCommand{
-		Workspace:      workspace,
-		Detached:       true,
-		ReasoningLevel: "high",
-	})
-	require.NoError(t, err)
-
-	cmd, ok := mgr.started["org/repo/folder"]
-	require.True(t, ok)
-	require.Contains(t, cmd, "model_reasoning_effort='high'")
 }
 
 func TestSessionResume_CustomAgentCommandAppendsPrompt(t *testing.T) {

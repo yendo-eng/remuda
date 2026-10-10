@@ -13,6 +13,7 @@ type codexLauncher struct {
 	Yolo  bool
 	// ReasoningLevel is the Codex reasoning effort level (if set).
 	ReasoningLevel string
+	prefix         []string
 }
 
 func Codex(model string, yolo bool, reasoningLevel string) AgentLauncher {
@@ -35,6 +36,7 @@ func (c codexLauncher) Command(prompt string, extraArgs ...string) string {
 
 func (c codexLauncher) launch(prompt string, extraArgs ...string) launch {
 	command := launch{executable: "codex"}
+	command.raw(c.prefix...)
 	if c.Yolo {
 		command.raw(
 			"--dangerously-bypass-approvals-and-sandbox",
