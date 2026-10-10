@@ -1,6 +1,6 @@
 # Docs
 
-Documentation for Remuda.
+Documentation for the Remuda command-line application.
 
 ## User Guides
 
