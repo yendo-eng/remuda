@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -43,7 +44,7 @@ esac
 			t.Setenv("REMUDA_HERDR_CALLS", logPath)
 
 			var logs bytes.Buffer
-			starter, ok := session.NewHerdrWithLogger(zerolog.New(&logs).Level(zerolog.DebugLevel)).(session.AgentStarter)
+			starter, ok := session.NewHerdr(zerolog.New(&logs).Level(zerolog.DebugLevel)).(session.AgentStarter)
 			require.True(t, ok)
 			err := starter.StartAgent(session.AgentStart{
 				SessionName: "yendo/remuda/rm-ypr2",
@@ -119,7 +120,7 @@ esac
 	command = append(command, "remuda-agent:latest", "bash", "-lc", "exec codex")
 	require.Greater(t, len(strings.Join(command, " ")), 1500)
 
-	starter, ok := session.NewHerdr().(session.AgentStarter)
+	starter, ok := session.NewHerdr(logging.DefaultLogger()).(session.AgentStarter)
 	require.True(t, ok)
 	require.NoError(t, starter.StartAgent(session.AgentStart{
 		SessionName: "yendo/remuda/rm-f20z",
@@ -172,7 +173,7 @@ esac
 	t.Setenv("REMUDA_HERDR_CALLS", logPath)
 	t.Setenv("REMUDA_HERDR_BUSY_MARKER", busyMarker)
 
-	starter, ok := session.NewHerdr().(session.AgentStarter)
+	starter, ok := session.NewHerdr(logging.DefaultLogger()).(session.AgentStarter)
 	require.True(t, ok)
 	require.NoError(t, starter.StartAgent(session.AgentStart{
 		SessionName: "yendo/remuda/rm-ypr2",
@@ -216,7 +217,7 @@ esac
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("REMUDA_HERDR_PROMPT", promptPath)
 
-	starter, ok := session.NewHerdr().(session.AgentStarter)
+	starter, ok := session.NewHerdr(logging.DefaultLogger()).(session.AgentStarter)
 	require.True(t, ok)
 	require.NoError(t, starter.StartAgent(session.AgentStart{
 		SessionName: "yendo/remuda/rm-ypr2",
@@ -241,7 +242,7 @@ esac
 `)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	sessions, err := session.NewHerdr().List()
+	sessions, err := session.NewHerdr(logging.DefaultLogger()).List()
 	require.NoError(t, err)
 	require.Len(t, sessions, 2)
 	require.Equal(t, "yendo/remuda/rm-ypr2", sessions[0].Name)
@@ -265,7 +266,7 @@ esac
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("REMUDA_HERDR_CALLS", logPath)
 
-	starter, ok := session.NewHerdr().(session.AgentStarter)
+	starter, ok := session.NewHerdr(logging.DefaultLogger()).(session.AgentStarter)
 	require.True(t, ok)
 	err := starter.StartAgent(session.AgentStart{SessionName: "yendo/remuda/rm-ypr2", Agent: "codex"})
 	require.Error(t, err)
@@ -308,7 +309,7 @@ esac
 			t.Setenv("REMUDA_HERDR_CALLS", logPath)
 			t.Setenv("REMUDA_HERDR_FAIL_STAGE", tt.failStage)
 
-			starter, ok := session.NewHerdr().(session.AgentStarter)
+			starter, ok := session.NewHerdr(logging.DefaultLogger()).(session.AgentStarter)
 			require.True(t, ok)
 			err := starter.StartAgent(session.AgentStart{
 				SessionName: "yendo/remuda/rm-ypr2",
@@ -341,7 +342,7 @@ esac
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("REMUDA_HERDR_CALLS", logPath)
 
-	mgr := session.NewHerdr()
+	mgr := session.NewHerdr(logging.DefaultLogger())
 	info, err := mgr.Find("yendo/remuda/rm-ypr2")
 	require.NoError(t, err)
 	require.Equal(t, "yendo/remuda/rm-ypr2", info.Name)
@@ -361,7 +362,7 @@ esac
 }
 
 func TestHerdrRejectsAgentCommand(t *testing.T) {
-	starter, ok := session.NewHerdr().(session.AgentStarter)
+	starter, ok := session.NewHerdr(logging.DefaultLogger()).(session.AgentStarter)
 	require.True(t, ok)
 	err := starter.StartAgent(session.AgentStart{Agent: "custom"})
 	require.Error(t, err)
@@ -371,7 +372,7 @@ func TestHerdrRejectsAgentCommand(t *testing.T) {
 
 func TestNewMultiplexerCreatesHerdr(t *testing.T) {
 	t.Parallel()
-	require.Equal(t, "herdr", session.NewMultiplexer(session.MultiplexerHerdr).Name())
+	require.Equal(t, "herdr", session.NewMultiplexer(session.MultiplexerHerdr, logging.DefaultLogger()).Name())
 }
 
 func writeHerdrStub(t *testing.T, dir, body string) {

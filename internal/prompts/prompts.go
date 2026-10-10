@@ -117,12 +117,7 @@ var builtins = []Prompt{
 }
 
 // List returns all prompts, including any custom prompts discovered on disk.
-func List() ([]Prompt, error) {
-	return ListWithEnv(env.Default())
-}
-
-// ListWithEnv returns all prompts, including any custom prompts discovered on disk.
-func ListWithEnv(provider env.Provider) ([]Prompt, error) {
+func List(provider env.Provider) ([]Prompt, error) {
 	provider = env.OrDefault(provider)
 	out := make([]Prompt, 0, len(builtins))
 	out = append(out, builtins...)
@@ -146,13 +141,7 @@ func Get(name string) (Prompt, bool) {
 
 // Resolve returns a prompt by name, searching user-defined prompt files under
 // ~/.remuda/prompts (or REMUDA_PROMPTS_DIR) first, then falling back to built-ins.
-func Resolve(name string) (Prompt, error) {
-	return ResolveWithEnv(name, env.Default())
-}
-
-// ResolveWithEnv returns a prompt by name, searching user-defined prompt files under
-// ~/.remuda/prompts (or REMUDA_PROMPTS_DIR) first, then falling back to built-ins.
-func ResolveWithEnv(name string, provider env.Provider) (Prompt, error) {
+func Resolve(name string, provider env.Provider) (Prompt, error) {
 	if err := validatePromptName(name); err != nil {
 		return Prompt{}, err
 	}
@@ -170,7 +159,7 @@ func ResolveWithEnv(name string, provider env.Provider) (Prompt, error) {
 
 // Compose concatenates the selected built-in prompts in order, then two
 // newlines, then the user prompt.
-func Compose(names []string, userPrompt string) (string, error) {
+func Compose(names []string, userPrompt string, provider env.Provider) (string, error) {
 	if len(names) == 0 {
 		return userPrompt, nil
 	}
@@ -178,7 +167,7 @@ func Compose(names []string, userPrompt string) (string, error) {
 	var parts []string
 	parts = make([]string, 0, len(names)+1)
 	for _, n := range names {
-		p, err := Resolve(n)
+		p, err := Resolve(n, provider)
 		if err != nil {
 			return "", err
 		}

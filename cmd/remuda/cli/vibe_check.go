@@ -96,7 +96,7 @@ func (c VibeCheckCmd) Run(ctx Context) error {
 			return pkgerrors.Errorf("--wizard requires an interactive TTY")
 		}
 
-		wizardCmds, err := launchVibeCheckWizard(logging.FromContext(ctx.ctx), c)
+		wizardCmds, err := launchVibeCheckWizard(logging.FromContext(ctx.ctx), ctx.Remuda.Env, c)
 		if err != nil {
 			return err
 		}

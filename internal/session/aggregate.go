@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 type aggregateMultiplexer struct {
@@ -13,11 +12,7 @@ type aggregateMultiplexer struct {
 	logger       zerolog.Logger
 }
 
-func NewAggregateMultiplexer(createTarget Multiplexer, backends ...Multiplexer) Multiplexer {
-	return NewAggregateMultiplexerWithLogger(createTarget, logging.DefaultLogger(), backends...)
-}
-
-func NewAggregateMultiplexerWithLogger(createTarget Multiplexer, logger zerolog.Logger, backends ...Multiplexer) Multiplexer {
+func NewAggregateMultiplexer(createTarget Multiplexer, logger zerolog.Logger, backends ...Multiplexer) Multiplexer {
 	return &aggregateMultiplexer{
 		createTarget: createTarget,
 		backends:     backends,
@@ -107,15 +102,6 @@ func (m *aggregateMultiplexer) Kill(name string) error {
 		return err
 	}
 	return backend.Kill(name)
-}
-
-func (m *aggregateMultiplexer) SetLogger(logger zerolog.Logger) {
-	m.logger = logger
-	for _, backend := range m.backends {
-		if setter, ok := backend.(LoggerSetter); ok {
-			setter.SetLogger(logger)
-		}
-	}
 }
 
 func (m *aggregateMultiplexer) ensureSessionDoesNotExist(name string) error {

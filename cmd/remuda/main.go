@@ -7,10 +7,6 @@ import (
 
 	clipkg "github.com/yendo-eng/remuda/cmd/remuda/cli"
 	"github.com/yendo-eng/remuda/internal"
-	"github.com/yendo-eng/remuda/internal/docker"
-	"github.com/yendo-eng/remuda/internal/git"
-	"github.com/yendo-eng/remuda/internal/github"
-	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/logging"
 )
 
@@ -22,12 +18,11 @@ func main() {
 
 	remuda := internal.NewRemuda(
 		cfg,
-		git.NewShellGit(),
-		// TODO: there may be a nicer way of doing this while still keeping it testable
-		nil, // leave the multiplexer null for cli to set up
-		jira.NewHTTPJira(),
-		docker.NewShellDocker(),
-		github.NewGhCLI(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
 	)
 
 	err := clipkg.RunWithName(

@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/env"
+	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 // Opt-in integration test. Skipped unless REMUDA_LLM_OPENAI_IT=1 and OPENAI_API_KEY is set.
@@ -18,7 +20,7 @@ func TestOpenAIIntegration_Slugify(t *testing.T) {
 		t.Skip("missing OPENAI_API_KEY/REMUDA_OPENAI_API_KEY; skipping integration test")
 	}
 
-	svc := NewFromEnv()
+	svc := NewFromEnv(env.Default(), logging.DefaultLogger())
 
 	// Expect OpenAI call to succeed; errors should not be silently swallowed.
 	slug, err := svc.Slugify(context.Background(), "Fix: Allow --repo utils in vibe start")

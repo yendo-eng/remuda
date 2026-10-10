@@ -14,7 +14,6 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/logging"
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
@@ -73,16 +72,8 @@ type herdrTab struct {
 	TabID string `json:"tab_id"`
 }
 
-func NewHerdr() Multiplexer {
-	return NewHerdrWithLogger(logging.DefaultLogger())
-}
-
-func NewHerdrWithLogger(logger zerolog.Logger) Multiplexer {
+func NewHerdr(logger zerolog.Logger) Multiplexer {
 	return &herdr{logger: logger}
-}
-
-func (h *herdr) SetLogger(logger zerolog.Logger) {
-	h.logger = logger
 }
 
 func (h *herdr) Name() string {

@@ -10,7 +10,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/enums"
-	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 type SupportedMultiplexer string
@@ -33,18 +32,14 @@ func (s *SupportedMultiplexer) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func NewMultiplexer(name SupportedMultiplexer) Multiplexer {
-	return NewMultiplexerWithLogger(name, logging.DefaultLogger())
-}
-
-func NewMultiplexerWithLogger(name SupportedMultiplexer, logger zerolog.Logger) Multiplexer {
+func NewMultiplexer(name SupportedMultiplexer, logger zerolog.Logger) Multiplexer {
 	switch name {
 	case MultiplexerTmux:
-		return NewTmuxWithLogger(logger)
+		return NewTmux(logger)
 	case MultiplexerZellij:
-		return NewZellijWithLogger(logger)
+		return NewZellij(logger)
 	case MultiplexerHerdr:
-		return NewHerdrWithLogger(logger)
+		return NewHerdr(logger)
 	default:
 		panic("unsupported session manager: " + string(name))
 	}
@@ -93,11 +88,6 @@ type AgentStart struct {
 // AgentStarter starts a known agent without routing its argv through a shell.
 type AgentStarter interface {
 	StartAgent(start AgentStart) error
-}
-
-// LoggerSetter allows wiring a per-invocation logger into multiplexers.
-type LoggerSetter interface {
-	SetLogger(logger zerolog.Logger)
 }
 
 // SessionInfo is a minimal description of a multiplexer session.

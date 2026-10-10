@@ -3,6 +3,7 @@ package agentlauncher
 import (
 	"strings"
 
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -158,7 +159,7 @@ func (o opencodeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, 
 }
 
 func (o opencodeLauncher) Version() (string, error) {
-	out, err := util.RunCmdOutput("opencode", "--version")
+	out, err := util.RunCmdOutput(logging.DefaultLogger(), "opencode", "--version")
 	if err != nil {
 		return "", err
 	}

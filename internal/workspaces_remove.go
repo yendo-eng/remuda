@@ -18,7 +18,7 @@ func (k Remuda) WorkspacesRemove(workspaces []string, dryRun bool, force bool) (
 		return nil, err
 	}
 
-	logger := k.logger()
+	logger := k.Logger
 	seen := map[string]struct{}{}
 	removed := make([]RemovedWorkspace, 0, len(workspaces))
 	var failures []string
@@ -112,7 +112,7 @@ func (k Remuda) activeWorkspaceSessions() (map[string]string, error) {
 }
 
 func (k Remuda) RemoveWorkspace(workspace string, dryRun bool, force bool) error {
-	logger := k.logger()
+	logger := k.Logger
 	if err := ValidateWorkspacePath(k.Config.ReposBaseDir, workspace); err != nil {
 		return pkgerrors.Wrapf(err, "invalid workspace %q", workspace)
 	}

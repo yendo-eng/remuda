@@ -178,7 +178,7 @@ func pickSessionNamesWithFZF(
 		args = append(args, "--preview-window", "up:66%")
 	}
 
-	cmd := util.CmdWithLogger(logger, "fzf", args...)
+	cmd := util.Cmd(logger, "fzf", args...)
 	cmd.Stdin = &b
 
 	tty, ttyErr := openTTY()

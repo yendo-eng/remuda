@@ -653,7 +653,7 @@ func pickSessionsWithFZF(
 		args = append(args, "--preview-window", "up:66%")
 	}
 
-	cmd := util.CmdWithLogger(logger, fzfCmd, args...)
+	cmd := util.Cmd(logger, fzfCmd, args...)
 	cmd.Stdin = &b
 
 	// When stdout is piped (e.g., `cd $(remuda session path --pick)`), fzf
@@ -713,7 +713,7 @@ func pickWorkspacesWithFZFMode(logger zerolog.Logger, env EnvProvider, candidate
 	if multi {
 		args = append(args, "--multi")
 	}
-	cmd := util.CmdWithEnvAndLogger(logger, cmdEnv, "fzf", args...)
+	cmd := util.CmdWithEnv(logger, cmdEnv, "fzf", args...)
 	if cmd.Err != nil {
 		return nil, pkgerrors.Errorf("fzf not found in PATH; please install fzf or omit --pick")
 	}

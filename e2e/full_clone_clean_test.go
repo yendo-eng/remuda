@@ -9,8 +9,8 @@ import (
 	"github.com/yendo-eng/remuda/cmd/remuda/cli"
 	"github.com/yendo-eng/remuda/e2e/testutils"
 	"github.com/yendo-eng/remuda/internal"
-	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/github"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -23,7 +23,7 @@ func TestFullCloneProducesCleanWorkingTree(t *testing.T) {
 
 	k := internal.NewRemuda(
 		internal.Config{ReposBaseDir: baseRoot},
-		git.NewShellGit(),
+		nil,
 		&testutils.MockMultiplexer{},
 		nil,
 		nil,
@@ -39,7 +39,7 @@ func TestFullCloneProducesCleanWorkingTree(t *testing.T) {
 
 	// Make the cache dirty with both tracked and untracked changes.
 	// Modify README.md (tracked) and add an untracked file.
-	cmd := util.Cmd("bash", "-lc", "echo dirty >> README.md")
+	cmd := util.Cmd(logging.DefaultLogger(), "bash", "-lc", "echo dirty >> README.md")
 	cmd.Dir = cacheDir
 	require.NoError(t, testutils.ApplyE2EEnvIsolationToCmd(cmd, testutils.ProcessEnvMap(), nil))
 	require.NoError(t, cmd.Run())

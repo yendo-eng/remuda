@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/env"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -26,7 +27,7 @@ func TestValidateMultiplexerLaunchRejectsUnsupportedHerdrAgentCommand(t *testing
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateMultiplexerLaunch(session.NewHerdr(), tt.agentCmd)
+			err := validateMultiplexerLaunch(session.NewHerdr(logging.DefaultLogger()), tt.agentCmd)
 			if tt.wantError {
 				var unsupported session.UnsupportedAgentCommandError
 				require.ErrorAs(t, err, &unsupported)

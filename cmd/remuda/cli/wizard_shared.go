@@ -147,7 +147,7 @@ func wizardSelectPR(logger zerolog.Logger, ownerRepo string, initRef string) ([]
 		err := spinner.New().
 			Title("Fetching PRs...").
 			ActionWithErr(func(ctx context.Context) error {
-				out, err := util.RunCmdOutputWithLogger(logger, "gh", "pr", "list", "--repo", ownerRepo, "--limit", prLimit, "--json", "number,title,headRefName,url")
+				out, err := util.RunCmdOutput(logger, "gh", "pr", "list", "--repo", ownerRepo, "--limit", prLimit, "--json", "number,title,headRefName,url")
 				if err != nil {
 					return pkgerrors.Wrap(err, "fetch PRs")
 				}
@@ -198,7 +198,7 @@ func wizardSelectPRWithFZF(logger zerolog.Logger, prs []wizardPRItem, initRef st
 	if q := strings.TrimSpace(initRef); q != "" {
 		args = append(args, "--query", q)
 	}
-	cmd := util.CmdWithLogger(logger, "fzf", args...)
+	cmd := util.Cmd(logger, "fzf", args...)
 	cmd.Stdin = &input
 	out, cmdErr := cmd.Output()
 	if cmdErr != nil {
@@ -413,7 +413,7 @@ func resolveHeadBranch(logger zerolog.Logger, ownerRepo, ref string) string {
 	if strings.TrimSpace(ownerRepo) != "" {
 		args = []string{"gh", "pr", "view", "--repo", ownerRepo, ref, "--json", "headRefName"}
 	}
-	cmd := util.CmdWithLogger(logger, args[0], args[1:]...)
+	cmd := util.Cmd(logger, args[0], args[1:]...)
 	if out, err := cmd.Output(); err == nil {
 		var ho headOnly
 		if jsonErr := json.Unmarshal(out, &ho); jsonErr == nil {

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -13,7 +14,7 @@ func ValidateBranchName(branch string) error {
 		return pkgerrors.Errorf("branch name is required")
 	}
 
-	out, err := util.RunCmdCombinedOutput("git", "check-ref-format", "--branch", branch)
+	out, err := util.RunCmdCombinedOutput(logging.DefaultLogger(), "git", "check-ref-format", "--branch", branch)
 	if err != nil {
 		msg := strings.TrimSpace(out)
 		if msg != "" {

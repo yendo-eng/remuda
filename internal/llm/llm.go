@@ -11,7 +11,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 // Service defines a very small surface for simple LLM-backed utilities.
@@ -30,8 +29,6 @@ type Options struct {
 	HTTPClient *http.Client
 	// SlugifyReasoningLevel configures OpenAI reasoning effort for slugify.
 	SlugifyReasoningLevel string
-	// Logger for debug messages.
-	Logger *zerolog.Logger
 }
 
 // Option configures LLM service options.
@@ -44,24 +41,12 @@ func WithSlugifyReasoningLevel(level string) Option {
 	}
 }
 
-// WithLogger configures the logger used by the LLM service.
-func WithLogger(logger zerolog.Logger) Option {
-	return func(o *Options) {
-		o.Logger = &logger
-	}
-}
-
-// NewFromEnv constructs a Service based on environment variables.
+// NewFromEnv constructs a Service based on the provided environment.
 //
 // Env vars:
 //   - REMUDA_LLM_OPENAI_MODEL (default: "gpt-5-nano")
 //   - OPENAI_API_KEY or REMUDA_OPENAI_API_KEY
-func NewFromEnv() Service {
-	return NewFromEnvProvider(env.Default())
-}
-
-// NewFromEnvProvider constructs a Service based on environment variables supplied by provider.
-func NewFromEnvProvider(provider env.Provider, opts ...Option) Service {
+func NewFromEnv(provider env.Provider, logger zerolog.Logger, opts ...Option) Service {
 	provider = env.OrDefault(provider)
 	model := strings.TrimSpace(provider.Getenv("REMUDA_LLM_OPENAI_MODEL"))
 	if model == "" {
@@ -82,10 +67,6 @@ func NewFromEnvProvider(provider env.Provider, opts ...Option) Service {
 		opt(&options)
 	}
 
-	logger := logging.DefaultLogger()
-	if options.Logger != nil {
-		logger = *options.Logger
-	}
 	providerName := "local"
 	if options.APIKey != "" {
 		providerName = "openai"

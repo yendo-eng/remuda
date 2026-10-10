@@ -28,7 +28,7 @@ type Remuda struct {
 	CloneHooks  *CloneHookRegistry
 	IO          IO
 	Env         env.Provider
-	Logger      *zerolog.Logger
+	Logger      zerolog.Logger
 }
 
 func WithCloneHooks(r *CloneHookRegistry) func(*Remuda) {
@@ -57,7 +57,7 @@ func WithEnvProvider(provider env.Provider) func(*Remuda) {
 
 func WithLogger(logger zerolog.Logger) func(*Remuda) {
 	return func(k *Remuda) {
-		k.SetLogger(logger)
+		k.Logger = logger
 	}
 }
 
@@ -80,6 +80,7 @@ func NewRemuda(
 		CloneHooks:  NewCloneHookRegistry(),
 		IO:          DefaultIO(),
 		Env:         env.Default(),
+		Logger:      logging.DefaultLogger(),
 	}
 
 	for _, opt := range opts {
@@ -92,32 +93,6 @@ func NewRemuda(
 	}
 
 	return k
-}
-
-func (k Remuda) logger() zerolog.Logger {
-	if k.Logger != nil {
-		return *k.Logger
-	}
-	return logging.DefaultLogger()
-}
-
-func (k *Remuda) SetLogger(logger zerolog.Logger) {
-	k.Logger = &logger
-	if setter, ok := k.Git.(git.LoggerSetter); ok {
-		setter.SetLogger(logger)
-	}
-	if setter, ok := k.Multiplexer.(session.LoggerSetter); ok {
-		setter.SetLogger(logger)
-	}
-	if setter, ok := k.Docker.(docker.LoggerSetter); ok {
-		setter.SetLogger(logger)
-	}
-	if setter, ok := k.Jira.(jira.LoggerSetter); ok {
-		setter.SetLogger(logger)
-	}
-	if setter, ok := k.GitHub.(github.LoggerSetter); ok {
-		setter.SetLogger(logger)
-	}
 }
 
 type Config struct {

@@ -36,7 +36,7 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 	sel := pref
 	explicitNameProvided := strings.TrimSpace(pref.Name) != ""
 
-	promptList, err := prompts.List()
+	promptList, err := prompts.List(ctx.Remuda.Env)
 	if err != nil {
 		return VibeCmd{}, pkgerrors.Wrap(err, "failed to load prompts")
 	}

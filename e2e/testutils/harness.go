@@ -147,7 +147,7 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-
+	logger := logging.NewConsoleLogger(io.Discard, zerolog.InfoLevel)
 	defaultMultiplexer := &MockMultiplexer{}
 	defaultGitHub := &MockGitHub{}
 	defaultSlack := &MockSlack{}
@@ -163,7 +163,7 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 		Stdout:       stdout,
 		Stderr:       stderr,
 
-		Git:         git.NewShellGit(),
+		Git:         git.NewShellGit(logger),
 		Multiplexer: defaultMultiplexer,
 		Jira:        jira.Mock{},
 		Docker:      defaultDocker,
@@ -179,7 +179,6 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 
 	require.NoError(t, os.MkdirAll(h.RemudaConfig.ReposBaseDir, 0o755))
 
-	logger := logging.NewConsoleLogger(io.Discard, zerolog.InfoLevel)
 	remudaOpts := []func(*internal.Remuda){
 		internal.WithLogger(logger),
 		internal.WithSlack(h.Slack),
