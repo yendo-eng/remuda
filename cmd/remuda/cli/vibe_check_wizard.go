@@ -14,7 +14,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/prompts"
 )
 
-func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeCheckCmd, error) {
+func launchVibeCheckWizard(logger zerolog.Logger, env EnvProvider, pref VibeCheckCmd) ([]VibeCheckCmd, error) {
 	sel := pref
 
 	jiraJoined := strings.Join(pref.Jira, ",")
@@ -45,7 +45,7 @@ func launchVibeCheckWizard(logger zerolog.Logger, pref VibeCheckCmd) ([]VibeChec
 		return nil, perr
 	}
 	ownerRepo := fmt.Sprintf("%s/%s", org, repo)
-	prSelections, perr := wizardSelectPR(logger, ownerRepo, sel.PRRef)
+	prSelections, perr := wizardSelectPR(logger, env, ownerRepo, sel.PRRef)
 	if perr != nil {
 		return nil, perr
 	}

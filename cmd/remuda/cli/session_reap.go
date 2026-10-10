@@ -1,9 +1,6 @@
 package cli
 
 import (
-	"bytes"
-	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -14,7 +11,6 @@ import (
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
-	"github.com/yendo-eng/remuda/internal/util"
 )
 
 // SessionReapCmd kills active sessions older than a threshold (safe with --dry-run).
@@ -77,7 +73,7 @@ func (c *SessionReapCmd) Run(ctx Context) error {
 	}
 
 	if c.Pick {
-		selected, err := pickSessionNamesWithFZF(logging.FromContext(ctx.ctx), names, ctx.Remuda.Multiplexer, true)
+		selected, err := pickSessionNamesWithFZF(logging.FromContext(ctx.ctx), ctx.env(), names, ctx.Remuda.Multiplexer, true)
 		if err != nil {
 			return pkgerrors.Wrap(err, "pick sessions")
 		}
@@ -149,59 +145,22 @@ func writeReapSummary(ctx Context, results []internal.ReapedSession) {
 
 func pickSessionNamesWithFZF(
 	logger zerolog.Logger,
+	env EnvProvider,
 	candidates []string,
 	mgr session.Multiplexer,
 	multi bool,
 ) ([]string, error) {
-	if _, err := exec.LookPath("fzf"); err != nil {
-		return nil, pkgerrors.Errorf("fzf not found in PATH; please install fzf or omit --pick")
-	}
-
-	var b bytes.Buffer
+	var lines []string
 	for _, name := range candidates {
 		name = strings.TrimSpace(name)
 		if name == "" {
 			continue
 		}
-		fmt.Fprintln(&b, name)
+		lines = append(lines, name)
 	}
-	if b.Len() == 0 {
+	if len(lines) == 0 {
 		return nil, pkgerrors.Errorf("no sessions available to pick")
 	}
 
-	args := []string{}
-	if multi {
-		args = append(args, "--multi")
-	}
-	if preview := session.FZFPreviewCommand(mgr); preview != "" {
-		args = append(args, "--preview", preview)
-		args = append(args, "--preview-window", "up:66%")
-	}
-
-	cmd := util.CmdWithLogger(logger, "fzf", args...)
-	cmd.Stdin = &b
-
-	tty, ttyErr := openTTY()
-	if ttyErr == nil {
-		defer func() {
-			_ = tty.Close()
-		}()
-		cmd.Stderr = tty
-	}
-
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "fzf selection error")
-	}
-
-	var selected []string
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		selected = append(selected, line)
-	}
-
-	return selected, nil
+	return runFZF(logger, env, lines, multi, session.FZFPreviewCommand(mgr))
 }
