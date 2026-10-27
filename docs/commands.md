@@ -137,8 +137,8 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--experiments cow-clone` – copy the cache copy-on-write; see the [Clone](#clone) options.
 - `--no-clone-hooks` – skip running all post-clone hooks (built-in and config-defined).
 - `--[no-]detached` – run the agent in the current terminal instead of using the configured session manager.
-- `--session-manager tmux|zellij|herdr` – override the session manager for this invocation (tmux remains the default).
-- `REMUDA_SESSION_MANAGER=tmux|zellij|herdr` – environment override for the default session manager (falls back to `tmux`).
+- `--session-manager tmux|zellij|herdr|rex` – override the session manager for this invocation (tmux remains the default).
+- `REMUDA_SESSION_MANAGER=tmux|zellij|herdr|rex` – environment override for the default session manager (falls back to `tmux`).
 - Containerized Claude runs forward `ANTHROPIC_API_KEY` and mount `~/.claude`
   plus `~/.claude.json` when present so Claude auth/session state is reused.
 - Containerized Codex runs persist ChatGPT account logins (not API-key auth):

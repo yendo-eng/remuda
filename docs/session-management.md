@@ -13,6 +13,7 @@ Remuda supports these terminal multiplexers:
 - tmux (default)
 - zellij
 - herdr
+- rex (see [Rex](#rex))
 
 Some commands support a `--pick` flag which requires `fzf` to be installed.
 
@@ -137,6 +138,39 @@ session:
       - "acme-org/example-repo/keep-*"
       - "*/utils/archive-*"
 ```
+
+## Rex
+
+[Rex](https://www.superlogical.com/rex) is Superlogical's terminal emulator and multiplexer. 
+To use it as the session manager:
+
+```bash
+remuda --session-manager rex session list
+```
+
+```yaml
+session:
+  manager: rex
+```
+
+- The `rex` CLI is looked up in `$REX_BIN_DIR`, then on `PATH`, then at the
+  Rex app's install location,
+  `~/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex`.
+- Rex Server is never started by Remuda, so open the Rex app first. The API
+  revision shown by `rex version` must be 7 or later.
+- Sessions are labeled `org/repo/workspace`. Duplicate labels are allowed in
+  Rex, so a name shared by more than one live Rex session is rejected rather
+  than guessed at; kill the extra session in Rex.
+- Rex has no terminal attach. With `session attach`, the Rex app is brought
+  forward and the session is selected in it. This needs the app running, with
+  Remote Control turned on in its settings under Rex Server; otherwise attach
+  fails with Rex's error.
+- When an agent exits, its Rex session is kept with no windows. Such sessions
+  are hidden from `session list`. They are removed by `session kill` of their
+  name, along with the live session of that name if there is one. With
+  `aggregate-multiplexer` on, `session kill` fails with "session not found"
+  for a name that only has empty sessions; close those sessions in Rex
+  instead.
 
 ## Shell Completions
 

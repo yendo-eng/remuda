@@ -20,7 +20,7 @@ List of current experiments:
   launch manifest into the workspace. When enabled, `session resume` reads the
   manifest to determine what settings to use when launching the agent.
 - `aggregate-multiplexer` – make session discovery and operations search all
-  supported multiplexer backends (`tmux`, `zellij`, and `herdr`) while new
-  sessions continue to launch in the configured backend. Unavailable backends
-  are skipped during discovery.
+  supported multiplexer backends (`tmux`, `zellij`, `herdr`, and `rex`) while
+  new sessions continue to launch in the configured backend. Unavailable
+  backends are skipped during discovery.
 
