@@ -18,6 +18,21 @@ func SessionNameFromWorkspaceName(workspaceName string) string {
 	return filepath.Base(cleaned)
 }
 
+// lastLines returns the last n lines of captured pane output, ignoring
+// trailing blank lines. When n is 0, the whole capture is returned.
+func lastLines(capture string, n int) string {
+	lines := strings.Split(strings.ReplaceAll(capture, "\r\n", "\n"), "\n")
+	if n > 0 {
+		for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+			lines = lines[:len(lines)-1]
+		}
+		if len(lines) > n {
+			lines = lines[len(lines)-n:]
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // WithoutOrgPrefix removes the leading org segment from a session name.
 // Session names with fewer than 2 slash-separated segments are returned unchanged.
 func WithoutOrgPrefix(name string) string {

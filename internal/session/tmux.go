@@ -213,19 +213,7 @@ func (m *tmux) ReadBuffer(name string, lines int) (string, error) {
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "tmux capture-pane")
 	}
-
-	content := strings.ReplaceAll(string(out), "\r\n", "\n")
-	linesSlice := strings.Split(content, "\n")
-	if lines > 0 {
-		for len(linesSlice) > 0 && strings.TrimSpace(linesSlice[len(linesSlice)-1]) == "" {
-			linesSlice = linesSlice[:len(linesSlice)-1]
-		}
-		if len(linesSlice) > lines {
-			linesSlice = linesSlice[len(linesSlice)-lines:]
-		}
-	}
-
-	return strings.Join(linesSlice, "\n"), nil
+	return lastLines(out, lines), nil
 }
 
 func (m *tmux) Send(name string, payload string, appendNewline bool) error {
