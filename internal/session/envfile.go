@@ -10,12 +10,18 @@ import (
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
-// paneEnv names the variables a multiplexer sets in each of its panes. An env
-// file never overrides them, and commandWithEnvFile keeps the pane's own
-// values when it resets the environment.
+// paneEnv names the variables a multiplexer sets in each of its panes, by
+// exact name or by prefix. An env file never overrides them, and
+// commandWithEnvFile keeps the pane's own values when it resets the
+// environment.
 type paneEnv struct {
 	multiplexer string
 	names       []string
+	prefix      string
+}
+
+func (p paneEnv) owns(name string) bool {
+	return slices.Contains(p.names, name) || (p.prefix != "" && strings.HasPrefix(name, p.prefix))
 }
 
 // writeEnvFile writes env as shell exports to a private temp file and returns
@@ -57,7 +63,7 @@ func (p paneEnv) envFileContents(env []string) string {
 		if !ok || strings.TrimSpace(key) == "" {
 			continue
 		}
-		if !util.IsValidEnvVarName(key) || slices.Contains(p.names, key) {
+		if !util.IsValidEnvVarName(key) || p.owns(key) {
 			continue
 		}
 		contents.WriteString("export ")
@@ -80,10 +86,16 @@ func (p paneEnv) commandWithEnvFile(envFile, command string) string {
 		cleanup,
 		command,
 	}, "; ")
+	prelude := ""
 	kept := []string{`TERM="$TERM"`}
 	for _, name := range p.names {
 		kept = append(kept, name+`="$`+name+`"`)
 	}
+	if p.prefix != "" {
+		// ${!PREFIX@} expands to the name of every variable with the prefix.
+		prelude = `pane_env=(); for name in "${!` + p.prefix + `@}"; do pane_env+=("$name=${!name}"); done; `
+		kept = append(kept, `"${pane_env[@]}"`)
+	}
 	kept = append(kept, `USER="$USER"`, `LOGNAME="$LOGNAME"`)
-	return "exec env -i " + strings.Join(kept, " ") + " bash -lc " + shellutil.SingleQuote(inner)
+	return prelude + "exec env -i " + strings.Join(kept, " ") + " bash -lc " + shellutil.SingleQuote(inner)
 }

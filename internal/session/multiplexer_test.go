@@ -21,6 +21,11 @@ func TestNewMultiplexer(t *testing.T) {
 		require.Contains(t, fmt.Sprintf("%T", mgr), "zellij")
 	})
 
+	t.Run("rex", func(t *testing.T) {
+		mgr := session.NewMultiplexer("rex")
+		require.Contains(t, fmt.Sprintf("%T", mgr), "rex")
+	})
+
 	t.Run("unknown", func(t *testing.T) {
 		require.Panics(t, func() { session.NewMultiplexer("bogus") })
 	})
