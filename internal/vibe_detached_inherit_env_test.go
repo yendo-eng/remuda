@@ -245,38 +245,50 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 	require.Equal(t, "custom-secret", value)
 }
 
-func TestVibe_DetachedTmuxForwardsAllowlistedEnvOnly(t *testing.T) {
+// namedCaptureMultiplexer captures starts under another backend's name.
+type namedCaptureMultiplexer struct {
+	*captureMultiplexer
+	name session.SupportedMultiplexer
+}
+
+func (m namedCaptureMultiplexer) Name() string { return string(m.name) }
+
+func TestVibe_DetachedIsolatedSessionsForwardAllowlistedEnvOnly(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "openai-secret")
 	t.Setenv("GH_TOKEN", "github-token")
 	t.Setenv("POSTMAN_API_KEY", "passthrough-secret")
 	t.Setenv("UNFORWARDED_SECRET", "do-not-forward")
 
-	sm := &captureMultiplexer{}
-	k := Remuda{
-		Git:         &fakeGit{},
-		Multiplexer: sm,
-		IO:          DefaultIO(),
+	for _, name := range []session.SupportedMultiplexer{session.MultiplexerTmux, session.MultiplexerRex} {
+		t.Run(string(name), func(t *testing.T) {
+			sm := namedCaptureMultiplexer{captureMultiplexer: &captureMultiplexer{}, name: name}
+			k := Remuda{
+				Git:         &fakeGit{},
+				Multiplexer: sm,
+				IO:          DefaultIO(),
+			}
+
+			err := k.Vibe(context.Background(), VibeCommand{
+				Agent:               "codex",
+				AgentCmd:            "true",
+				Prompt:              "ignored",
+				Detached:            true,
+				ExistingWorkspace:   t.TempDir(),
+				ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
+			})
+			require.NoError(t, err)
+
+			value, ok := envValue(sm.startEnv, "OPENAI_API_KEY")
+			require.True(t, ok)
+			require.Equal(t, "openai-secret", value)
+			value, ok = envValue(sm.startEnv, "GH_TOKEN")
+			require.True(t, ok)
+			require.Equal(t, "github-token", value)
+			value, ok = envValue(sm.startEnv, "POSTMAN_API_KEY")
+			require.True(t, ok)
+			require.Equal(t, "passthrough-secret", value)
+			_, ok = envValue(sm.startEnv, "UNFORWARDED_SECRET")
+			require.False(t, ok)
+		})
 	}
-
-	err := k.Vibe(context.Background(), VibeCommand{
-		Agent:               "codex",
-		AgentCmd:            "true",
-		Prompt:              "ignored",
-		Detached:            true,
-		ExistingWorkspace:   t.TempDir(),
-		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
-	})
-	require.NoError(t, err)
-
-	value, ok := envValue(sm.startEnv, "OPENAI_API_KEY")
-	require.True(t, ok)
-	require.Equal(t, "openai-secret", value)
-	value, ok = envValue(sm.startEnv, "GH_TOKEN")
-	require.True(t, ok)
-	require.Equal(t, "github-token", value)
-	value, ok = envValue(sm.startEnv, "POSTMAN_API_KEY")
-	require.True(t, ok)
-	require.Equal(t, "passthrough-secret", value)
-	_, ok = envValue(sm.startEnv, "UNFORWARDED_SECRET")
-	require.False(t, ok)
 }
