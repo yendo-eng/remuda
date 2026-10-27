@@ -8,7 +8,7 @@ import (
 func startSessionWithEnv(manager session.Multiplexer, sessionName, workspace, command string, commandArgv []string, container bool, agent string, agentArgs []string, prompt string, provider env.Provider, extraEnvNames, overrideEnvNames []string) error {
 	envValues := launchEnvValues(provider)
 	if manager.Name() == string(session.MultiplexerTmux) {
-		envValues = tmuxSessionEnvValues(provider, agent, extraEnvNames, overrideEnvNames)
+		envValues = isolatedSessionEnvValues(provider, agent, extraEnvNames, overrideEnvNames)
 	}
 	if starter, ok := manager.(session.AgentStarter); ok {
 		return starter.StartAgent(session.AgentStart{

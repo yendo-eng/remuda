@@ -7,7 +7,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
-var tmuxSessionEnvAllowlist = []string{
+var isolatedSessionEnvAllowlist = []string{
 	"ANTHROPIC_API_KEY",
 	"BD_ACTOR",
 	"BEADS_DIR",
@@ -34,12 +34,15 @@ var tmuxSessionEnvAllowlist = []string{
 	"VISUAL",
 }
 
-func tmuxSessionEnvValues(provider env.Provider, agent string, extraEnvNames, overrideEnvNames []string) []string {
-	allowed := make(map[string]struct{}, len(tmuxSessionEnvAllowlist)+len(extraEnvNames)+len(overrideEnvNames)+1)
-	for _, name := range tmuxSessionEnvAllowlist {
+// isolatedSessionEnvValues is the environment for sessions whose panes start
+// from a cleared environment and load it from an env file, so only allowlisted
+// values reach the agent.
+func isolatedSessionEnvValues(provider env.Provider, agent string, extraEnvNames, overrideEnvNames []string) []string {
+	allowed := make(map[string]struct{}, len(isolatedSessionEnvAllowlist)+len(extraEnvNames)+len(overrideEnvNames)+1)
+	for _, name := range isolatedSessionEnvAllowlist {
 		allowed[name] = struct{}{}
 	}
-	for _, name := range tmuxContainerEnvNames(agent, extraEnvNames) {
+	for _, name := range isolatedContainerEnvNames(agent, extraEnvNames) {
 		allowed[name] = struct{}{}
 	}
 	for _, name := range overrideEnvNames {
@@ -63,13 +66,13 @@ func tmuxSessionEnvValues(provider env.Provider, agent string, extraEnvNames, ov
 	return forwarded
 }
 
-// tmuxContainerEnvNames returns env var names that should be explicitly exported
-// before running containerized commands in detached tmux sessions.
+// isolatedContainerEnvNames returns env var names that should be explicitly exported
+// before running containerized commands in isolated sessions.
 //
 // This includes user-requested --container-inherit-env values plus implicit env
 // forwards added by launch composition (currently ANTHROPIC_API_KEY for
-// claude/bash) so stale tmux server environments don't drop those values.
-func tmuxContainerEnvNames(agent string, containerInheritEnv []string) []string {
+// claude/bash) so the cleared session environment doesn't drop those values.
+func isolatedContainerEnvNames(agent string, containerInheritEnv []string) []string {
 	names := make([]string, 0, len(containerInheritEnv)+1)
 	seen := make(map[string]struct{}, len(containerInheritEnv)+1)
 	add := func(raw string) {
