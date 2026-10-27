@@ -229,7 +229,8 @@ func (a *app) finishSetup() {
 	if cliCtx.Remuda.Multiplexer == nil ||
 		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerTmux) ||
 		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerZellij) ||
-		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerHerdr) {
+		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerHerdr) ||
+		cliCtx.Remuda.Multiplexer.Name() == string(session.MultiplexerRex) {
 		cliCtx.Remuda.Multiplexer = buildMultiplexer(
 			session.SupportedMultiplexer(a.sessionManager),
 			logger,
