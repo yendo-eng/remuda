@@ -14,7 +14,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/util"
-	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 func NewTmux() Multiplexer {
@@ -25,6 +24,8 @@ func NewTmux() Multiplexer {
 type tmux struct {
 	logger zerolog.Logger
 }
+
+var tmuxPaneEnv = paneEnv{multiplexer: string(MultiplexerTmux), names: []string{"TMUX", "TMUX_PANE"}}
 
 func NewTmuxWithLogger(logger zerolog.Logger) Multiplexer {
 	return &tmux{logger: logger}
@@ -43,14 +44,14 @@ func (m *tmux) Start(sessionName, command string) error {
 }
 
 func (m *tmux) StartWithEnv(sessionName, command string, env []string) error {
-	envFile, err := writeTmuxEnvFile(env)
+	envFile, err := tmuxPaneEnv.writeEnvFile(env)
 	if err != nil {
 		return err
 	}
 
 	args := []string{"new-session", "-d", "-s", sessionName}
 	if envFile != "" {
-		command = tmuxCommandWithEnvFile(envFile, command)
+		command = tmuxPaneEnv.commandWithEnvFile(envFile, command)
 	}
 	args = append(args, "bash", "-lc", command)
 	if err := util.RunCmdWithEnvAndLogger(m.logger, env, "tmux", args...); err != nil {
@@ -60,67 +61,6 @@ func (m *tmux) StartWithEnv(sessionName, command string, env []string) error {
 		return pkgerrors.Wrapf(err, "tmux new-session %s", sessionName)
 	}
 	return nil
-}
-
-func writeTmuxEnvFile(env []string) (string, error) {
-	contents := tmuxEnvFileContents(env)
-	if contents == "" {
-		return "", nil
-	}
-
-	file, err := os.CreateTemp("", "remuda-tmux-env-")
-	if err != nil {
-		return "", pkgerrors.Wrap(err, "create tmux environment file")
-	}
-	path := file.Name()
-	removeFile := func() {
-		_ = file.Close()
-		_ = os.Remove(path)
-	}
-	if err := file.Chmod(0o600); err != nil {
-		removeFile()
-		return "", pkgerrors.Wrap(err, "set tmux environment file permissions")
-	}
-	if _, err := file.WriteString(contents); err != nil {
-		removeFile()
-		return "", pkgerrors.Wrap(err, "write tmux environment file")
-	}
-	if err := file.Close(); err != nil {
-		_ = os.Remove(path)
-		return "", pkgerrors.Wrap(err, "close tmux environment file")
-	}
-	return path, nil
-}
-
-func tmuxEnvFileContents(env []string) string {
-	var contents strings.Builder
-	for _, kv := range env {
-		key, value, ok := strings.Cut(kv, "=")
-		if !ok || strings.TrimSpace(key) == "" {
-			continue
-		}
-		if !util.IsValidEnvVarName(key) || key == "TMUX" || key == "TMUX_PANE" {
-			continue
-		}
-		contents.WriteString("export ")
-		contents.WriteString(key)
-		contents.WriteByte('=')
-		contents.WriteString(shellutil.SingleQuote(value))
-		contents.WriteByte('\n')
-	}
-	return contents.String()
-}
-
-func tmuxCommandWithEnvFile(envFile, command string) string {
-	quotedFile := shellutil.SingleQuote(envFile)
-	cleanup := "rm -f -- " + quotedFile
-	inner := strings.Join([]string{
-		"trap " + shellutil.SingleQuote(cleanup) + " EXIT",
-		". " + quotedFile,
-		cleanup,
-		command,
-	}, "; ")
-	return "exec env -i TERM=\"$TERM\" TMUX=\"$TMUX\" TMUX_PANE=\"$TMUX_PANE\" USER=\"$USER\" LOGNAME=\"$LOGNAME\" bash -lc " + shellutil.SingleQuote(inner)
 }
 
 func (m *tmux) resolveSessionName(name string) (string, error) {
