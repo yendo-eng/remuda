@@ -19,6 +19,7 @@ const (
 	MultiplexerTmux   SupportedMultiplexer = "tmux"
 	MultiplexerZellij SupportedMultiplexer = "zellij"
 	MultiplexerHerdr  SupportedMultiplexer = "herdr"
+	MultiplexerRex    SupportedMultiplexer = "rex"
 )
 
 var ErrSessionNotFound = pkgerrors.New("session not found")
@@ -45,6 +46,8 @@ func NewMultiplexerWithLogger(name SupportedMultiplexer, logger zerolog.Logger) 
 		return NewZellijWithLogger(logger)
 	case MultiplexerHerdr:
 		return NewHerdrWithLogger(logger)
+	case MultiplexerRex:
+		return NewRexWithLogger(logger)
 	default:
 		panic("unsupported session manager: " + string(name))
 	}
