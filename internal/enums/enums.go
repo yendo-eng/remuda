@@ -8,7 +8,7 @@ var ValidAgents = []string{"codex", "opencode", "claude", "bash"}
 
 // ValidMultiplexers is the canonical set of valid multiplexer names.
 // Used by CLI and config file validation.
-var ValidMultiplexers = []string{"tmux", "zellij", "herdr-tui", "rex"}
+var ValidMultiplexers = []string{"tmux", "zellij", "herdr-tui", "rex", "herdr-core"}
 
 const (
 	UsePromptPositionBefore = "before"
