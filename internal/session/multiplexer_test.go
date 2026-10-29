@@ -21,6 +21,11 @@ func TestNewMultiplexer(t *testing.T) {
 		require.Contains(t, fmt.Sprintf("%T", mgr), "zellij")
 	})
 
+	t.Run("herdr-core", func(t *testing.T) {
+		mgr := session.NewMultiplexer("herdr-core")
+		require.Contains(t, fmt.Sprintf("%T", mgr), "herdrCore")
+	})
+
 	t.Run("rex", func(t *testing.T) {
 		mgr := session.NewMultiplexer("rex")
 		require.Contains(t, fmt.Sprintf("%T", mgr), "rex")
