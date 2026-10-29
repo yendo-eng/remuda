@@ -34,15 +34,18 @@ func WorktreeAdd(
 }
 
 // WorktreeRemove removes a worktree located at dst from the repository at
-// repoDir. Any failure in removing the worktree is ignored by the caller when
-// used for best-effort cleanup.
-func WorktreeRemove(git Git, repoDir, dst string) error {
+// repoDir. Without force, git refuses to remove a worktree with local changes.
+func WorktreeRemove(git Git, repoDir, dst string, force bool) error {
 	abs, err := filepath.Abs(dst)
 	if err != nil {
 		return err
 	}
 
-	return git.WorktreeRemove(repoDir, "--force", abs)
+	args := []string{abs}
+	if force {
+		args = append(args, "--force")
+	}
+	return git.WorktreeRemove(repoDir, args...)
 }
 
 func CheckoutOrCreateBranch(logger zerolog.Logger, git Git, path, branch string) error {
