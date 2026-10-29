@@ -119,3 +119,25 @@ func ParseWithReasoning(
 		return nil, "", pkgerrors.Wrapf(ErrUnsupportedAgent, "agent '%s'", agent)
 	}
 }
+
+// Resume returns a launcher that continues the agent's most recent session.
+func Resume(agent, model, reasoningLevel string, yolo bool) (AgentLauncher, error) {
+	switch SupportedAgent(agent) {
+	case AgentCodex:
+		return codexLauncher{
+			Model:          model,
+			Yolo:           yolo,
+			ReasoningLevel: reasoningLevel,
+			prefix:         []string{"resume", "--last"},
+		}, nil
+	case AgentClaude:
+		return claudeLauncher{
+			Model:          model,
+			Yolo:           yolo,
+			ReasoningLevel: reasoningLevel,
+			prefix:         []string{"--continue"},
+		}, nil
+	default:
+		return nil, pkgerrors.Errorf("session resume unsupported for agent %q", agent)
+	}
+}

@@ -9,7 +9,6 @@ import (
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
-	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 type SessionResumeCommand struct {
@@ -75,15 +74,12 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	var agentArgs []string
 	prompt := assemblePrompt(cmd.BeforePrompt, cmd.Prompt, cmd.AfterPrompt)
 	if agentCmd == "" {
-		var err error
-		agentCmd, err = sessionResumeCommandForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, prompt)
+		launcher, err := agentlauncher.Resume(agentName, model, cmd.ReasoningLevel, cmd.Yolo)
 		if err != nil {
 			return err
 		}
-		agentArgs, err = sessionResumeArgumentsForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, "")
-		if err != nil {
-			return err
-		}
+		agentCmd = launcher.Command(prompt)
+		agentArgs = launcher.Arguments("")
 	} else {
 		agentCmd = agentlauncher.Custom(agentCmd).Command(prompt)
 	}
@@ -119,91 +115,12 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	return err
 }
 
-func sessionResumeArgumentsForAgent(agent, model string, yolo bool, reasoningLevel, prompt string) ([]string, error) {
-	var launcher agentlauncher.AgentLauncher
-	var prefix []string
-	switch normalizeSessionResumeAgent(agent) {
-	case "codex":
-		launcher = agentlauncher.Codex(model, yolo, reasoningLevel)
-		prefix = []string{"resume", "--last"}
-	case "claude":
-		launcher = agentlauncher.Claude(model, yolo, reasoningLevel)
-		prefix = []string{"--continue"}
-	default:
-		return nil, pkgerrors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
-	}
-	args := launcher.Arguments(prompt)
-	return append(prefix, args...), nil
-}
-
-func sessionResumeCommandForAgent(agent, model string, yolo bool, reasoningLevel, prompt string) (string, error) {
-	switch normalizeSessionResumeAgent(agent) {
-	case "claude":
-		return claudeResumeCommand(model, yolo, reasoningLevel, prompt), nil
-	case "codex":
-		return codexResumeCommand(model, yolo, reasoningLevel, prompt), nil
-	case "opencode", "bash":
-		return "", pkgerrors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
-	default:
-		return "", pkgerrors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
-	}
-}
-
 func normalizeSessionResumeAgent(agent string) string {
 	trimmed := strings.TrimSpace(strings.ToLower(agent))
-	switch trimmed {
-	case "":
+	if trimmed == "" {
 		return "codex"
-	case "codex", "claude", "opencode", "bash":
-		return trimmed
-	default:
-		return trimmed
 	}
-}
-
-func codexResumeCommand(model string, yolo bool, reasoningLevel, prompt string) string {
-	command := "codex resume --last"
-	model = strings.TrimSpace(model)
-	if model != "" && model != agentlauncher.ModelAgentDefault {
-		command += " --model " + shellutil.SingleQuote(model)
-	}
-	if yolo {
-		command += " --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --config shell_environment_policy.ignore_default_excludes=\"true\""
-	}
-	reasoningLevel = strings.TrimSpace(reasoningLevel)
-	if reasoningLevel != "" {
-		command += " --config model_reasoning_effort="
-		command += shellutil.SingleQuote(reasoningLevel)
-	}
-	prompt = strings.TrimSpace(prompt)
-	if prompt != "" {
-		command += " -- '"
-		command += shellutil.EscapeSingleQuotes(prompt)
-		command += "'"
-	}
-	return command
-}
-
-func claudeResumeCommand(model string, yolo bool, reasoningLevel, prompt string) string {
-	command := "claude --continue"
-	model = strings.TrimSpace(model)
-	if model != "" && model != agentlauncher.ModelAgentDefault {
-		command += " --model " + shellutil.SingleQuote(model)
-	}
-	if yolo {
-		command += " --dangerously-skip-permissions"
-	}
-	reasoningLevel = strings.TrimSpace(reasoningLevel)
-	if reasoningLevel != "" {
-		command += " --effort " + shellutil.SingleQuote(reasoningLevel)
-	}
-	prompt = strings.TrimSpace(prompt)
-	if prompt != "" {
-		command += " '"
-		command += shellutil.EscapeSingleQuotes(prompt)
-		command += "'"
-	}
-	return command
+	return trimmed
 }
 
 func (k Remuda) ensureWorkspaceInactive(workspaceAbs string) error {
