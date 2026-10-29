@@ -64,6 +64,18 @@ First-run repo prompt:
 - The prompt is skipped when `--wizard` is used, when defaults are already set, or when running
   non-interactively.
 
+Worktree locks:
+
+- Linked worktrees are created locked, so that a `git worktree prune` run inside a container
+  (where no workspace is at the path git recorded for it) can't delete their records.
+- Remuda unlocks a worktree before removing it, e.g. for `workspaces remove` or
+  `session kill --cleanup`.
+- If you delete a workspace directory yourself, its locked record is left behind, and the name
+  can't be reused until the record is cleared. To clear it, run `git worktree unlock <path>` and
+  then `git worktree remove <path>` in the repo cache, `<repos.base_dir>/<org>/<repo>/.repo_cache`.
+  Don't use `git worktree prune` for this: run inside a container, it deletes the record of every
+  unlocked workspace.
+
 ---
 
 ## Vibe
