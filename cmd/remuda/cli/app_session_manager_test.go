@@ -32,7 +32,7 @@ var _ git.Git = noopGit{}
 func TestRun_WiresSessionManagerFlag(t *testing.T) {
 	t.Parallel()
 
-	for _, manager := range []string{"zellij", "herdr-tui", "rex"} {
+	for _, manager := range []string{"zellij", "herdr-tui", "rex", "herdr-core"} {
 		manager := manager
 		t.Run(manager, func(t *testing.T) {
 			t.Parallel()
@@ -89,7 +89,7 @@ func TestRun_AggregatesMultiplexersWhenExperimentEnabled(t *testing.T) {
 	)
 
 	require.NoError(t, Run(ctx, []string{"--experiments", "aggregate-multiplexer", "--session-manager", "herdr-tui", "session", "list"}))
-	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr-tui\norg/repo/rex\n", out.String())
+	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr-tui\norg/repo/rex\norg/repo/herdr-core\n", out.String())
 }
 
 func TestRun_AggregatesSessionNameCompletionWhenExperimentEnabled(t *testing.T) {

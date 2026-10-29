@@ -91,10 +91,11 @@ func newAggregateMultiplexerHarness(t *testing.T) (*testutils.Harness, map[sessi
 	t.Helper()
 
 	backends := map[session.SupportedMultiplexer]*testutils.MockMultiplexer{
-		session.MultiplexerTmux:     {Backend: session.MultiplexerTmux},
-		session.MultiplexerZellij:   {Backend: session.MultiplexerZellij},
-		session.MultiplexerHerdrTUI: {Backend: session.MultiplexerHerdrTUI},
-		session.MultiplexerRex:      {Backend: session.MultiplexerRex},
+		session.MultiplexerTmux:      {Backend: session.MultiplexerTmux},
+		session.MultiplexerZellij:    {Backend: session.MultiplexerZellij},
+		session.MultiplexerHerdrTUI:  {Backend: session.MultiplexerHerdrTUI},
+		session.MultiplexerRex:       {Backend: session.MultiplexerRex},
+		session.MultiplexerHerdrCore: {Backend: session.MultiplexerHerdrCore},
 	}
 	h := testutils.NewHarness(t, testutils.WithMultiplexerFactory(
 		func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
