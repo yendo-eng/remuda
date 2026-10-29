@@ -136,7 +136,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 }
 
 func validateMultiplexerLaunch(manager session.Multiplexer, agentCmd string) error {
-	if manager.Name() != string(session.MultiplexerHerdr) {
+	if manager.Name() != string(session.MultiplexerHerdrTUI) {
 		return nil
 	}
 	if strings.TrimSpace(agentCmd) != "" {

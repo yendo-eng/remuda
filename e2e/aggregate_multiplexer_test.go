@@ -16,7 +16,7 @@ func TestAggregateMultiplexerListAndCompletionFromConfig(t *testing.T) {
 	t.Parallel()
 	h, backends := newAggregateMultiplexerHarness(t)
 	require.NoError(t, backends[session.MultiplexerTmux].Start("org/repo/tmux-session", "command"))
-	require.NoError(t, backends[session.MultiplexerHerdr].Start("org/repo/herdr-session", "command"))
+	require.NoError(t, backends[session.MultiplexerHerdrTUI].Start("org/repo/herdr-session", "command"))
 
 	list := h.RunOK("session", "list")
 	require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-session\n", list.Stdout)
@@ -31,7 +31,7 @@ func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
 	h, backends := newAggregateMultiplexerHarness(t)
 	backends[session.MultiplexerTmux].AddSessionWithBuffer("org/repo/tmux-session", "")
 	backends[session.MultiplexerZellij].AddSessionWithBuffer("org/repo/zellij-session", "")
-	backends[session.MultiplexerHerdr].AddSessionWithBuffer("org/repo/herdr-session", "")
+	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-session", "")
 
 	list := h.RunOK("session", "list", "--json")
 
@@ -64,11 +64,11 @@ func TestAggregateMultiplexerRoutesAndRejectsCrossBackendDuplicate(t *testing.T)
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 	sessionName := session.SessionNameFromWorkspaceName(filepath.Join(h.RemudaConfig.ReposBaseDir, org, repo, "wk"))
-	backends[session.MultiplexerHerdr].AddSessionWithBuffer(sessionName, "herdr output")
+	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer(sessionName, "herdr output")
 
 	read := h.RunOK("session", "readbuf", "--name", sessionName)
 	require.Equal(t, "herdr output", read.Stdout)
-	require.Equal(t, sessionName, backends[session.MultiplexerHerdr].LastReadName)
+	require.Equal(t, sessionName, backends[session.MultiplexerHerdrTUI].LastReadName)
 	require.Empty(t, backends[session.MultiplexerTmux].LastReadName)
 
 	start := h.Run(
@@ -81,20 +81,20 @@ func TestAggregateMultiplexerRoutesAndRejectsCrossBackendDuplicate(t *testing.T)
 	)
 	require.ErrorContains(t, start.Err, "session \""+sessionName+"\" already exists")
 	require.Nil(t, backends[session.MultiplexerTmux].FindSession(sessionName))
-	require.NotNil(t, backends[session.MultiplexerHerdr].FindSession(sessionName))
+	require.NotNil(t, backends[session.MultiplexerHerdrTUI].FindSession(sessionName))
 
 	h.RunOK("session", "kill", "--name", sessionName)
-	require.Nil(t, backends[session.MultiplexerHerdr].FindSession(sessionName))
+	require.Nil(t, backends[session.MultiplexerHerdrTUI].FindSession(sessionName))
 }
 
 func newAggregateMultiplexerHarness(t *testing.T) (*testutils.Harness, map[session.SupportedMultiplexer]*testutils.MockMultiplexer) {
 	t.Helper()
 
 	backends := map[session.SupportedMultiplexer]*testutils.MockMultiplexer{
-		session.MultiplexerTmux:   {Backend: session.MultiplexerTmux},
-		session.MultiplexerZellij: {Backend: session.MultiplexerZellij},
-		session.MultiplexerHerdr:  {Backend: session.MultiplexerHerdr},
-		session.MultiplexerRex:    {Backend: session.MultiplexerRex},
+		session.MultiplexerTmux:     {Backend: session.MultiplexerTmux},
+		session.MultiplexerZellij:   {Backend: session.MultiplexerZellij},
+		session.MultiplexerHerdrTUI: {Backend: session.MultiplexerHerdrTUI},
+		session.MultiplexerRex:      {Backend: session.MultiplexerRex},
 	}
 	h := testutils.NewHarness(t, testutils.WithMultiplexerFactory(
 		func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
