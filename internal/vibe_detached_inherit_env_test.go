@@ -259,7 +259,7 @@ func TestVibe_DetachedIsolatedSessionsForwardAllowlistedEnvOnly(t *testing.T) {
 	t.Setenv("POSTMAN_API_KEY", "passthrough-secret")
 	t.Setenv("UNFORWARDED_SECRET", "do-not-forward")
 
-	for _, name := range []session.SupportedMultiplexer{session.MultiplexerTmux, session.MultiplexerRex} {
+	for _, name := range []session.SupportedMultiplexer{session.MultiplexerTmux, session.MultiplexerRex, session.MultiplexerHerdrCore} {
 		t.Run(string(name), func(t *testing.T) {
 			sm := namedCaptureMultiplexer{captureMultiplexer: &captureMultiplexer{}, name: name}
 			k := Remuda{

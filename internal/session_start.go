@@ -7,7 +7,8 @@ import (
 
 func startSessionWithEnv(manager session.Multiplexer, sessionName, workspace, command string, commandArgv []string, container bool, agent string, agentArgs []string, prompt string, provider env.Provider, extraEnvNames, overrideEnvNames []string) error {
 	envValues := launchEnvValues(provider)
-	if name := manager.Name(); name == string(session.MultiplexerTmux) || name == string(session.MultiplexerRex) {
+	switch session.SupportedMultiplexer(manager.Name()) {
+	case session.MultiplexerTmux, session.MultiplexerRex, session.MultiplexerHerdrCore:
 		envValues = isolatedSessionEnvValues(provider, agent, extraEnvNames, overrideEnvNames)
 	}
 	if starter, ok := manager.(session.AgentStarter); ok {
