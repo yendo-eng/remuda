@@ -270,6 +270,10 @@ func (s rexSession) live() bool {
 	return s.Windows > 0
 }
 
+func (s rexSession) id() string {
+	return s.ID
+}
+
 func remudaLabel(label string) bool {
 	return SessionInfo{Name: label}.IsRemudaSession()
 }
@@ -289,22 +293,30 @@ func (r *rex) labeled(name string) ([]rexSession, error) {
 	})
 }
 
-func liveSession(sessions []rexSession, name string) (rexSession, error) {
-	var match rexSession
+// labeledSession is a session that a backend matches by label, so more than
+// one can carry a name.
+type labeledSession interface {
+	live() bool
+	id() string
+}
+
+// liveSession returns the one live session among sessions labeled name.
+func liveSession[S labeledSession](sessions []S, name string) (S, error) {
+	var match S
 	var ids []string
 	for _, session := range sessions {
 		if session.live() {
 			match = session
-			ids = append(ids, session.ID)
+			ids = append(ids, session.id())
 		}
 	}
 	switch len(ids) {
 	case 0:
-		return rexSession{}, ErrSessionNotFound
+		return *new(S), ErrSessionNotFound
 	case 1:
 		return match, nil
 	default:
-		return rexSession{}, AmbiguousSessionError{Name: name, IDs: ids}
+		return *new(S), AmbiguousSessionError{Name: name, IDs: ids}
 	}
 }
 
