@@ -16,10 +16,11 @@ import (
 type SupportedMultiplexer string
 
 const (
-	MultiplexerTmux     SupportedMultiplexer = "tmux"
-	MultiplexerZellij   SupportedMultiplexer = "zellij"
-	MultiplexerHerdrTUI SupportedMultiplexer = "herdr-tui"
-	MultiplexerRex      SupportedMultiplexer = "rex"
+	MultiplexerTmux      SupportedMultiplexer = "tmux"
+	MultiplexerZellij    SupportedMultiplexer = "zellij"
+	MultiplexerHerdrTUI  SupportedMultiplexer = "herdr-tui"
+	MultiplexerHerdrCore SupportedMultiplexer = "herdr-core"
+	MultiplexerRex       SupportedMultiplexer = "rex"
 )
 
 var ErrSessionNotFound = pkgerrors.New("session not found")
@@ -46,6 +47,8 @@ func NewMultiplexerWithLogger(name SupportedMultiplexer, logger zerolog.Logger) 
 		return NewZellijWithLogger(logger)
 	case MultiplexerHerdrTUI:
 		return NewHerdrTUIWithLogger(logger)
+	case MultiplexerHerdrCore:
+		return NewHerdrCoreWithLogger(logger)
 	case MultiplexerRex:
 		return NewRexWithLogger(logger)
 	default:
@@ -93,7 +96,8 @@ type AgentStart struct {
 	Env         []string
 }
 
-// AgentStarter starts a known agent without routing its argv through a shell.
+// AgentStarter starts a session from the whole agent launch, not only its
+// shell command.
 type AgentStarter interface {
 	StartAgent(start AgentStart) error
 }

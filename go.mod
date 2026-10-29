@@ -5,6 +5,7 @@ go 1.24.0
 toolchain go1.24.5
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/huh v0.7.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20250811123337-95b882db3fb0
 	github.com/knadh/koanf/parsers/yaml v1.1.0
