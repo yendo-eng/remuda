@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	herdrMetadataSource          = "remuda"
-	herdrAgentStartRetryInterval = 100 * time.Millisecond
-	herdrAgentStartRetryTimeout  = 2 * time.Second
+	herdrTUIMetadataSource          = "remuda"
+	herdrTUIAgentStartRetryInterval = 100 * time.Millisecond
+	herdrTUIAgentStartRetryTimeout  = 2 * time.Second
 )
 
 type UnsupportedAgentCommandError struct{}
@@ -38,62 +38,62 @@ func (e SessionAlreadyExistsError) Error() string {
 	return fmt.Sprintf("session %q already exists", e.Name)
 }
 
-type herdr struct {
+type herdrTUI struct {
 	logger zerolog.Logger
 }
 
-type herdrResponse[T any] struct {
+type herdrTUIResponse[T any] struct {
 	Result T `json:"result"`
 }
 
-type herdrCommandError struct {
+type herdrTUICommandError struct {
 	code   string
 	output string
 	err    error
 }
 
-func (e *herdrCommandError) Error() string {
+func (e *herdrTUICommandError) Error() string {
 	return fmt.Sprintf("herdr: %s: %v", e.output, e.err)
 }
 
-func (e *herdrCommandError) Unwrap() error {
+func (e *herdrTUICommandError) Unwrap() error {
 	return e.err
 }
 
-type herdrWorkspace struct {
+type herdrTUIWorkspace struct {
 	WorkspaceID string            `json:"workspace_id"`
 	Tokens      map[string]string `json:"tokens"`
 }
 
-type herdrPane struct {
+type herdrTUIPane struct {
 	PaneID string `json:"pane_id"`
 }
 
-type herdrTab struct {
+type herdrTUITab struct {
 	TabID string `json:"tab_id"`
 }
 
-func NewHerdr() Multiplexer {
-	return NewHerdrWithLogger(logging.DefaultLogger())
+func NewHerdrTUI() Multiplexer {
+	return NewHerdrTUIWithLogger(logging.DefaultLogger())
 }
 
-func NewHerdrWithLogger(logger zerolog.Logger) Multiplexer {
-	return &herdr{logger: logger}
+func NewHerdrTUIWithLogger(logger zerolog.Logger) Multiplexer {
+	return &herdrTUI{logger: logger}
 }
 
-func (h *herdr) SetLogger(logger zerolog.Logger) {
+func (h *herdrTUI) SetLogger(logger zerolog.Logger) {
 	h.logger = logger
 }
 
-func (h *herdr) Name() string {
-	return string(MultiplexerHerdr)
+func (h *herdrTUI) Name() string {
+	return string(MultiplexerHerdrTUI)
 }
 
-func (h *herdr) Start(_, _ string) error {
+func (h *herdrTUI) Start(_, _ string) error {
 	return pkgerrors.New("herdr requires a structured agent start")
 }
 
-func (h *herdr) StartAgent(start AgentStart) error {
+func (h *herdrTUI) StartAgent(start AgentStart) error {
 	if start.Agent == "custom" {
 		return UnsupportedAgentCommandError{}
 	}
@@ -126,10 +126,10 @@ func (h *herdr) StartAgent(start AgentStart) error {
 		return err
 	}
 
-	var created herdrResponse[struct {
-		Workspace herdrWorkspace `json:"workspace"`
-		Tab       herdrTab       `json:"tab"`
-		RootPane  herdrPane      `json:"root_pane"`
+	var created herdrTUIResponse[struct {
+		Workspace herdrTUIWorkspace `json:"workspace"`
+		Tab       herdrTUITab       `json:"tab"`
+		RootPane  herdrTUIPane      `json:"root_pane"`
 	}]
 	if err := json.Unmarshal([]byte(output), &created); err != nil {
 		return pkgerrors.Wrap(err, "decode herdr workspace create response")
@@ -155,7 +155,7 @@ func (h *herdr) StartAgent(start AgentStart) error {
 
 	metadataArgs := []string{
 		"workspace", "report-metadata", created.Result.Workspace.WorkspaceID,
-		"--source", herdrMetadataSource,
+		"--source", herdrTUIMetadataSource,
 		"--token", "remuda=1",
 		"--token", "org=" + parts[0],
 		"--token", "repo=" + parts[1],
@@ -185,7 +185,7 @@ func (h *herdr) StartAgent(start AgentStart) error {
 		return nil
 	}
 
-	agentHandle := herdrAgentHandle(start.SessionName)
+	agentHandle := herdrTUIAgentHandle(start.SessionName)
 	agentArgs := []string{
 		"agent", "start", agentHandle,
 		"--kind", start.Agent,
@@ -208,12 +208,12 @@ func (h *herdr) StartAgent(start AgentStart) error {
 // Herdr's root pane is an interactive shell, so it survives the container
 // process exiting. The script keeps Docker as the foreground process for
 // HERDR_AGENT detection while handing pane ownership back to that shell.
-func (h *herdr) startContainerInPane(paneID string, command []string) error {
+func (h *herdrTUI) startContainerInPane(paneID string, command []string) error {
 	if len(command) == 0 {
 		return pkgerrors.New("herdr container launch is missing command argv")
 	}
 
-	commandPath, err := writeHerdrLaunchScript(command)
+	commandPath, err := writeHerdrTUILaunchScript(command)
 	if err != nil {
 		return err
 	}
@@ -224,7 +224,7 @@ func (h *herdr) startContainerInPane(paneID string, command []string) error {
 	return nil
 }
 
-func writeHerdrLaunchScript(command []string) (string, error) {
+func writeHerdrTUILaunchScript(command []string) (string, error) {
 	quoted := make([]string, len(command))
 	for i, arg := range command {
 		quoted[i] = shellutil.SingleQuote(arg)
@@ -258,22 +258,22 @@ func writeHerdrLaunchScript(command []string) (string, error) {
 	return path, nil
 }
 
-func (h *herdr) startAgent(args []string) error {
-	deadline := time.Now().Add(herdrAgentStartRetryTimeout)
+func (h *herdrTUI) startAgent(args []string) error {
+	deadline := time.Now().Add(herdrTUIAgentStartRetryTimeout)
 	for {
 		_, err := h.runOutput(args...)
 		if err == nil {
 			return nil
 		}
-		var commandErr *herdrCommandError
+		var commandErr *herdrTUICommandError
 		if !errors.As(err, &commandErr) || commandErr.code != "agent_pane_busy" || !time.Now().Before(deadline) {
 			return err
 		}
-		time.Sleep(herdrAgentStartRetryInterval)
+		time.Sleep(herdrTUIAgentStartRetryInterval)
 	}
 }
 
-func (h *herdr) List() ([]SessionInfo, error) {
+func (h *herdrTUI) List() ([]SessionInfo, error) {
 	workspaces, err := h.workspaces()
 	if err != nil {
 		return nil, err
@@ -284,12 +284,12 @@ func (h *herdr) List() ([]SessionInfo, error) {
 		if workspace.Tokens["remuda"] != "1" {
 			continue
 		}
-		name, ok := herdrWorkspaceSessionName(workspace)
+		name, ok := herdrTUIWorkspaceSessionName(workspace)
 		if !ok {
 			h.logger.Debug().Str("workspace", workspace.WorkspaceID).Msg("skipping herdr workspace with invalid remuda identity metadata")
 			continue
 		}
-		info := SessionInfo{Name: name, Multiplexer: string(MultiplexerHerdr)}
+		info := SessionInfo{Name: name, Multiplexer: string(MultiplexerHerdrTUI)}
 		createdAt, err := time.Parse(time.RFC3339Nano, workspace.Tokens["created_at"])
 		if err == nil {
 			info.CreatedAt = createdAt
@@ -301,7 +301,7 @@ func (h *herdr) List() ([]SessionInfo, error) {
 	return sessions, nil
 }
 
-func (h *herdr) Find(name string) (SessionInfo, error) {
+func (h *herdrTUI) Find(name string) (SessionInfo, error) {
 	sessions, err := h.List()
 	if err != nil {
 		return SessionInfo{}, err
@@ -314,7 +314,7 @@ func (h *herdr) Find(name string) (SessionInfo, error) {
 	return SessionInfo{}, ErrSessionNotFound
 }
 
-func (h *herdr) Attach(name string) error {
+func (h *herdrTUI) Attach(name string) error {
 	workspace, err := h.findWorkspace(name)
 	if err != nil {
 		return err
@@ -328,7 +328,7 @@ func (h *herdr) Attach(name string) error {
 	return cmd.Run()
 }
 
-func (h *herdr) ReadBuffer(name string, lines int) (string, error) {
+func (h *herdrTUI) ReadBuffer(name string, lines int) (string, error) {
 	pane, err := h.primaryPane(name)
 	if err != nil {
 		return "", err
@@ -344,7 +344,7 @@ func (h *herdr) ReadBuffer(name string, lines int) (string, error) {
 	return h.runOutput(args...)
 }
 
-func (h *herdr) Send(name, payload string, appendNewline bool) error {
+func (h *herdrTUI) Send(name, payload string, appendNewline bool) error {
 	pane, err := h.primaryPane(name)
 	if err != nil {
 		return err
@@ -352,7 +352,7 @@ func (h *herdr) Send(name, payload string, appendNewline bool) error {
 	return h.sendToPane(pane.PaneID, payload, appendNewline)
 }
 
-func (h *herdr) sendToPane(paneID, payload string, appendNewline bool) error {
+func (h *herdrTUI) sendToPane(paneID, payload string, appendNewline bool) error {
 	if payload != "" {
 		if _, err := h.runOutput("pane", "send-text", paneID, payload); err != nil {
 			return err
@@ -368,7 +368,7 @@ func (h *herdr) sendToPane(paneID, payload string, appendNewline bool) error {
 	return nil
 }
 
-func (h *herdr) Kill(name string) error {
+func (h *herdrTUI) Kill(name string) error {
 	workspace, err := h.findWorkspace(name)
 	if err != nil {
 		return err
@@ -377,53 +377,53 @@ func (h *herdr) Kill(name string) error {
 	return err
 }
 
-func (h *herdr) primaryPane(name string) (herdrPane, error) {
+func (h *herdrTUI) primaryPane(name string) (herdrTUIPane, error) {
 	workspace, err := h.findWorkspace(name)
 	if err != nil {
-		return herdrPane{}, err
+		return herdrTUIPane{}, err
 	}
 	output, err := h.runOutput("pane", "list", "--workspace", workspace.WorkspaceID)
 	if err != nil {
-		return herdrPane{}, err
+		return herdrTUIPane{}, err
 	}
-	var response herdrResponse[struct {
-		Panes []herdrPane `json:"panes"`
+	var response herdrTUIResponse[struct {
+		Panes []herdrTUIPane `json:"panes"`
 	}]
 	if err := json.Unmarshal([]byte(output), &response); err != nil {
-		return herdrPane{}, pkgerrors.Wrap(err, "decode herdr pane list response")
+		return herdrTUIPane{}, pkgerrors.Wrap(err, "decode herdr pane list response")
 	}
 	if len(response.Result.Panes) == 0 {
-		return herdrPane{}, pkgerrors.Errorf("herdr workspace %s has no panes", workspace.WorkspaceID)
+		return herdrTUIPane{}, pkgerrors.Errorf("herdr workspace %s has no panes", workspace.WorkspaceID)
 	}
 	return response.Result.Panes[0], nil
 }
 
-func (h *herdr) findWorkspace(name string) (herdrWorkspace, error) {
+func (h *herdrTUI) findWorkspace(name string) (herdrTUIWorkspace, error) {
 	workspaces, err := h.workspaces()
 	if err != nil {
-		return herdrWorkspace{}, err
+		return herdrTUIWorkspace{}, err
 	}
 	for _, workspace := range workspaces {
-		if workspaceName, ok := herdrWorkspaceSessionName(workspace); ok && workspaceName == name {
+		if workspaceName, ok := herdrTUIWorkspaceSessionName(workspace); ok && workspaceName == name {
 			return workspace, nil
 		}
 	}
-	return herdrWorkspace{}, ErrSessionNotFound
+	return herdrTUIWorkspace{}, ErrSessionNotFound
 }
 
-func (h *herdr) closeWorkspaceBestEffort(workspaceID string) {
+func (h *herdrTUI) closeWorkspaceBestEffort(workspaceID string) {
 	if _, err := h.runOutput("workspace", "close", workspaceID); err != nil {
 		h.logger.Debug().Err(err).Str("workspace", workspaceID).Msg("failed to clean up herdr workspace")
 	}
 }
 
-func (h *herdr) workspaces() ([]herdrWorkspace, error) {
+func (h *herdrTUI) workspaces() ([]herdrTUIWorkspace, error) {
 	output, err := h.runOutput("workspace", "list")
 	if err != nil {
 		return nil, err
 	}
-	var response herdrResponse[struct {
-		Workspaces []herdrWorkspace `json:"workspaces"`
+	var response herdrTUIResponse[struct {
+		Workspaces []herdrTUIWorkspace `json:"workspaces"`
 	}]
 	if err := json.Unmarshal([]byte(output), &response); err != nil {
 		return nil, pkgerrors.Wrap(err, "decode herdr workspace list response")
@@ -431,7 +431,7 @@ func (h *herdr) workspaces() ([]herdrWorkspace, error) {
 	return response.Result.Workspaces, nil
 }
 
-func (h *herdr) runOutput(args ...string) (string, error) {
+func (h *herdrTUI) runOutput(args ...string) (string, error) {
 	cmd := h.command(args...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -449,7 +449,7 @@ func (h *herdr) runOutput(args ...string) (string, error) {
 			} `json:"error"`
 		}
 		if json.Unmarshal([]byte(message), &response) == nil && response.Error.Code != "" {
-			return "", &herdrCommandError{
+			return "", &herdrTUICommandError{
 				code:   response.Error.Code,
 				output: message,
 				err:    err,
@@ -460,7 +460,7 @@ func (h *herdr) runOutput(args ...string) (string, error) {
 	return string(output), nil
 }
 
-func (h *herdr) command(args ...string) *exec.Cmd {
+func (h *herdrTUI) command(args ...string) *exec.Cmd {
 	// Log only the command family: workspace create argv can contain secrets.
 	command := "herdr"
 	if len(args) > 0 {
@@ -474,7 +474,7 @@ func (h *herdr) command(args ...string) *exec.Cmd {
 	return exec.Command("herdr", args...)
 }
 
-func herdrWorkspaceSessionName(workspace herdrWorkspace) (string, bool) {
+func herdrTUIWorkspaceSessionName(workspace herdrTUIWorkspace) (string, bool) {
 	if workspace.Tokens["remuda"] != "1" {
 		return "", false
 	}
@@ -486,7 +486,7 @@ func herdrWorkspaceSessionName(workspace herdrWorkspace) (string, bool) {
 	return name, (SessionInfo{Name: name}).IsRemudaSession()
 }
 
-func herdrAgentHandle(sessionName string) string {
+func herdrTUIAgentHandle(sessionName string) string {
 	sum := sha256.Sum256([]byte(sessionName))
 	return fmt.Sprintf("remuda-%s", hex.EncodeToString(sum[:])[:12])
 }

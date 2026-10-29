@@ -16,10 +16,10 @@ import (
 type SupportedMultiplexer string
 
 const (
-	MultiplexerTmux   SupportedMultiplexer = "tmux"
-	MultiplexerZellij SupportedMultiplexer = "zellij"
-	MultiplexerHerdr  SupportedMultiplexer = "herdr"
-	MultiplexerRex    SupportedMultiplexer = "rex"
+	MultiplexerTmux     SupportedMultiplexer = "tmux"
+	MultiplexerZellij   SupportedMultiplexer = "zellij"
+	MultiplexerHerdrTUI SupportedMultiplexer = "herdr"
+	MultiplexerRex      SupportedMultiplexer = "rex"
 )
 
 var ErrSessionNotFound = pkgerrors.New("session not found")
@@ -44,8 +44,8 @@ func NewMultiplexerWithLogger(name SupportedMultiplexer, logger zerolog.Logger) 
 		return NewTmuxWithLogger(logger)
 	case MultiplexerZellij:
 		return NewZellijWithLogger(logger)
-	case MultiplexerHerdr:
-		return NewHerdrWithLogger(logger)
+	case MultiplexerHerdrTUI:
+		return NewHerdrTUIWithLogger(logger)
 	case MultiplexerRex:
 		return NewRexWithLogger(logger)
 	default:
