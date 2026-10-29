@@ -65,10 +65,11 @@ or populate values automatically, but you can configure them explicitly:
   `--dangerously-bypass-hook-trust`, `claude` maps to
   `--dangerously-skip-permissions`).
 - `REMUDA_SESSION_MANAGER` – select the session manager used for detached runs.
-  Accepts `tmux` (default), `zellij`, `herdr-tui`, or `rex`. Equivalent to
-  passing `--session-manager`. `herdr-tui` requires the Herdr TUI service/CLI
-  to be available and does not support `--agent-cmd`. For `rex`, see
-  [Rex](session-management.md#rex).
+  Accepts `tmux` (default), `zellij`, `herdr-tui`, `rex`, or `herdr-core`.
+  Equivalent to passing `--session-manager`. `herdr-tui` requires the Herdr TUI
+  service/CLI to be available and does not support `--agent-cmd`. For `rex`,
+  see [Rex](session-management.md#rex); for `herdr-core`, see
+  [herdr-core](session-management.md#herdr-core).
 - `REMUDA_DEFAULT_REPO` – default repository alias used when no repo is supplied
   via flags/args. Handy for teams whose primary workspace is not the default
   configured repository.
@@ -132,7 +133,7 @@ Environment variables still override the saved defaults:
 version: 1
 
 session:
-  manager: tmux   # tmux|zellij|herdr-tui|rex
+  manager: tmux   # tmux|zellij|herdr-tui|rex|herdr-core
 
 workspaces:
   ignore:

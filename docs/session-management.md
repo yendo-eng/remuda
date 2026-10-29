@@ -14,6 +14,7 @@ Remuda supports these terminal multiplexers:
 - zellij
 - herdr-tui
 - rex (see [Rex](#rex))
+- herdr-core (see [herdr-core](#herdr-core))
 
 Some commands support a `--pick` flag which requires `fzf` to be installed.
 
@@ -171,6 +172,54 @@ session:
   `aggregate-multiplexer` on, `session kill` fails with "session not found"
   for a name that only has empty sessions; close those sessions in Rex
   instead.
+
+## herdr-core
+
+herdr-core is Herdr's terminal runtime. Its CLI is `hc`, and the Herdr desktop
+app is one of its clients. It is a separate product from the Herdr TUI behind
+the `herdr-tui` session manager, and the two don't share sessions. To use it
+as the session manager:
+
+```bash
+remuda --session-manager herdr-core session list
+```
+
+```yaml
+session:
+  manager: herdr-core
+```
+
+- Remuda connects to the socket `hc` would use: `HC_SOCKET`, else `socket` in
+  `$XDG_CONFIG_HOME/herdr-core/config.toml` (`~/.config/herdr-core/config.toml`
+  by default), else `$XDG_STATE_HOME/herdr-core/<session>/<session>.sock`,
+  where `<session>` is `HC_SESSION` or `default`. With defaults, that is
+  `~/.local/state/herdr-core/default/default.sock`.
+- A core is never started by Remuda, so start one first; any `hc` command,
+  such as `hc ls`, starts one. With no core running, commands fail with
+  "herdr-core is not running", and `aggregate-multiplexer` skips the backend.
+  The core must speak protocol generation 1.
+- Each session is an hc terminal labeled `remuda.session=org/repo/workspace`.
+  A name shared by more than one live terminal is rejected rather than
+  guessed at; end the extra terminal with `hc`.
+- Sessions have no parent terminal, so they don't end with the hc terminal
+  Remuda was run from.
+- `session attach` runs `hc attach` on the session's terminal, with
+  `HC_SOCKET` set to the socket above. `hc` is looked up on `PATH`, then at
+  `~/.local/bin/hc`.
+- While a full-screen agent is working, `session readbuf` prints only its
+  screen; read again once it stops.
+- `session send --no-newline` isn't supported, since Enter is pressed after
+  every send. A send to an agent that is blocked, such as on a permission
+  prompt, fails with herdr-core's reason.
+- Codex runs with `--no-daemon` in herdr-core sessions; without it, Codex's
+  commands run outside hc.
+- Finished terminals are hidden from `session list`. They are removed by
+  `session kill` of their name, along with the live terminal of that name if
+  there is one. With `aggregate-multiplexer` on, `session kill` fails with
+  "session not found" for a name that only has finished terminals; remove
+  those with `hc` instead.
+- Sessions aren't put in a Herdr space, so they don't appear in the Herdr
+  desktop app's window.
 
 ## Shell Completions
 
