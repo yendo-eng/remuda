@@ -82,21 +82,46 @@ func TestSessionKill(t *testing.T) {
 		// Now, kill the session with --cleanup
 		h.RunOK("session", "kill", "--name", sessionName, "--cleanup")
 
-		// Workspace should be gone
+		// Workspace and its worktree record should be gone
 		require.NoDirExists(t, workspacePath)
+		worktrees := testutils.RunGit(t, filepath.Join(baseDir, org, repo, ".repo_cache"), "worktree", "list", "--porcelain")
+		require.NotContains(t, worktrees, workspacePath)
 	})
 
-	t.Run("warns and cleans up locked worktree", func(t *testing.T) {
+	t.Run("cleans up worktree created before remuda locked worktrees", func(t *testing.T) {
+		t.Parallel()
 		h, remoteURL := setup(t, nil)
 
 		baseDir := h.RemudaConfig.ReposBaseDir
-		name := "locked-worktree"
+		name := "unlocked-worktree"
+		org, repo, _ := github.ParseRepo(remoteURL)
+		workspacePath := filepath.Join(baseDir, org, repo, name)
+		sessionName := session.SessionNameFromWorkspaceName(workspacePath)
+		cacheDir := filepath.Join(baseDir, org, repo, ".repo_cache")
+
+		h.RunOK("vibe", "--name", name, "--repo-url", remoteURL)
+		testutils.RunGit(t, cacheDir, "worktree", "unlock", workspacePath)
+
+		res := h.RunOK("session", "kill", "--name", sessionName, "--cleanup")
+
+		require.NotContains(t, res.Stderr, "worktree remove failed")
+		require.NoDirExists(t, workspacePath)
+		worktrees := testutils.RunGit(t, cacheDir, "worktree", "list", "--porcelain")
+		require.NotContains(t, worktrees, workspacePath)
+	})
+
+	t.Run("warns and cleans up worktree whose record is gone", func(t *testing.T) {
+		t.Parallel()
+		h, remoteURL := setup(t, nil)
+
+		baseDir := h.RemudaConfig.ReposBaseDir
+		name := "pruned-worktree"
 		org, repo, _ := github.ParseRepo(remoteURL)
 		workspacePath := filepath.Join(baseDir, org, repo, name)
 		sessionName := session.SessionNameFromWorkspaceName(workspacePath)
 
 		h.RunOK("vibe", "--name", name, "--repo-url", remoteURL)
-		testutils.RunGit(t, filepath.Join(baseDir, org, repo, ".repo_cache"), "worktree", "lock", workspacePath)
+		require.NoError(t, os.RemoveAll(filepath.Join(baseDir, org, repo, ".repo_cache", ".git", "worktrees", name)))
 
 		res := h.RunOK("session", "kill", "--name", sessionName, "--cleanup")
 

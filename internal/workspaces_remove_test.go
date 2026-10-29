@@ -52,6 +52,8 @@ type workspaceRemovalSpyGit struct {
 func (g *workspaceRemovalSpyGit) Clone(repoURL, dir string) error                      { return nil }
 func (g *workspaceRemovalSpyGit) Pull(dir string) error                                { return nil }
 func (g *workspaceRemovalSpyGit) WorktreeAdd(dir, branch string, args ...string) error { return nil }
+func (g *workspaceRemovalSpyGit) WorktreeLock(dir, worktree, reason string) error      { return nil }
+func (g *workspaceRemovalSpyGit) WorktreeUnlock(dir, worktree string) error            { return nil }
 func (g *workspaceRemovalSpyGit) Checkout(dir string, args ...string) error            { return nil }
 func (g *workspaceRemovalSpyGit) ShowRef(dir, ref string, opts ...string) error        { return nil }
 func (g *workspaceRemovalSpyGit) RevParse(dir, rev string, opts ...string) (string, error) {
