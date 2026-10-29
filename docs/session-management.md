@@ -12,7 +12,7 @@ Remuda supports these terminal multiplexers:
 
 - tmux (default)
 - zellij
-- herdr
+- herdr-tui
 - rex (see [Rex](#rex))
 
 Some commands support a `--pick` flag which requires `fzf` to be installed.

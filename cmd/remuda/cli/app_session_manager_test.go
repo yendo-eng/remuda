@@ -30,7 +30,7 @@ var _ git.Git = noopGit{}
 func TestRun_WiresSessionManagerFlag(t *testing.T) {
 	t.Parallel()
 
-	for _, manager := range []string{"zellij", "herdr", "rex"} {
+	for _, manager := range []string{"zellij", "herdr-tui", "rex"} {
 		manager := manager
 		t.Run(manager, func(t *testing.T) {
 			t.Parallel()
@@ -86,8 +86,8 @@ func TestRun_AggregatesMultiplexersWhenExperimentEnabled(t *testing.T) {
 		}),
 	)
 
-	require.NoError(t, Run(ctx, []string{"--experiments", "aggregate-multiplexer", "--session-manager", "herdr", "session", "list"}))
-	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr\norg/repo/rex\n", out.String())
+	require.NoError(t, Run(ctx, []string{"--experiments", "aggregate-multiplexer", "--session-manager", "herdr-tui", "session", "list"}))
+	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr-tui\norg/repo/rex\n", out.String())
 }
 
 func TestRun_AggregatesSessionNameCompletionWhenExperimentEnabled(t *testing.T) {
@@ -103,14 +103,14 @@ func TestRun_AggregatesSessionNameCompletionWhenExperimentEnabled(t *testing.T) 
 			name: "environment",
 			env: EnvMap{
 				"REMUDA_EXPERIMENTS":     "aggregate-multiplexer",
-				"REMUDA_SESSION_MANAGER": "herdr",
+				"REMUDA_SESSION_MANAGER": "herdr-tui",
 			},
 			args: []string{"__complete", "session", "kill", "--name", ""},
 		},
 		{
 			name:       "config",
 			configYAML: "version: 1\ndefaults:\n  experiments:\n    - aggregate-multiplexer\n",
-			args:       []string{"__complete", "--session-manager", "herdr", "session", "attach", "--name", ""},
+			args:       []string{"__complete", "--session-manager", "herdr-tui", "session", "attach", "--name", ""},
 		},
 	}
 
@@ -149,7 +149,7 @@ func TestRun_AggregatesSessionNameCompletionWhenExperimentEnabled(t *testing.T) 
 			require.NoError(t, Run(ctx, tt.args))
 			require.Contains(t, out.String(), "org/repo/tmux\n")
 			require.Contains(t, out.String(), "org/repo/zellij\n")
-			require.Contains(t, out.String(), "org/repo/herdr\n")
+			require.Contains(t, out.String(), "org/repo/herdr-tui\n")
 		})
 	}
 }

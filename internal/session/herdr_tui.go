@@ -27,7 +27,7 @@ const (
 type UnsupportedAgentCommandError struct{}
 
 func (UnsupportedAgentCommandError) Error() string {
-	return "--agent-cmd is not supported by the herdr session manager"
+	return "--agent-cmd is not supported by the herdr-tui session manager"
 }
 
 type SessionAlreadyExistsError struct {
@@ -90,7 +90,7 @@ func (h *herdrTUI) Name() string {
 }
 
 func (h *herdrTUI) Start(_, _ string) error {
-	return pkgerrors.New("herdr requires a structured agent start")
+	return pkgerrors.New("herdr-tui requires a structured agent start")
 }
 
 func (h *herdrTUI) StartAgent(start AgentStart) error {
@@ -210,7 +210,7 @@ func (h *herdrTUI) StartAgent(start AgentStart) error {
 // HERDR_AGENT detection while handing pane ownership back to that shell.
 func (h *herdrTUI) startContainerInPane(paneID string, command []string) error {
 	if len(command) == 0 {
-		return pkgerrors.New("herdr container launch is missing command argv")
+		return pkgerrors.New("herdr-tui container launch is missing command argv")
 	}
 
 	commandPath, err := writeHerdrTUILaunchScript(command)
@@ -470,7 +470,7 @@ func (h *herdrTUI) command(args ...string) *exec.Cmd {
 		command += " " + args[1]
 	}
 	h.logger.Debug().Str("cmd", command).Msg("command")
-	//nolint:gosec,noctx // G204: args are passed as argv to the selected herdr backend.
+	//nolint:gosec,noctx // G204: args are passed as argv to the selected herdr-tui backend.
 	return exec.Command("herdr", args...)
 }
 

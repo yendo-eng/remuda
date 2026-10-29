@@ -74,15 +74,15 @@ func TestAggregateMultiplexerListSkipsUnavailableBackends(t *testing.T) {
 
 	tmux := &aggregateBackend{name: "tmux", sessions: []session.SessionInfo{{Name: "org/repo/tmux", Multiplexer: "tmux"}}}
 	zellij := &aggregateBackend{name: "zellij", listErr: errors.New("zellij unavailable")}
-	herdr := &aggregateBackend{name: "herdr", sessions: []session.SessionInfo{{Name: "org/repo/herdr", Multiplexer: "herdr"}}}
-	mgr := session.NewAggregateMultiplexer(tmux, tmux, zellij, herdr)
+	herdrTUI := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/herdr-tui", Multiplexer: "herdr-tui"}}}
+	mgr := session.NewAggregateMultiplexer(tmux, tmux, zellij, herdrTUI)
 
 	got, err := mgr.List()
 
 	require.NoError(t, err)
 	require.Equal(t, []session.SessionInfo{
 		{Name: "org/repo/tmux", Multiplexer: "tmux"},
-		{Name: "org/repo/herdr", Multiplexer: "herdr"},
+		{Name: "org/repo/herdr-tui", Multiplexer: "herdr-tui"},
 	}, got)
 }
 
@@ -105,7 +105,7 @@ func TestAggregateMultiplexerDispatchesToSessionOwner(t *testing.T) {
 			t.Parallel()
 
 			unavailable := &aggregateBackend{name: "tmux", listErr: errors.New("tmux unavailable")}
-			owner := &aggregateBackend{name: "herdr", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
+			owner := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
 			mgr := session.NewAggregateMultiplexer(unavailable, unavailable, owner)
 
 			require.NoError(t, tt.run(mgr))
@@ -121,7 +121,7 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 		t.Parallel()
 
 		createTarget := &aggregateBackend{name: "tmux"}
-		owner := &aggregateBackend{name: "herdr", sessions: []session.SessionInfo{{Name: "org/repo/existing"}}}
+		owner := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/existing"}}}
 		mgr := session.NewAggregateMultiplexer(createTarget, createTarget, owner)
 
 		err := mgr.Start("org/repo/existing", "command")
@@ -134,14 +134,14 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 	t.Run("delegates name and start variants", func(t *testing.T) {
 		t.Parallel()
 
-		createTarget := &aggregateBackend{name: "herdr"}
+		createTarget := &aggregateBackend{name: "herdr-tui"}
 		mgr := session.NewAggregateMultiplexer(createTarget, createTarget)
 		envStarter, ok := mgr.(session.EnvStarter)
 		require.True(t, ok)
 		agentStarter, ok := mgr.(session.AgentStarter)
 		require.True(t, ok)
 
-		require.Equal(t, "herdr", mgr.Name())
+		require.Equal(t, "herdr-tui", mgr.Name())
 		require.NoError(t, mgr.Start("org/repo/basic", "command"))
 		require.NoError(t, envStarter.StartWithEnv("org/repo/env", "command", []string{"KEY=value"}))
 		require.NoError(t, agentStarter.StartAgent(session.AgentStart{SessionName: "org/repo/agent"}))
@@ -155,13 +155,13 @@ func TestAggregateMultiplexerSetsLoggerOnAllBackends(t *testing.T) {
 	t.Parallel()
 
 	tmux := &aggregateBackend{name: "tmux"}
-	herdr := &aggregateBackend{name: "herdr"}
-	mgr := session.NewAggregateMultiplexer(tmux, tmux, herdr)
+	herdrTUI := &aggregateBackend{name: "herdr-tui"}
+	mgr := session.NewAggregateMultiplexer(tmux, tmux, herdrTUI)
 	setter, ok := mgr.(session.LoggerSetter)
 	require.True(t, ok)
 
 	setter.SetLogger(zerolog.Nop())
 
 	require.True(t, tmux.loggerSet)
-	require.True(t, herdr.loggerSet)
+	require.True(t, herdrTUI.loggerSet)
 }
