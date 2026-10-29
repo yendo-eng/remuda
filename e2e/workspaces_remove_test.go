@@ -96,13 +96,27 @@ func TestWorkspacesRemove(t *testing.T) {
 		baseDir := h.RemudaConfig.ReposBaseDir
 		org, repo, _ := github.ParseRepo(remoteURL)
 		workspace := filepath.Join(baseDir, org, repo, "dirty-target")
+		cacheDir := filepath.Join(baseDir, org, repo, ".repo_cache")
 
 		h.RunOK("clone", "--name", "dirty-target", "--repo-url", remoteURL)
 		require.NoError(t, os.WriteFile(filepath.Join(workspace, "untracked.txt"), []byte("keep me"), 0o644))
 
+		// Swap remuda's lock for one with a hand-written reason.
+		const lockReason = "remuda container workspace; path differs between host and container"
+		testutils.RunGit(t, cacheDir, "worktree", "unlock", workspace)
+		testutils.RunGit(t, cacheDir, "worktree", "lock", "--reason", lockReason, workspace)
+
+		// The hand-made lock is lifted, so git refuses the removal for the
+		// local changes rather than for the lock.
 		res := h.Run("workspaces", "remove", workspace)
+		require.ErrorContains(t, res.Err, "contains modified or untracked files")
 		require.ErrorContains(t, res.Err, "rerun with --force")
 		require.DirExists(t, workspace)
+
+		// After the refused removal, the worktree is as it was, lock included.
+		lock, err := os.ReadFile(filepath.Join(cacheDir, ".git", "worktrees", "dirty-target", "locked"))
+		require.NoError(t, err)
+		require.Equal(t, lockReason+"\n", string(lock))
 	})
 
 	t.Run("force removes untracked linked worktree target", func(t *testing.T) {

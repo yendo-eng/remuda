@@ -19,6 +19,8 @@ func (sendStubGit) Clone(repoURL, dir string) error                          { r
 func (sendStubGit) Pull(dir string) error                                    { return nil }
 func (sendStubGit) WorktreeAdd(dir, branch string, args ...string) error     { return nil }
 func (sendStubGit) WorktreeRemove(dir string, args ...string) error          { return nil }
+func (sendStubGit) WorktreeLock(dir, worktree, reason string) error          { return nil }
+func (sendStubGit) WorktreeUnlock(dir, worktree string) error                { return nil }
 func (sendStubGit) Checkout(dir string, args ...string) error                { return nil }
 func (sendStubGit) ShowRef(dir, ref string, opts ...string) error            { return nil }
 func (sendStubGit) RevParse(dir, rev string, opts ...string) (string, error) { return "", nil }

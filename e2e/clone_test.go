@@ -257,6 +257,10 @@ func TestCloneWorktreeSurvivesPruneInContainer(t *testing.T) {
 
 	h.RunOK("clone", "--name", "wk", "--repo-url", remoteURL)
 
+	lock, err := os.ReadFile(filepath.Join(cacheDir, ".git", "worktrees", "wk", "locked"))
+	require.NoError(t, err)
+	require.Equal(t, "remuda workspace; its path is not visible inside containers\n", string(lock))
+
 	// Prune while the workspace is out of sight, as it is from inside a container.
 	hidden := workspace + ".hidden"
 	require.NoError(t, os.Rename(workspace, hidden))

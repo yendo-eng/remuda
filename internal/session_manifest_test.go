@@ -12,13 +12,15 @@ type fakeGit struct {
 	dirSeen     string
 }
 
-func (g *fakeGit) Clone(repoURL, dir string) error                        { return nil }
-func (g *fakeGit) Pull(dir string) error                                  { return nil }
-func (g *fakeGit) WorktreeAdd(dir, branch string, args ...string) error   { return nil }
-func (g *fakeGit) WorktreeRemove(dir string, args ...string) error        { return nil }
-func (g *fakeGit) Checkout(dir string, args ...string) error              { return nil }
-func (g *fakeGit) ShowRef(dir, ref string, opts ...string) error          { return nil }
-func (g *fakeGit) Branch(dir string, args ...string) error                { return nil }
+func (g *fakeGit) Clone(repoURL, dir string) error                      { return nil }
+func (g *fakeGit) Pull(dir string) error                                { return nil }
+func (g *fakeGit) WorktreeAdd(dir, branch string, args ...string) error { return nil }
+func (g *fakeGit) WorktreeRemove(dir string, args ...string) error      { return nil }
+func (g *fakeGit) WorktreeLock(dir, worktree, reason string) error      { return nil }
+func (g *fakeGit) WorktreeUnlock(dir, worktree string) error            { return nil }
+func (g *fakeGit) Checkout(dir string, args ...string) error            { return nil }
+func (g *fakeGit) ShowRef(dir, ref string, opts ...string) error        { return nil }
+func (g *fakeGit) Branch(dir string, args ...string) error              { return nil }
 func (g *fakeGit) RevParse(dir, rev string, opts ...string) (string, error) {
 	g.dirSeen = dir
 	return g.excludePath, nil

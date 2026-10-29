@@ -20,6 +20,12 @@ type Git interface {
 	// WorktreeRemove removes a worktree at the specified path.
 	WorktreeRemove(dir string, args ...string) error
 
+	// WorktreeLock locks the worktree at the specified path, recording reason.
+	WorktreeLock(dir, worktree, reason string) error
+
+	// WorktreeUnlock unlocks the worktree at the specified path.
+	WorktreeUnlock(dir, worktree string) error
+
 	// Checkout checks out the specified branch in the given directory.
 	Checkout(dir string, args ...string) error
 
@@ -70,6 +76,14 @@ func (g *shellGit) WorktreeAdd(baseDir, dir string, args ...string) error {
 func (g *shellGit) WorktreeRemove(dir string, args ...string) error {
 	args = append([]string{"-C", dir, "worktree", "remove"}, args...)
 	return util.RunCmdWithLogger(g.logger, "git", args...)
+}
+
+func (g *shellGit) WorktreeLock(dir, worktree, reason string) error {
+	return util.RunCmdWithLogger(g.logger, "git", "-C", dir, "worktree", "lock", "--reason", reason, worktree)
+}
+
+func (g *shellGit) WorktreeUnlock(dir, worktree string) error {
+	return util.RunCmdWithLogger(g.logger, "git", "-C", dir, "worktree", "unlock", worktree)
 }
 
 func (g *shellGit) Checkout(dir string, args ...string) error {

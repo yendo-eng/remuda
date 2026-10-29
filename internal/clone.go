@@ -135,7 +135,12 @@ func (k Remuda) Clone(
 			// Instead of copying the entire cached repository, create a linked worktree.
 			// This is much faster and avoids wasting disk space while still giving the
 			// caller an independent working directory.
-			if err := git.WorktreeAdd(k.Git, cacheDir, target, cmd.Force); err != nil {
+			//
+			// Inside a container, no workspace is at the path git recorded for it,
+			// so a `git worktree prune` run there would delete every workspace's
+			// worktree record. git never prunes a locked worktree.
+			const lockReason = "remuda workspace; its path is not visible inside containers"
+			if err := git.WorktreeAdd(k.Git, cacheDir, target, cmd.Force, "--lock", "--reason", lockReason); err != nil {
 				return pkgerrors.Wrap(err, "adding git worktree")
 			}
 		}
