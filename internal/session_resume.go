@@ -75,12 +75,13 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	var agentArgs []string
 	prompt := assemblePrompt(cmd.BeforePrompt, cmd.Prompt, cmd.AfterPrompt)
 	if agentCmd == "" {
+		extraArgs := sessionAgentArgs(k.Multiplexer, cmd.Detached, agentName)
 		var err error
-		agentCmd, err = sessionResumeCommandForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, prompt)
+		agentCmd, err = sessionResumeCommandForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, prompt, extraArgs...)
 		if err != nil {
 			return err
 		}
-		agentArgs, err = sessionResumeArgumentsForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, "")
+		agentArgs, err = sessionResumeArgumentsForAgent(agentName, model, cmd.Yolo, cmd.ReasoningLevel, "", extraArgs...)
 		if err != nil {
 			return err
 		}
@@ -119,7 +120,7 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	return err
 }
 
-func sessionResumeArgumentsForAgent(agent, model string, yolo bool, reasoningLevel, prompt string) ([]string, error) {
+func sessionResumeArgumentsForAgent(agent, model string, yolo bool, reasoningLevel, prompt string, extraArgs ...string) ([]string, error) {
 	var launcher agentlauncher.AgentLauncher
 	var prefix []string
 	switch normalizeSessionResumeAgent(agent) {
@@ -132,16 +133,16 @@ func sessionResumeArgumentsForAgent(agent, model string, yolo bool, reasoningLev
 	default:
 		return nil, pkgerrors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
 	}
-	args := launcher.Arguments(prompt)
+	args := launcher.Arguments(prompt, extraArgs...)
 	return append(prefix, args...), nil
 }
 
-func sessionResumeCommandForAgent(agent, model string, yolo bool, reasoningLevel, prompt string) (string, error) {
+func sessionResumeCommandForAgent(agent, model string, yolo bool, reasoningLevel, prompt string, extraArgs ...string) (string, error) {
 	switch normalizeSessionResumeAgent(agent) {
 	case "claude":
 		return claudeResumeCommand(model, yolo, reasoningLevel, prompt), nil
 	case "codex":
-		return codexResumeCommand(model, yolo, reasoningLevel, prompt), nil
+		return codexResumeCommand(model, yolo, reasoningLevel, prompt, extraArgs...), nil
 	case "opencode", "bash":
 		return "", pkgerrors.Errorf("session resume unsupported for agent %q", normalizeSessionResumeAgent(agent))
 	default:
@@ -161,7 +162,7 @@ func normalizeSessionResumeAgent(agent string) string {
 	}
 }
 
-func codexResumeCommand(model string, yolo bool, reasoningLevel, prompt string) string {
+func codexResumeCommand(model string, yolo bool, reasoningLevel, prompt string, extraArgs ...string) string {
 	command := "codex resume --last"
 	model = strings.TrimSpace(model)
 	if model != "" && model != agentlauncher.ModelAgentDefault {
@@ -174,6 +175,9 @@ func codexResumeCommand(model string, yolo bool, reasoningLevel, prompt string) 
 	if reasoningLevel != "" {
 		command += " --config model_reasoning_effort="
 		command += shellutil.SingleQuote(reasoningLevel)
+	}
+	for _, arg := range extraArgs {
+		command += " " + shellutil.SingleQuote(arg)
 	}
 	prompt = strings.TrimSpace(prompt)
 	if prompt != "" {

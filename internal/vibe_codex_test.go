@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/logging"
+	"github.com/yendo-eng/remuda/internal/session"
 )
 
 func TestCodexDockerVolumeMountOptions_IncludesPromptsMountWithAuthArtifacts(t *testing.T) {
@@ -117,6 +119,28 @@ func TestCodexDockerVolumeMountOptions_SkipsAgentsMountWhenFileMissing(t *testin
 
 	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
 	require.False(t, containsMountSuffix(opts, ":/root/.codex/AGENTS.md:ro"))
+}
+
+func TestVibe_DetachedHerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
+	t.Parallel()
+
+	sm := namedCaptureMultiplexer{captureMultiplexer: &captureMultiplexer{}, name: session.MultiplexerHerdrCore}
+	k := Remuda{
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		IO:          DefaultIO(),
+		Env:         env.StaticProvider{Values: map[string]string{"PATH": "/usr/bin:/bin"}},
+	}
+
+	err := k.Vibe(context.Background(), VibeCommand{
+		Agent:             "codex",
+		AgentArgs:         []string{"--search"},
+		Prompt:            "fix it",
+		Detached:          true,
+		ExistingWorkspace: t.TempDir(),
+	})
+	require.NoError(t, err)
+	require.Contains(t, sm.startCmd, "'--search' '--no-daemon' -- 'fix it'")
 }
 
 func containsMountSuffix(opts []string, suffix string) bool {

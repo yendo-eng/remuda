@@ -37,6 +37,30 @@ func TestValidateMultiplexerLaunchRejectsUnsupportedHerdrTUIAgentCommand(t *test
 	}
 }
 
+func TestSessionAgentArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		manager  session.SupportedMultiplexer
+		detached bool
+		agent    string
+		want     []string
+	}{
+		{name: "codex in herdr-core", manager: session.MultiplexerHerdrCore, detached: true, agent: "codex", want: []string{"--no-daemon"}},
+		{name: "codex run inline", manager: session.MultiplexerHerdrCore, agent: "codex"},
+		{name: "claude in herdr-core", manager: session.MultiplexerHerdrCore, detached: true, agent: "claude"},
+		{name: "codex in tmux", manager: session.MultiplexerTmux, detached: true, agent: "codex"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tt.want, sessionAgentArgs(session.NewMultiplexer(tt.manager), tt.detached, tt.agent))
+		})
+	}
+}
+
 func TestLaunchAgentSessionDoesNotInferSharedBeadsDir(t *testing.T) {
 	t.Parallel()
 
