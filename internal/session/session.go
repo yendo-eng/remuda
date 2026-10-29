@@ -18,7 +18,7 @@ type SupportedMultiplexer string
 const (
 	MultiplexerTmux     SupportedMultiplexer = "tmux"
 	MultiplexerZellij   SupportedMultiplexer = "zellij"
-	MultiplexerHerdrTUI SupportedMultiplexer = "herdr"
+	MultiplexerHerdrTUI SupportedMultiplexer = "herdr-tui"
 	MultiplexerRex      SupportedMultiplexer = "rex"
 )
 

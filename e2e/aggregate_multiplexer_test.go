@@ -16,14 +16,14 @@ func TestAggregateMultiplexerListAndCompletionFromConfig(t *testing.T) {
 	t.Parallel()
 	h, backends := newAggregateMultiplexerHarness(t)
 	require.NoError(t, backends[session.MultiplexerTmux].Start("org/repo/tmux-session", "command"))
-	require.NoError(t, backends[session.MultiplexerHerdrTUI].Start("org/repo/herdr-session", "command"))
+	require.NoError(t, backends[session.MultiplexerHerdrTUI].Start("org/repo/herdr-tui-session", "command"))
 
 	list := h.RunOK("session", "list")
-	require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-session\n", list.Stdout)
+	require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-tui-session\n", list.Stdout)
 
-	completion := h.RunOK("__complete", "--session-manager", "herdr", "session", "attach", "--name", "")
+	completion := h.RunOK("__complete", "--session-manager", "herdr-tui", "session", "attach", "--name", "")
 	require.Contains(t, completion.Stdout, "org/repo/tmux-session\n")
-	require.Contains(t, completion.Stdout, "org/repo/herdr-session\n")
+	require.Contains(t, completion.Stdout, "org/repo/herdr-tui-session\n")
 }
 
 func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
@@ -31,7 +31,7 @@ func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
 	h, backends := newAggregateMultiplexerHarness(t)
 	backends[session.MultiplexerTmux].AddSessionWithBuffer("org/repo/tmux-session", "")
 	backends[session.MultiplexerZellij].AddSessionWithBuffer("org/repo/zellij-session", "")
-	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-session", "")
+	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-tui-session", "")
 
 	list := h.RunOK("session", "list", "--json")
 
@@ -49,10 +49,10 @@ func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
     "Multiplexer": "zellij"
   },
   {
-    "Name": "org/repo/herdr-session",
+    "Name": "org/repo/herdr-tui-session",
     "Attached": false,
     "CreatedAt": "0001-01-01T00:00:00Z",
-    "Multiplexer": "herdr"
+    "Multiplexer": "herdr-tui"
   }
 ]`, list.Stdout)
 }
@@ -64,10 +64,10 @@ func TestAggregateMultiplexerRoutesAndRejectsCrossBackendDuplicate(t *testing.T)
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 	sessionName := session.SessionNameFromWorkspaceName(filepath.Join(h.RemudaConfig.ReposBaseDir, org, repo, "wk"))
-	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer(sessionName, "herdr output")
+	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer(sessionName, "herdr-tui output")
 
 	read := h.RunOK("session", "readbuf", "--name", sessionName)
-	require.Equal(t, "herdr output", read.Stdout)
+	require.Equal(t, "herdr-tui output", read.Stdout)
 	require.Equal(t, sessionName, backends[session.MultiplexerHerdrTUI].LastReadName)
 	require.Empty(t, backends[session.MultiplexerTmux].LastReadName)
 

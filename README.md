@@ -50,7 +50,7 @@ Requirements:
   - A terminal multiplexer:
     - `tmux` (the default backend for detached sessions)
     - `zellij`
-    - `herdr`
+    - `herdr` (Herdr TUI)
   - An agent harness. Currently supported:
     - [Codex](https://github.com/openai/codex)
     - [OpenCode](https://github.com/anomalyco/opencode)

@@ -110,7 +110,7 @@ Run `remuda vibe --help` for more options. Common flags:
   `defaults.agent_args.<agent>` (and per-repo overlays); CLI `--agent-arg`
   values append after resolved config defaults. Ignored when `--agent-cmd` is set.
 - `--agent-cmd <cmd>` – provide a complete custom command; your prompt will be
-  appended as the final argument. This is not supported by the `herdr` backend.
+  appended as the final argument. This is not supported by the `herdr-tui` backend.
 - `--use <prompt-name>` – apply a saved prompt (repeatable); `--no-use` excludes
   selected prompts.
 - `--use-position before|after` – place saved prompts before or after the main
@@ -137,8 +137,8 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--experiments cow-clone` – copy the cache copy-on-write; see the [Clone](#clone) options.
 - `--no-clone-hooks` – skip running all post-clone hooks (built-in and config-defined).
 - `--[no-]detached` – run the agent in the current terminal instead of using the configured session manager.
-- `--session-manager tmux|zellij|herdr|rex` – override the session manager for this invocation (tmux remains the default).
-- `REMUDA_SESSION_MANAGER=tmux|zellij|herdr|rex` – environment override for the default session manager (falls back to `tmux`).
+- `--session-manager tmux|zellij|herdr-tui|rex` – override the session manager for this invocation (tmux remains the default).
+- `REMUDA_SESSION_MANAGER=tmux|zellij|herdr-tui|rex` – environment override for the default session manager (falls back to `tmux`).
 - Containerized Claude runs forward `ANTHROPIC_API_KEY` and mount `~/.claude`
   plus `~/.claude.json` when present so Claude auth/session state is reused.
 - Containerized Codex runs persist ChatGPT account logins (not API-key auth):
