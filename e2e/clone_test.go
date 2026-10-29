@@ -240,6 +240,33 @@ func TestCloneHookFailureCleansWorktree(t *testing.T) {
 	require.NoDirExists(t, filepath.Join(baseRoot, org, repo, "wk"))
 }
 
+// Inside a container, no workspace is at the path git recorded for it, so a
+// `git worktree prune` run there deletes the record of every unlocked
+// worktree, and git stops working in those workspaces.
+func TestCloneWorktreeSurvivesPruneInContainer(t *testing.T) {
+	t.Parallel()
+	remoteURL := testutils.InitTestRemote(t)
+	baseRoot := filepath.Join(t.TempDir(), "repos")
+
+	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}))
+
+	org, repo, err := github.ParseRepo(remoteURL)
+	require.NoError(t, err)
+	cacheDir := filepath.Join(baseRoot, org, repo, ".repo_cache")
+	workspace := filepath.Join(baseRoot, org, repo, "wk")
+
+	h.RunOK("clone", "--name", "wk", "--repo-url", remoteURL)
+
+	// Prune while the workspace is out of sight, as it is from inside a container.
+	hidden := workspace + ".hidden"
+	require.NoError(t, os.Rename(workspace, hidden))
+	testutils.RunGit(t, cacheDir, "worktree", "prune")
+	require.NoError(t, os.Rename(hidden, workspace))
+
+	// git still works in the workspace once it is back in sight.
+	testutils.RunGit(t, workspace, "status")
+}
+
 func TestSkipCloneHooksOption(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
