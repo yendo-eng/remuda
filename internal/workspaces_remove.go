@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -125,11 +126,7 @@ func (k Remuda) RemoveWorkspace(workspace string, dryRun bool, force bool) error
 	org, repo, _ := util.SplitWorkspacePath(k.Config.ReposBaseDir, workspace)
 	if org != "" && isLinkedGitWorktree(workspace) {
 		cache := filepath.Join(k.Config.ReposBaseDir, org, repo, ".repo_cache")
-		args := []string{workspace}
-		if force {
-			args = append(args, "--force")
-		}
-		if err := k.Git.WorktreeRemove(cache, args...); err != nil {
+		if err := git.WorktreeRemove(k.Git, cache, workspace, force); err != nil {
 			if force {
 				logger.Warn().Err(err).Str("cache", cache).Str("workspace", workspace).Msg("worktree remove failed")
 			} else {

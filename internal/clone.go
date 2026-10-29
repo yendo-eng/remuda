@@ -208,7 +208,7 @@ func cleanupWorkspace(g git.Git, baseDir, cacheDir, target string, fullClone boo
 	}
 
 	return withRepoMutationLock(baseDir, func() error {
-		return git.WorktreeRemove(g, cacheDir, target)
+		return git.WorktreeRemove(g, cacheDir, target, true)
 	})
 }
 
