@@ -394,6 +394,33 @@ func TestSessionResume_ReasoningLevelAddsConfigFlag(t *testing.T) {
 	require.Contains(t, cmd, "model_reasoning_effort='high'")
 }
 
+func TestSessionResume_HerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	base := t.TempDir()
+	workspace := filepath.Join(base, "org", "repo", "folder")
+	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+	mgr := &fakeResumeMultiplexer{name: string(session.MultiplexerHerdrCore)}
+	k := Remuda{
+		Config:      Config{ReposBaseDir: base},
+		Multiplexer: mgr,
+		IO:          DefaultIO(),
+	}
+
+	err := k.SessionResume(context.Background(), SessionResumeCommand{
+		Workspace: workspace,
+		Prompt:    "continue",
+		Detached:  true,
+	})
+	require.NoError(t, err)
+
+	cmd, ok := mgr.started["org/repo/folder"]
+	require.True(t, ok)
+	require.Contains(t, cmd, "codex resume --last '--no-daemon' -- 'continue'")
+}
+
 func TestSessionResume_CustomAgentCommandAppendsPrompt(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

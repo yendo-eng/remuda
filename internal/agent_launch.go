@@ -145,6 +145,16 @@ func validateMultiplexerLaunch(manager session.Multiplexer, agentCmd string) err
 	return nil
 }
 
+// sessionAgentArgs returns the extra arguments agent needs in manager's
+// sessions, which are started only for detached launches.
+func sessionAgentArgs(manager session.Multiplexer, detached bool, agent string) []string {
+	// Without --no-daemon, Codex's commands run outside hc.
+	if detached && manager.Name() == string(session.MultiplexerHerdrCore) && agent == "codex" {
+		return []string{"--no-daemon"}
+	}
+	return nil
+}
+
 func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName string) env.Provider {
 	// The launch boundary owns env overrides for both inline and detached
 	// starts. Do not convert these to command-string prefixes; detached tmux

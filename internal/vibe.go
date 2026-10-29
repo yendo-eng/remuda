@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
@@ -252,8 +253,9 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	agentCommand := agent.Command(prompt)
 	var agentArgs []string
 	if cmd.AgentCmd == "" {
-		agentCommand = agent.Command(prompt, cmd.AgentArgs...)
-		agentArgs = agent.Arguments("", cmd.AgentArgs...)
+		extraArgs := slices.Concat(cmd.AgentArgs, sessionAgentArgs(k.Multiplexer, cmd.Detached, agentName))
+		agentCommand = agent.Command(prompt, extraArgs...)
+		agentArgs = agent.Arguments("", extraArgs...)
 	}
 
 	_, err = k.launchAgentSession(agentLaunchCommand{
