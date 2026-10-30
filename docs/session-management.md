@@ -218,8 +218,11 @@ session:
   there is one. With `aggregate-multiplexer` on, `session kill` fails with
   "session not found" for a name that only has finished terminals; remove
   those with `hc` instead.
-- Sessions aren't put in a Herdr space, so they don't appear in the Herdr
-  desktop app's window.
+- Each session appears in the Herdr desktop app in a space of its own,
+  named after the workspace folder. The space is set by the label
+  `herdr.space=remuda/org/repo/workspace` on the session's terminal.
+  Sessions started while the app is closed appear when it's opened, and a
+  session's space is removed along with its terminal by `session kill`.
 
 ## Shell Completions
 
