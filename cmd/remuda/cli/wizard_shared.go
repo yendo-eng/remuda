@@ -1,12 +1,10 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 
@@ -23,8 +21,6 @@ import (
 const (
 	sentinelCustomURL = "__custom_url__"
 )
-
-var errWizardFZFUnavailable = pkgerrors.New("fzf not available")
 
 type wizardPRItem struct {
 	Number      int    `json:"number"`
@@ -139,7 +135,7 @@ func wizardDetachedFlow(detached bool) (bool, error) {
 // Returns the PR ref (number as string) and the head branch name. Falls back to manual
 // input when listing fails or is empty. When entered manually, attempts to resolve the
 // head branch via `gh pr view`.
-func wizardSelectPR(logger zerolog.Logger, ownerRepo string, initRef string) ([]wizardPRSelection, error) {
+func wizardSelectPR(logger zerolog.Logger, env EnvProvider, ownerRepo string, initRef string) ([]wizardPRSelection, error) {
 	// Try gh pr list
 	var prs []wizardPRItem
 	const prLimit = "100"
@@ -162,9 +158,9 @@ func wizardSelectPR(logger zerolog.Logger, ownerRepo string, initRef string) ([]
 	}
 
 	if len(prs) > 0 {
-		selections, manualChoice, err := wizardSelectPRWithFZF(logger, prs, initRef)
+		selections, manualChoice, err := wizardSelectPRWithFZF(logger, env, prs, initRef)
 		if err != nil {
-			if errors.Is(err, errWizardFZFUnavailable) {
+			if errors.Is(err, errFZFUnavailable) {
 				selections, manualChoice, err = wizardSelectPRWithMenu(prs, initRef, prLimit)
 			}
 		}
@@ -179,41 +175,30 @@ func wizardSelectPR(logger zerolog.Logger, ownerRepo string, initRef string) ([]
 	return wizardSelectPRManual(logger, ownerRepo, initRef)
 }
 
-func wizardSelectPRWithFZF(logger zerolog.Logger, prs []wizardPRItem, initRef string) (selections []wizardPRSelection, manualChoice bool, err error) {
-	if _, lookErr := exec.LookPath("fzf"); lookErr != nil {
-		return nil, false, errWizardFZFUnavailable
-	}
+func wizardSelectPRWithFZF(logger zerolog.Logger, env EnvProvider, prs []wizardPRItem, initRef string) (selections []wizardPRSelection, manualChoice bool, err error) {
 	const manualOption = "__manual_pr__"
-	var input bytes.Buffer
+	var lines []string
 	headByRef := map[string]string{}
 	for _, pr := range prs {
 		value := fmt.Sprintf("%d", pr.Number)
 		headByRef[value] = pr.HeadRefName
 		label := fmt.Sprintf("#%d %s [%s]", pr.Number, pr.Title, pr.HeadRefName)
-		fmt.Fprintf(&input, "%s\t%s\n", value, label)
+		lines = append(lines, value+"\t"+label)
 	}
-	fmt.Fprintf(&input, "%s\t%s\n", manualOption, "Enter PR ref manually")
+	lines = append(lines, manualOption+"\tEnter PR ref manually")
 
-	args := []string{"--with-nth=2..", "--delimiter", "\t", "--prompt", "PR> ", "--header", "Select Pull Request(s)", "--multi"}
+	args := []string{"--with-nth=2..", "--delimiter", "\t", "--prompt", "PR> ", "--header", "Select Pull Request(s)"}
 	if q := strings.TrimSpace(initRef); q != "" {
 		args = append(args, "--query", q)
 	}
-	cmd := util.CmdWithLogger(logger, "fzf", args...)
-	cmd.Stdin = &input
-	out, cmdErr := cmd.Output()
-	if cmdErr != nil {
-		return nil, false, pkgerrors.Wrap(cmdErr, "wizard cancelled or failed")
+	selectedLines, err := runFZF(logger, env, lines, true, "", args...)
+	if err != nil {
+		return nil, false, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
-	selection := strings.TrimSpace(string(out))
-	if selection == "" {
+	if len(selectedLines) == 0 {
 		return nil, false, pkgerrors.Errorf("wizard cancelled or failed: empty selection")
 	}
-	lines := strings.Split(selection, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
+	for _, line := range selectedLines {
 		parts := strings.SplitN(line, "\t", 2)
 		value := parts[0]
 		if value == manualOption {

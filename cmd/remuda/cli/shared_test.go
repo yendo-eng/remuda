@@ -6,8 +6,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRunFZFReturnsUnavailableError(t *testing.T) {
+	t.Parallel()
+
+	_, err := runFZF(zerolog.Nop(), EnvMap{"PATH": t.TempDir()}, []string{"candidate"}, false, "")
+	require.ErrorIs(t, err, errFZFUnavailable)
+}
 
 func TestContextEngineeringOptionsNoUseFiltersUse(t *testing.T) {
 	t.Parallel()
