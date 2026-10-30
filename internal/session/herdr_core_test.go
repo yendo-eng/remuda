@@ -524,7 +524,7 @@ func TestHerdrCoreAttach(t *testing.T) {
 const herdrCoreTestRunParams = `{
 	"argv": ["<bash>", "-lc", "<script>"],
 	"cwd": "/src/remuda",
-	"labels": {"remuda.session": "yendo/remuda/rm-u1r1"},
+	"labels": {"remuda.session": "yendo/remuda/rm-u1r1", "herdr.space": "remuda/yendo/remuda/rm-u1r1"},
 	"no_parent": true,
 	"no_notify": true
 }`
