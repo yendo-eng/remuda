@@ -123,6 +123,27 @@ For `session kill --merge`, merge flags are selected with this precedence:
 2. `defaults.merge.gh_flags` in config
 3. built-in default `--rebase`
 
+## Session List JSON
+
+`remuda session list --json` prints an array with an object per session. Along
+with `Name`, `Attached`, `CreatedAt` and `Multiplexer`, each object has:
+
+- `AgentStatus`: what the agent in the session is doing: `working`, `idle`,
+  `done`, `blocked` (waiting on a person, such as at a permission prompt) or
+  `error`. Empty when unknown.
+- `Address`: the session manager's own address for the session. Empty when
+  unknown.
+
+Only herdr-core and herdr-tui sessions have them:
+
+- herdr-core: `AgentStatus` is the status the agent reports to hc, and
+  `Address` is the address of the session's terminal, as `hc attach` takes it.
+- herdr-tui: `AgentStatus` is the agent status of the session's workspace, and
+  `Address` is the workspace's ID, as `herdr workspace focus` takes it.
+
+`session list` fails on a status that Remuda doesn't recognize, whether or not
+`aggregate-multiplexer` is on.
+
 ## Resume Ignore Patterns
 
 `remuda session resume --pick` skips any workspace matching `session.prune.ignore`
