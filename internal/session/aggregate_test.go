@@ -2,10 +2,12 @@ package session_test
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -69,21 +71,63 @@ func (b *aggregateBackend) Kill(name string) error {
 }
 func (b *aggregateBackend) SetLogger(zerolog.Logger) { b.loggerSet = true }
 
-func TestAggregateMultiplexerListSkipsUnavailableBackends(t *testing.T) {
-	t.Parallel()
+func TestAggregateMultiplexerSkipsOnlyUnavailableBackends(t *testing.T) {
+	tests := []struct {
+		name string
+		// herdr is the body of a herdr CLI stand-in, when one is installed.
+		herdr string
+		// wantErr is in the errors from List and Find, when they fail.
+		wantErr string
+	}{
+		{name: "not installed"},
+		{
+			name: "herdr server not running",
+			// herdr 0.9.5 answers this way and starts no server.
+			herdr: `printf '%s\n' '{"id":"cli:workspace:list","error":{"code":"server_not_running","message":"no herdr server is running at /home/remuda/.config/herdr/sessions/default/herdr.sock"}}' >&2
+exit 1
+`,
+		},
+		{
+			name: "herdr failing otherwise",
+			herdr: `printf '%s\n' '{"id":"cli:workspace:list","error":{"code":"internal_error","message":"workspace list failed"}}' >&2
+exit 1
+`,
+			wantErr: "herdr-tui",
+		},
+	}
 
-	tmux := &aggregateBackend{name: "tmux", sessions: []session.SessionInfo{{Name: "org/repo/tmux", Multiplexer: "tmux"}}}
-	zellij := &aggregateBackend{name: "zellij", listErr: errors.New("zellij unavailable")}
-	herdrTUI := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/herdr-tui", Multiplexer: "herdr-tui"}}}
-	mgr := session.NewAggregateMultiplexer(tmux, tmux, zellij, herdrTUI)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// No backend CLI is on PATH or where the Rex app installs one, and no
+			// herdr-core core is listening.
+			dir := t.TempDir()
+			t.Setenv("PATH", dir)
+			t.Setenv("HOME", dir)
+			t.Setenv("REX_BIN_DIR", "")
+			t.Setenv("HC_SOCKET", filepath.Join(dir, "hc.sock"))
+			if tt.herdr != "" {
+				writeHerdrStub(t, dir, tt.herdr)
+			}
+			owner := &aggregateBackend{name: "owner", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
+			backends := make([]session.Multiplexer, 0, len(enums.ValidMultiplexers)+1)
+			for _, name := range enums.ValidMultiplexers {
+				backends = append(backends, session.NewMultiplexerWithLogger(session.SupportedMultiplexer(name), zerolog.Nop()))
+			}
+			mgr := session.NewAggregateMultiplexer(owner, append(backends, owner)...)
 
-	got, err := mgr.List()
-
-	require.NoError(t, err)
-	require.Equal(t, []session.SessionInfo{
-		{Name: "org/repo/tmux", Multiplexer: "tmux"},
-		{Name: "org/repo/herdr-tui", Multiplexer: "herdr-tui"},
-	}, got)
+			sessions, listErr := mgr.List()
+			info, findErr := mgr.Find("org/repo/owned")
+			if tt.wantErr != "" {
+				require.ErrorContains(t, listErr, tt.wantErr)
+				require.ErrorContains(t, findErr, tt.wantErr)
+				return
+			}
+			require.NoError(t, listErr)
+			require.Equal(t, owner.sessions, sessions)
+			require.NoError(t, findErr)
+			require.Equal(t, owner.sessions[0], info)
+		})
+	}
 }
 
 func TestAggregateMultiplexerDispatchesToSessionOwner(t *testing.T) {
@@ -104,7 +148,7 @@ func TestAggregateMultiplexerDispatchesToSessionOwner(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			unavailable := &aggregateBackend{name: "tmux", listErr: errors.New("tmux unavailable")}
+			unavailable := &aggregateBackend{name: "tmux", listErr: session.ErrMultiplexerUnavailable}
 			owner := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
 			mgr := session.NewAggregateMultiplexer(unavailable, unavailable, owner)
 

@@ -87,6 +87,22 @@ func TestAggregateMultiplexerRoutesAndRejectsCrossBackendDuplicate(t *testing.T)
 	require.Nil(t, backends[session.MultiplexerHerdrTUI].FindSession(sessionName))
 }
 
+func TestAggregateMultiplexerSkipsUnavailableBackends(t *testing.T) {
+	t.Parallel()
+	h, backends := newAggregateMultiplexerHarness(t)
+	backends[session.MultiplexerTmux].ListErr = session.ErrMultiplexerUnavailable
+	backends[session.MultiplexerZellij].ListErr = session.ErrMultiplexerUnavailable
+	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-tui-session", "herdr-tui output")
+	backends[session.MultiplexerRex].ListErr = session.ErrRexNotFound
+	backends[session.MultiplexerHerdrCore].ListErr = session.ErrHerdrCoreNotRunning
+
+	list := h.RunOK("session", "list")
+	require.Equal(t, "org/repo/herdr-tui-session\n", list.Stdout)
+
+	read := h.RunOK("session", "readbuf", "--name", "org/repo/herdr-tui-session")
+	require.Equal(t, "herdr-tui output", read.Stdout)
+}
+
 func TestAggregateMultiplexerFailsWhenABackendFails(t *testing.T) {
 	t.Parallel()
 

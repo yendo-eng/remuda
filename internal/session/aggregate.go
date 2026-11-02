@@ -3,6 +3,7 @@ package session
 import (
 	"errors"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/logging"
 )
@@ -63,9 +64,12 @@ func (m *aggregateMultiplexer) List() ([]SessionInfo, error) {
 	var sessions []SessionInfo
 	for _, backend := range m.backends {
 		found, err := backend.List()
-		if err != nil {
+		if errors.Is(err, ErrMultiplexerUnavailable) {
 			m.logUnavailableBackend(backend, err)
 			continue
+		}
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "list %s sessions", backend.Name())
 		}
 		sessions = append(sessions, found...)
 	}
@@ -119,20 +123,26 @@ func (m *aggregateMultiplexer) SetLogger(logger zerolog.Logger) {
 }
 
 func (m *aggregateMultiplexer) ensureSessionDoesNotExist(name string) error {
-	if _, _, err := m.findBackend(name); err == nil {
+	_, _, err := m.findBackend(name)
+	if err == nil {
 		return SessionAlreadyExistsError{Name: name}
 	}
-	return nil
+	if errors.Is(err, ErrSessionNotFound) {
+		return nil
+	}
+	return err
 }
 
 func (m *aggregateMultiplexer) findBackend(name string) (Multiplexer, SessionInfo, error) {
 	for _, backend := range m.backends {
 		info, err := backend.Find(name)
-		if err == nil {
+		switch {
+		case err == nil:
 			return backend, info, nil
-		}
-		if !errors.Is(err, ErrSessionNotFound) {
+		case errors.Is(err, ErrMultiplexerUnavailable):
 			m.logUnavailableBackend(backend, err)
+		case !errors.Is(err, ErrSessionNotFound):
+			return nil, SessionInfo{}, pkgerrors.Wrapf(err, "find session in %s", backend.Name())
 		}
 	}
 	return nil, SessionInfo{}, ErrSessionNotFound
