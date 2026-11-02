@@ -32,6 +32,11 @@ func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
 	backends[session.MultiplexerTmux].AddSessionWithBuffer("org/repo/tmux-session", "")
 	backends[session.MultiplexerZellij].AddSessionWithBuffer("org/repo/zellij-session", "")
 	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-tui-session", "")
+	herdrCore := backends[session.MultiplexerHerdrCore]
+	herdrCore.AddSessionWithBuffer("org/repo/herdr-core-session", "")
+	reported := herdrCore.FindSession("org/repo/herdr-core-session")
+	reported.AgentStatus = session.AgentStatusBlocked
+	reported.Address = "t1"
 
 	list := h.RunOK("session", "list", "--json")
 
@@ -40,19 +45,33 @@ func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
     "Name": "org/repo/tmux-session",
     "Attached": false,
     "CreatedAt": "0001-01-01T00:00:00Z",
-    "Multiplexer": "tmux"
+    "Multiplexer": "tmux",
+    "AgentStatus": "",
+    "Address": ""
   },
   {
     "Name": "org/repo/zellij-session",
     "Attached": false,
     "CreatedAt": "0001-01-01T00:00:00Z",
-    "Multiplexer": "zellij"
+    "Multiplexer": "zellij",
+    "AgentStatus": "",
+    "Address": ""
   },
   {
     "Name": "org/repo/herdr-tui-session",
     "Attached": false,
     "CreatedAt": "0001-01-01T00:00:00Z",
-    "Multiplexer": "herdr-tui"
+    "Multiplexer": "herdr-tui",
+    "AgentStatus": "",
+    "Address": ""
+  },
+  {
+    "Name": "org/repo/herdr-core-session",
+    "Attached": false,
+    "CreatedAt": "0001-01-01T00:00:00Z",
+    "Multiplexer": "herdr-core",
+    "AgentStatus": "blocked",
+    "Address": "t1"
   }
 ]`, list.Stdout)
 }

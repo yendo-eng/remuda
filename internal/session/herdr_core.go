@@ -102,6 +102,21 @@ type herdrCoreTerminal struct {
 	Labels    map[string]string `json:"labels"`
 	State     string            `json:"state"`
 	CreatedMS int64             `json:"created_ms"`
+	Status    struct {
+		State string `json:"state"`
+	} `json:"status"`
+}
+
+// herdrCoreAgentStatuses maps the states of herdr-core's status records, as
+// listed in its schema, to agent statuses. A terminal whose program never
+// reported a status has no record, so its state is empty.
+var herdrCoreAgentStatuses = map[string]AgentStatus{
+	"":        AgentStatusUnknown,
+	"idle":    AgentStatusIdle,
+	"working": AgentStatusWorking,
+	"done":    AgentStatusDone,
+	"blocked": AgentStatusBlocked,
+	"error":   AgentStatusError,
 }
 
 // herdrCoreClient is one connection to a core, carrying JSON-RPC 2.0 messages
@@ -191,7 +206,11 @@ func (h *herdrCore) List() ([]SessionInfo, error) {
 	}
 	infos := make([]SessionInfo, 0, len(terminals))
 	for _, terminal := range terminals {
-		infos = append(infos, terminal.sessionInfo())
+		info, err := terminal.sessionInfo()
+		if err != nil {
+			return nil, err
+		}
+		infos = append(infos, info)
 	}
 	return infos, nil
 }
@@ -202,7 +221,7 @@ func (h *herdrCore) Find(name string) (SessionInfo, error) {
 		return SessionInfo{}, err
 	}
 	client.close()
-	return terminal.sessionInfo(), nil
+	return terminal.sessionInfo()
 }
 
 // Attach runs hc attach on the socket the session was found on.
@@ -464,12 +483,13 @@ func (t herdrCoreTerminal) id() string {
 	return t.Address
 }
 
-func (t herdrCoreTerminal) sessionInfo() SessionInfo {
-	return SessionInfo{
+func (t herdrCoreTerminal) sessionInfo() (SessionInfo, error) {
+	return withAgentStatus(SessionInfo{
 		Name:        t.Labels[herdrCoreSessionLabel],
 		CreatedAt:   time.UnixMilli(t.CreatedMS).UTC(),
 		Multiplexer: string(MultiplexerHerdrCore),
-	}
+		Address:     t.Address,
+	}, herdrCoreAgentStatuses, t.Status.State)
 }
 
 // findHC locates the hc CLI on PATH, else in ~/.local/bin.
