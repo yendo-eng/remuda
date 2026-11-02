@@ -10,6 +10,7 @@ import (
 
 type MockMultiplexer struct {
 	Backend       session.SupportedMultiplexer
+	ListErr       error // Returned by List and Find when set
 	sessions      []Session
 	ReadBuf       string            // Default buffer for all sessions
 	ReadBufs      map[string]string // Per-session buffers (keyed by session name)
@@ -60,6 +61,9 @@ func (f *MockMultiplexer) StartWithEnv(sessionName, command string, env []string
 }
 
 func (f *MockMultiplexer) List() ([]session.SessionInfo, error) {
+	if f.ListErr != nil {
+		return nil, f.ListErr
+	}
 	var infos []session.SessionInfo
 	for _, sess := range f.sessions {
 		infos = append(infos, sess.SessionInfo)
@@ -68,6 +72,9 @@ func (f *MockMultiplexer) List() ([]session.SessionInfo, error) {
 }
 
 func (f *MockMultiplexer) Find(name string) (session.SessionInfo, error) {
+	if f.ListErr != nil {
+		return session.SessionInfo{}, f.ListErr
+	}
 	for _, sess := range f.sessions {
 		if sess.Name == name {
 			return sess.SessionInfo, nil
