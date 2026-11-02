@@ -1,7 +1,9 @@
 package session
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -24,6 +26,29 @@ const (
 )
 
 var ErrSessionNotFound = pkgerrors.New("session not found")
+
+// ErrMultiplexerUnavailable is matched by the errors of a backend that isn't
+// installed or isn't running, so the aggregate multiplexer can skip it.
+var ErrMultiplexerUnavailable = pkgerrors.New("session manager is unavailable")
+
+// unavailableError marks err as meaning its backend isn't installed or isn't
+// running.
+type unavailableError struct{ err error }
+
+func (e unavailableError) Error() string { return e.err.Error() }
+
+func (e unavailableError) Unwrap() error { return e.err }
+
+func (unavailableError) Is(target error) bool { return target == ErrMultiplexerUnavailable }
+
+// unavailableIfMissing marks err as unavailable when it's from running a
+// backend CLI that isn't installed.
+func unavailableIfMissing(err error) error {
+	if errors.Is(err, exec.ErrNotFound) {
+		return unavailableError{err: err}
+	}
+	return err
+}
 
 func (s *SupportedMultiplexer) UnmarshalText(text []byte) error {
 	val := strings.ToLower(strings.TrimSpace(string(text)))

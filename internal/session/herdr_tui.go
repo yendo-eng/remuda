@@ -441,7 +441,7 @@ func (h *herdrTUI) runOutput(args ...string) (string, error) {
 			message = strings.TrimSpace(string(exitErr.Stderr))
 		}
 		if message == "" {
-			return "", pkgerrors.Wrap(err, "herdr")
+			return "", pkgerrors.Wrap(unavailableIfMissing(err), "herdr")
 		}
 		var response struct {
 			Error struct {
@@ -449,11 +449,15 @@ func (h *herdrTUI) runOutput(args ...string) (string, error) {
 			} `json:"error"`
 		}
 		if json.Unmarshal([]byte(message), &response) == nil && response.Error.Code != "" {
-			return "", &herdrTUICommandError{
+			commandErr := &herdrTUICommandError{
 				code:   response.Error.Code,
 				output: message,
 				err:    err,
 			}
+			if commandErr.code == "server_not_running" {
+				return "", unavailableError{err: commandErr}
+			}
+			return "", commandErr
 		}
 		return "", pkgerrors.Wrapf(err, "herdr: %s", message)
 	}

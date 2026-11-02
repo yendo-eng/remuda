@@ -40,7 +40,7 @@ var herdrCorePaneEnv = paneEnv{multiplexer: string(MultiplexerHerdrCore), prefix
 
 // ErrHerdrCoreNotRunning means no core is listening on herdr-core's socket.
 // Remuda never starts one.
-var ErrHerdrCoreNotRunning = pkgerrors.New("herdr-core is not running")
+var ErrHerdrCoreNotRunning error = unavailableError{err: pkgerrors.New("herdr-core is not running")}
 
 // ErrHCNotFound means no hc CLI is installed where Remuda looks for one.
 var ErrHCNotFound = pkgerrors.New("hc CLI not found; install herdr-core")

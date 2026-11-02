@@ -37,7 +37,7 @@ var rexPaneEnv = paneEnv{multiplexer: string(MultiplexerRex), prefix: "REX_"}
 var rexAPIRevisionPattern = regexp.MustCompile(`(?m)^api:\s*revision\s+(\d+)`)
 
 // ErrRexNotFound means no rex CLI is installed where Remuda looks for one.
-var ErrRexNotFound = pkgerrors.New("rex CLI not found; install Rex or set REX_BIN_DIR")
+var ErrRexNotFound error = unavailableError{err: pkgerrors.New("rex CLI not found; install Rex or set REX_BIN_DIR")}
 
 // ErrRexAppNotConnected means no Rex app is connected to show a session in.
 var ErrRexAppNotConnected = pkgerrors.New("no Rex app is connected to the Rex server; open Rex and retry")

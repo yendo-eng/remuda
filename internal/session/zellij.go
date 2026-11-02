@@ -94,7 +94,7 @@ func (z *zellij) List() ([]SessionInfo, error) {
 				return nil, nil
 			}
 		}
-		return nil, pkgerrors.Wrap(err, "zellij list-sessions")
+		return nil, pkgerrors.Wrap(unavailableIfMissing(err), "zellij list-sessions")
 	}
 
 	return parseZellijListOutput(out), nil

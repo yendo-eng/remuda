@@ -114,7 +114,7 @@ func (m *tmux) List() ([]SessionInfo, error) {
 		if strings.Contains(out, "no server running") || strings.Contains(out, "no sessions") {
 			return nil, nil
 		}
-		return nil, pkgerrors.Wrap(err, "tmux list-sessions")
+		return nil, pkgerrors.Wrap(unavailableIfMissing(err), "tmux list-sessions")
 	}
 
 	return parseTmuxListOutput(string(out)), nil
