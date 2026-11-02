@@ -235,7 +235,7 @@ func TestHerdrTUIListFiltersByMetadata(t *testing.T) {
 	writeHerdrStub(t, dir, `
 case "$1 $2" in
   "workspace list")
-    printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w1","tokens":{"remuda":"1","org":"yendo","repo":"remuda","folder":"rm-ypr2","created_at":"2026-08-13T19:00:00Z"}},{"workspace_id":"w2","tokens":{}},{"workspace_id":"w3","tokens":{"remuda":"1","org":"","repo":"remuda","folder":"broken","created_at":"2026-08-13T19:00:00Z"}},{"workspace_id":"w4","tokens":{"remuda":"1","org":"yendo","repo":"remuda","folder":"unknown-age","created_at":"invalid"}}]}}'
+    printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w1","agent_status":"done","tokens":{"remuda":"1","org":"yendo","repo":"remuda","folder":"rm-ypr2","created_at":"2026-08-13T19:00:00Z"}},{"workspace_id":"w2","agent_status":"idle","tokens":{}},{"workspace_id":"w3","agent_status":"idle","tokens":{"remuda":"1","org":"","repo":"remuda","folder":"broken","created_at":"2026-08-13T19:00:00Z"}},{"workspace_id":"w4","agent_status":"idle","tokens":{"remuda":"1","org":"yendo","repo":"remuda","folder":"unknown-age","created_at":"invalid"}}]}}'
     ;;
 esac
 `)
@@ -246,10 +246,51 @@ esac
 	require.Len(t, sessions, 2)
 	require.Equal(t, "yendo/remuda/rm-ypr2", sessions[0].Name)
 	require.Equal(t, "herdr-tui", sessions[0].Multiplexer)
+	require.Equal(t, "w1", sessions[0].Address)
 	require.Equal(t, "2026-08-13T19:00:00Z", sessions[0].CreatedAt.Format("2006-01-02T15:04:05Z07:00"))
 	require.Equal(t, "yendo/remuda/unknown-age", sessions[1].Name)
 	require.Equal(t, "herdr-tui", sessions[1].Multiplexer)
+	require.Equal(t, "w4", sessions[1].Address)
 	require.True(t, sessions[1].CreatedAt.IsZero())
+}
+
+func TestHerdrTUIAgentStatus(t *testing.T) {
+	tests := []struct {
+		status  string
+		want    session.AgentStatus
+		wantErr error
+	}{
+		{status: "unknown", want: session.AgentStatusUnknown},
+		{status: "idle", want: session.AgentStatusIdle},
+		{status: "working", want: session.AgentStatusWorking},
+		{status: "done", want: session.AgentStatusDone},
+		{status: "blocked", want: session.AgentStatusBlocked},
+		{
+			status:  "paused",
+			wantErr: session.UnknownAgentStatusError{Multiplexer: session.MultiplexerHerdrTUI, Name: "yendo/remuda/rm-uj0z", Address: "w1", Status: "paused"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			dir := t.TempDir()
+			writeHerdrStub(t, dir, `
+case "$1 $2" in
+  "workspace list")
+    printf '{"result":{"workspaces":[{"workspace_id":"w1","agent_status":"%s","tokens":{"remuda":"1","org":"yendo","repo":"remuda","folder":"rm-uj0z"}}]}}\n' "$REMUDA_HERDR_AGENT_STATUS"
+    ;;
+esac
+`)
+			t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			t.Setenv("REMUDA_HERDR_AGENT_STATUS", tt.status)
+
+			sessions, err := session.NewHerdrTUI().List()
+			require.Equal(t, tt.wantErr, err)
+			if tt.wantErr == nil {
+				require.Len(t, sessions, 1)
+				require.Equal(t, tt.want, sessions[0].AgentStatus)
+			}
+		})
+	}
 }
 
 func TestHerdrTUIStartAgentRejectsDuplicateSession(t *testing.T) {
@@ -328,7 +369,7 @@ func TestHerdrTUISessionOperations(t *testing.T) {
 	writeHerdrStub(t, dir, `
 case "$1 $2" in
   "workspace list")
-    printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w7","tokens":{"remuda":"1","org":"yendo","repo":"remuda","folder":"rm-ypr2","created_at":"2026-08-13T19:00:00Z"}}]}}'
+    printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w7","agent_status":"idle","tokens":{"remuda":"1","org":"yendo","repo":"remuda","folder":"rm-ypr2","created_at":"2026-08-13T19:00:00Z"}}]}}'
     ;;
   "pane list")
     printf '%s\n' '{"result":{"panes":[{"pane_id":"w7:p1"}]}}'

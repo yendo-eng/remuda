@@ -94,6 +94,12 @@ exit 1
 `,
 			wantErr: "herdr-tui",
 		},
+		{
+			name: "herdr reporting an unknown agent status",
+			herdr: `printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w1","agent_status":"paused","tokens":{"remuda":"1","org":"org","repo":"repo","folder":"held"}}]}}'
+`,
+			wantErr: `session "org/repo/held" (herdr-tui address w1) has unknown agent status "paused"`,
+		},
 	}
 
 	for _, tt := range tests {
