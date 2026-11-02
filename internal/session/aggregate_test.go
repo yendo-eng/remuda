@@ -114,6 +114,40 @@ func TestAggregateMultiplexerDispatchesToSessionOwner(t *testing.T) {
 	}
 }
 
+func TestAggregateMultiplexerReturnsBackendErrors(t *testing.T) {
+	t.Parallel()
+
+	backendErr := errors.New("unexpected end of JSON input")
+	tests := []struct {
+		name string
+		run  func(session.Multiplexer) error
+	}{
+		{name: "list", run: func(m session.Multiplexer) error { _, err := m.List(); return err }},
+		{name: "find", run: func(m session.Multiplexer) error { _, err := m.Find("org/repo/held"); return err }},
+		{name: "attach", run: func(m session.Multiplexer) error { return m.Attach("org/repo/held") }},
+		{name: "read", run: func(m session.Multiplexer) error { _, err := m.ReadBuffer("org/repo/held", 20); return err }},
+		{name: "send", run: func(m session.Multiplexer) error { return m.Send("org/repo/held", "hello", true) }},
+		{name: "kill", run: func(m session.Multiplexer) error { return m.Kill("org/repo/held") }},
+		{name: "start", run: func(m session.Multiplexer) error { return m.Start("org/repo/held", "command") }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			createTarget := &aggregateBackend{name: "tmux"}
+			failing := &aggregateBackend{name: "herdr-core", sessions: []session.SessionInfo{{Name: "org/repo/held"}}, listErr: backendErr}
+			mgr := session.NewAggregateMultiplexer(createTarget, createTarget, failing)
+
+			err := tt.run(mgr)
+
+			require.ErrorIs(t, err, backendErr)
+			require.ErrorContains(t, err, "herdr-core")
+			require.Empty(t, createTarget.started)
+		})
+	}
+}
+
 func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 	t.Parallel()
 

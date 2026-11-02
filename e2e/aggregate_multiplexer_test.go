@@ -87,6 +87,53 @@ func TestAggregateMultiplexerRoutesAndRejectsCrossBackendDuplicate(t *testing.T)
 	require.Nil(t, backends[session.MultiplexerHerdrTUI].FindSession(sessionName))
 }
 
+func TestAggregateMultiplexerFailsWhenABackendFails(t *testing.T) {
+	t.Parallel()
+
+	backendErr := session.UnsupportedHerdrCoreGenerationError{Generation: 2}
+	tests := []struct {
+		name string
+		// cloned is whether the workspace is cloned before the command runs.
+		cloned bool
+		args   func(remoteURL, workspace string) []string
+	}{
+		{name: "session list", args: func(_, _ string) []string { return []string{"session", "list"} }},
+		{name: "workspaces remove", cloned: true, args: func(_, workspace string) []string { return []string{"workspaces", "remove", workspace} }},
+		{name: "session resume", cloned: true, args: func(_, workspace string) []string { return []string{"session", "resume", workspace} }},
+		{name: "vibe", args: func(remoteURL, _ string) []string {
+			return []string{"vibe", "--name", "wk", "--repo-url", remoteURL, "--agent-cmd", "echo", "--no-container", "prompt"}
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			h, backends := newAggregateMultiplexerHarness(t)
+			h.SetEnv("REMUDA_CONTAINER", "false")
+			remoteURL := testutils.InitTestRemote(t)
+			org, repo, err := github.ParseRepo(remoteURL)
+			require.NoError(t, err)
+			workspace := filepath.Join(h.RemudaConfig.ReposBaseDir, org, repo, "wk")
+			if tt.cloned {
+				h.RunOK("clone", "--name", "wk", "--repo-url", remoteURL)
+			}
+			// The workspace's session is held by a backend that fails to list it.
+			sessionName := session.SessionNameFromWorkspaceName(workspace)
+			backends[session.MultiplexerHerdrCore].AddSessionWithBuffer(sessionName, "")
+			backends[session.MultiplexerHerdrCore].ListErr = backendErr
+
+			res := h.Run(tt.args(remoteURL, workspace)...)
+
+			require.ErrorIs(t, res.Err, backendErr)
+			require.Empty(t, res.Stdout)
+			if tt.cloned {
+				require.DirExists(t, workspace)
+			}
+			require.Nil(t, backends[session.MultiplexerTmux].FindSession(sessionName))
+		})
+	}
+}
+
 func newAggregateMultiplexerHarness(t *testing.T) (*testutils.Harness, map[session.SupportedMultiplexer]*testutils.MockMultiplexer) {
 	t.Helper()
 
