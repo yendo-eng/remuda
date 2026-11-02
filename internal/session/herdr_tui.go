@@ -63,6 +63,18 @@ func (e *herdrTUICommandError) Unwrap() error {
 type herdrTUIWorkspace struct {
 	WorkspaceID string            `json:"workspace_id"`
 	Tokens      map[string]string `json:"tokens"`
+	AgentStatus string            `json:"agent_status"`
+}
+
+// herdrTUIAgentStatuses maps herdr's agent statuses to Remuda's. No list of
+// them is documented: idle, done and unknown are seen in herdr's replies, and
+// working and blocked are assumed.
+var herdrTUIAgentStatuses = map[string]AgentStatus{
+	"unknown": AgentStatusUnknown,
+	"idle":    AgentStatusIdle,
+	"working": AgentStatusWorking,
+	"done":    AgentStatusDone,
+	"blocked": AgentStatusBlocked,
 }
 
 type herdrTUIPane struct {
@@ -289,7 +301,10 @@ func (h *herdrTUI) List() ([]SessionInfo, error) {
 			h.logger.Debug().Str("workspace", workspace.WorkspaceID).Msg("skipping herdr workspace with invalid remuda identity metadata")
 			continue
 		}
-		info := SessionInfo{Name: name, Multiplexer: string(MultiplexerHerdrTUI)}
+		info, err := withAgentStatus(SessionInfo{Name: name, Multiplexer: string(MultiplexerHerdrTUI), Address: workspace.WorkspaceID}, herdrTUIAgentStatuses, workspace.AgentStatus)
+		if err != nil {
+			return nil, err
+		}
 		createdAt, err := time.Parse(time.RFC3339Nano, workspace.Tokens["created_at"])
 		if err == nil {
 			info.CreatedAt = createdAt
