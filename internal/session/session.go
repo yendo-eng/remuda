@@ -2,6 +2,7 @@ package session
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -138,6 +139,54 @@ type SessionInfo struct {
 	Attached    bool
 	CreatedAt   time.Time // Zero means unknown.
 	Multiplexer string
+	AgentStatus AgentStatus
+	// Address is the multiplexer's own address for the session. Empty means
+	// unknown.
+	Address string
+}
+
+// AgentStatus is what the agent in a session is doing, as its multiplexer
+// reports it.
+type AgentStatus string
+
+const (
+	AgentStatusUnknown AgentStatus = ""
+	AgentStatusWorking AgentStatus = "working"
+	AgentStatusIdle    AgentStatus = "idle"
+	AgentStatusDone    AgentStatus = "done"
+	// AgentStatusBlocked means the agent is waiting on a person, such as at a
+	// permission prompt.
+	AgentStatusBlocked AgentStatus = "blocked"
+	AgentStatusError   AgentStatus = "error"
+)
+
+// UnknownAgentStatusError is the agent status Status, reported for the session
+// Name at Address in Multiplexer, that maps to no AgentStatus.
+type UnknownAgentStatusError struct {
+	Multiplexer SupportedMultiplexer
+	Name        string
+	Address     string
+	Status      string
+}
+
+func (e UnknownAgentStatusError) Error() string {
+	return fmt.Sprintf("session %q (%s address %s) has unknown agent status %q", e.Name, e.Multiplexer, e.Address, e.Status)
+}
+
+// withAgentStatus returns info with the AgentStatus that statuses maps word,
+// the agent status reported for the session, to.
+func withAgentStatus(info SessionInfo, statuses map[string]AgentStatus, word string) (SessionInfo, error) {
+	status, ok := statuses[word]
+	if !ok {
+		return SessionInfo{}, UnknownAgentStatusError{
+			Multiplexer: SupportedMultiplexer(info.Multiplexer),
+			Name:        info.Name,
+			Address:     info.Address,
+			Status:      word,
+		}
+	}
+	info.AgentStatus = status
+	return info, nil
 }
 
 func (s SessionInfo) IsRemudaSession() bool {

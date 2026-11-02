@@ -32,10 +32,15 @@ const (
 	herdrCoreTestLookup = `terminal.list {"all":true,"labels":{"remuda.session":"yendo/remuda/rm-u1r1"}}`
 )
 
-var herdrCoreTestInfo = SessionInfo{
-	Name:        herdrCoreTestSession,
-	CreatedAt:   time.UnixMilli(herdrCoreTestCreatedMS).UTC(),
-	Multiplexer: "herdr-core",
+// herdrCoreTestInfo is the session info of the terminal at address labeled
+// herdrCoreTestSession.
+func herdrCoreTestInfo(address string) SessionInfo {
+	return SessionInfo{
+		Name:        herdrCoreTestSession,
+		CreatedAt:   time.UnixMilli(herdrCoreTestCreatedMS).UTC(),
+		Multiplexer: "herdr-core",
+		Address:     address,
+	}
 }
 
 func TestHerdrCoreSocket(t *testing.T) {
@@ -225,7 +230,7 @@ func TestHerdrCoreFind(t *testing.T) {
 			name:      "exact label",
 			terminals: []fakeHerdrCoreTerminal{liveHerdrCoreTerminal("t1", herdrCoreTestSession), liveHerdrCoreTerminal("t2", herdrCoreTestSession+"-2")},
 			find:      herdrCoreTestSession,
-			want:      herdrCoreTestInfo,
+			want:      herdrCoreTestInfo("t1"),
 		},
 		{
 			name:      "shared label",
@@ -243,7 +248,7 @@ func TestHerdrCoreFind(t *testing.T) {
 			name:      "live terminal beside a finished one",
 			terminals: []fakeHerdrCoreTerminal{finishedHerdrCoreTerminal("t1", herdrCoreTestSession), liveHerdrCoreTerminal("t2", herdrCoreTestSession)},
 			find:      herdrCoreTestSession,
-			want:      herdrCoreTestInfo,
+			want:      herdrCoreTestInfo("t2"),
 		},
 		{
 			name:      "label outside the Remuda naming scheme",
@@ -289,11 +294,57 @@ func TestHerdrCoreList(t *testing.T) {
 
 	sessions, err := core.backend().List()
 	require.NoError(t, err)
-	require.Equal(t, []SessionInfo{
-		herdrCoreTestInfo,
-		{Name: "yendo/remuda/other", CreatedAt: herdrCoreTestInfo.CreatedAt, Multiplexer: "herdr-core"},
-	}, sessions)
+	other := herdrCoreTestInfo("t5")
+	other.Name = "yendo/remuda/other"
+	require.Equal(t, []SessionInfo{herdrCoreTestInfo("t1"), other}, sessions)
 	require.Equal(t, []string{herdrCoreTestHello, `terminal.list {}`}, core.calls())
+}
+
+func TestHerdrCoreAgentStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		// state is the state in the terminal's status record. The terminal
+		// has no record when state is empty.
+		state      string
+		wantStatus AgentStatus
+		wantErr    error
+	}{
+		{name: "never reported", wantStatus: AgentStatusUnknown},
+		{name: "idle", state: "idle", wantStatus: AgentStatusIdle},
+		{name: "working", state: "working", wantStatus: AgentStatusWorking},
+		{name: "done", state: "done", wantStatus: AgentStatusDone},
+		{name: "blocked", state: "blocked", wantStatus: AgentStatusBlocked},
+		{name: "error", state: "error", wantStatus: AgentStatusError},
+		{
+			name:    "unrecognized",
+			state:   "paused",
+			wantErr: UnknownAgentStatusError{Multiplexer: MultiplexerHerdrCore, Name: herdrCoreTestSession, Address: "t1", Status: "paused"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			terminal := liveHerdrCoreTerminal("t1", herdrCoreTestSession)
+			if tt.state != "" {
+				terminal.Status = map[string]string{"app": "codex", "state": tt.state}
+			}
+			core := newFakeHerdrCore(t, terminal)
+
+			var want []SessionInfo
+			if tt.wantErr == nil {
+				info := herdrCoreTestInfo("t1")
+				info.AgentStatus = tt.wantStatus
+				want = []SessionInfo{info}
+			}
+			sessions, err := core.backend().List()
+			require.Equal(t, tt.wantErr, err)
+			require.Equal(t, want, sessions)
+		})
+	}
 }
 
 func TestHerdrCoreStartChecksExistingSessions(t *testing.T) {
@@ -574,6 +625,8 @@ type fakeHerdrCoreTerminal struct {
 	Labels    map[string]string `json:"labels"`
 	State     string            `json:"state"`
 	CreatedMS int64             `json:"created_ms"`
+	// Status is the terminal's status record, which it has none of when nil.
+	Status map[string]string `json:"status,omitempty"`
 	// Text is what terminal.read returns.
 	Text string `json:"-"`
 	// Blocked, when set, is the message of terminal.send's blocked error.
