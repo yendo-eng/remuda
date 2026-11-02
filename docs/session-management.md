@@ -197,7 +197,8 @@ session:
 - A core is never started by Remuda, so start one first; any `hc` command,
   such as `hc ls`, starts one. With no core running, commands fail with
   "herdr-core is not running", and `aggregate-multiplexer` skips the backend.
-  The core must speak protocol generation 1.
+  The core must speak protocol generation 1; with a core that speaks another,
+  commands fail even with `aggregate-multiplexer` on.
 - Each session is an hc terminal labeled `remuda.session=org/repo/workspace`.
   A name shared by more than one live terminal is rejected rather than
   guessed at; end the extra terminal with `hc`.
