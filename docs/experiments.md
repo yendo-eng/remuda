@@ -19,10 +19,4 @@ List of current experiments:
 - `session-manifest` – have `vibe` write a local, untracked `.remuda.json`
   launch manifest into the workspace. When enabled, `session resume` reads the
   manifest to determine what settings to use when launching the agent.
-- `aggregate-multiplexer` – make session discovery and operations search all
-  supported multiplexer backends (`tmux`, `zellij`, `herdr-tui`, `rex`, and
-  `herdr-core`) while new sessions continue to launch in the configured
-  backend. Backends that aren't installed are skipped, as are `herdr-tui` with
-  no Herdr server running and `herdr-core` with no core running. With any
-  other error from a backend, the command fails.
 

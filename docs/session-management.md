@@ -16,6 +16,17 @@ Remuda supports these terminal multiplexers:
 - rex (see [Rex](#rex))
 - herdr-core (see [herdr-core](#herdr-core))
 
+Sessions are looked up in every multiplexer: all of them are shown by
+`session list`, and any of them can be passed by name to the other session
+commands. New sessions are created in the multiplexer chosen with
+`--session-manager` (`REMUDA_SESSION_MANAGER`, or `session.manager` in
+config). Creating a session fails if a session in any multiplexer already has
+its name.
+
+Multiplexers that aren't installed are skipped, as are `herdr-tui` with no
+Herdr server running and `herdr-core` with no core running. With any other
+error from a multiplexer, the command fails.
+
 Some commands support a `--pick` flag which requires `fzf` to be installed.
 
 ## Examples
@@ -141,8 +152,7 @@ Only herdr-core and herdr-tui sessions have them:
 - herdr-tui: `AgentStatus` is the agent status of the session's workspace, and
   `Address` is the workspace's ID, as `herdr workspace focus` takes it.
 
-`session list` fails on a status that Remuda doesn't recognize, whether or not
-`aggregate-multiplexer` is on.
+`session list` fails on a status that Remuda doesn't recognize.
 
 ## Resume Ignore Patterns
 
@@ -164,10 +174,10 @@ session:
 ## Rex
 
 [Rex](https://www.superlogical.com/rex) is Superlogical's terminal emulator and multiplexer. 
-To use it as the session manager:
+To create new sessions in Rex:
 
 ```bash
-remuda --session-manager rex session list
+remuda --session-manager rex vibe --name feature/pagination "Implement pagination for transactions"
 ```
 
 ```yaml
@@ -189,20 +199,19 @@ session:
   fails with Rex's error.
 - When an agent exits, its Rex session is kept with no windows. Such sessions
   are hidden from `session list`. They are removed by `session kill` of their
-  name, along with the live session of that name if there is one. With
-  `aggregate-multiplexer` on, `session kill` fails with "session not found"
-  for a name that only has empty sessions; close those sessions in Rex
-  instead.
+  name, along with the live session of that name. For a name that only has
+  empty sessions, `session kill` fails with "session not found"; close those
+  sessions in Rex instead.
 
 ## herdr-core
 
 herdr-core is Herdr's terminal runtime. Its CLI is `hc`, and the Herdr desktop
 app is one of its clients. It is a separate product from the Herdr TUI behind
-the `herdr-tui` session manager, and the two don't share sessions. To use it
-as the session manager:
+the `herdr-tui` session manager, and the two don't share sessions. To create
+new sessions in herdr-core:
 
 ```bash
-remuda --session-manager herdr-core session list
+remuda --session-manager herdr-core vibe --name feature/pagination "Implement pagination for transactions"
 ```
 
 ```yaml
@@ -216,10 +225,10 @@ session:
   where `<session>` is `HC_SESSION` or `default`. With defaults, that is
   `~/.local/state/herdr-core/default/default.sock`.
 - A core is never started by Remuda, so start one first; any `hc` command,
-  such as `hc ls`, starts one. With no core running, commands fail with
-  "herdr-core is not running", and `aggregate-multiplexer` skips the backend.
-  The core must speak protocol generation 1; with a core that speaks another,
-  commands fail even with `aggregate-multiplexer` on.
+  such as `hc ls`, starts one. With no core running, herdr-core is skipped
+  when sessions are looked up, and creating a session in it fails with
+  "herdr-core is not running". The core must speak protocol generation 1;
+  with a core that speaks another, commands fail.
 - Each session is an hc terminal labeled `remuda.session=org/repo/workspace`.
   A name shared by more than one live terminal is rejected rather than
   guessed at; end the extra terminal with `hc`.
@@ -236,10 +245,9 @@ session:
 - Codex runs with `--no-daemon` in herdr-core sessions; without it, Codex's
   commands run outside hc.
 - Finished terminals are hidden from `session list`. They are removed by
-  `session kill` of their name, along with the live terminal of that name if
-  there is one. With `aggregate-multiplexer` on, `session kill` fails with
-  "session not found" for a name that only has finished terminals; remove
-  those with `hc` instead.
+  `session kill` of their name, along with the live terminal of that name.
+  For a name that only has finished terminals, `session kill` fails with
+  "session not found"; remove those with `hc` instead.
 - Each session appears in the Herdr desktop app in a space of its own,
   named after the workspace folder. The space is set by the label
   `herdr.space=remuda/org/repo/workspace` on the session's terminal.
