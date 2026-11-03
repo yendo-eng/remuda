@@ -84,8 +84,23 @@ type rex struct {
 type rexSession struct {
 	ID    string `json:"session_id"`
 	Label string `json:"label"`
-	// Windows comes from session inspect, since rex ls doesn't report it.
+	// Windows and AgentBlockID come from session inspect, since rex ls
+	// doesn't report them.
 	Windows int `json:"-"`
+	// AgentBlockID is the ID of the one block labeled rexAgentLabel. It's
+	// empty when no block or more than one has that label.
+	AgentBlockID string `json:"-"`
+}
+
+// rexAgentStatuses maps the states of Rex's program status records, as listed
+// in its schema, to agent statuses. A state that isn't here is idle rather than
+// an error, per the schema: "Treat a value you don't know as 'idle'."
+var rexAgentStatuses = map[string]AgentStatus{
+	"idle":    AgentStatusIdle,
+	"working": AgentStatusWorking,
+	"done":    AgentStatusDone,
+	"blocked": AgentStatusBlocked,
+	"error":   AgentStatusError,
 }
 
 type rexClient struct {
@@ -174,9 +189,14 @@ func (r *rex) List() ([]SessionInfo, error) {
 	}
 	infos := make([]SessionInfo, 0, len(sessions))
 	for _, session := range sessions {
-		if session.live() {
-			infos = append(infos, r.sessionInfo(session))
+		if !session.live() {
+			continue
 		}
+		info, err := r.sessionInfo(session)
+		if err != nil {
+			return nil, err
+		}
+		infos = append(infos, info)
 	}
 	return infos, nil
 }
@@ -186,7 +206,7 @@ func (r *rex) Find(name string) (SessionInfo, error) {
 	if err != nil {
 		return SessionInfo{}, err
 	}
-	return r.sessionInfo(session), nil
+	return r.sessionInfo(session)
 }
 
 // Attach selects the session in the Rex app, the only client that can show
@@ -320,8 +340,8 @@ func liveSession[S labeledSession](sessions []S, name string) (S, error) {
 	}
 }
 
-// sessions lists the sessions whose labels match, with their window counts.
-// Each match costs a session inspect call.
+// sessions lists the sessions whose labels match, with what session inspect
+// reports about them. Each match costs a session inspect call.
 func (r *rex) sessions(match func(label string) bool) ([]rexSession, error) {
 	output, err := r.run("ls", "--json")
 	if err != nil {
@@ -338,7 +358,7 @@ func (r *rex) sessions(match func(label string) bool) ([]rexSession, error) {
 		if !match(session.Label) {
 			continue
 		}
-		session.Windows, err = r.windows(session.ID)
+		session.Windows, session.AgentBlockID, err = r.inspect(session.ID)
 		if errors.Is(err, errRexSessionGone) {
 			continue
 		}
@@ -350,33 +370,111 @@ func (r *rex) sessions(match func(label string) bool) ([]rexSession, error) {
 	return sessions, nil
 }
 
-func (r *rex) windows(id string) (int, error) {
+// inspect returns the Windows and AgentBlockID of the session id.
+func (r *rex) inspect(id string) (int, string, error) {
 	output, err := r.run("session", "inspect", id, "--json")
-	// Rex exits 3 when a target is missing or ambiguous, and a session ID
-	// can't be ambiguous.
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) && exitErr.ExitCode() == 3 {
-		return 0, errRexSessionGone
+	if rexTargetMissing(err) {
+		return 0, "", errRexSessionGone
 	}
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	// Rex leaves windows out for a session that has none.
 	var inspected struct {
-		Windows []json.RawMessage `json:"windows"`
+		Windows []struct {
+			Layers []struct {
+				Blocks []struct {
+					BlockID string `json:"block_id"`
+					Label   string `json:"label"`
+				} `json:"blocks"`
+			} `json:"layers"`
+		} `json:"windows"`
 	}
 	if err := json.Unmarshal([]byte(output), &inspected); err != nil {
-		return 0, pkgerrors.Wrapf(err, "decode rex session inspect response for %s", id)
+		return 0, "", pkgerrors.Wrapf(err, "decode rex session inspect response for %s", id)
 	}
-	return len(inspected.Windows), nil
+	var agentBlockIDs []string
+	for _, window := range inspected.Windows {
+		for _, layer := range window.Layers {
+			for _, block := range layer.Blocks {
+				if block.Label == rexAgentLabel {
+					agentBlockIDs = append(agentBlockIDs, block.BlockID)
+				}
+			}
+		}
+	}
+	agentBlockID := ""
+	if len(agentBlockIDs) == 1 {
+		agentBlockID = agentBlockIDs[0]
+	}
+	return len(inspected.Windows), agentBlockID, nil
 }
 
-func (r *rex) sessionInfo(session rexSession) SessionInfo {
+// agentStatus returns the status that the program in the session's agent
+// block reports to Rex. It's unknown when the session has no agent block, the
+// program never reported a status, or the block was closed after the session
+// was inspected.
+func (r *rex) agentStatus(session rexSession) (AgentStatus, error) {
+	if session.AgentBlockID == "" {
+		return AgentStatusUnknown, nil
+	}
+	args, err := json.Marshal(map[string]string{"block_id": session.AgentBlockID})
+	if err != nil {
+		return AgentStatusUnknown, pkgerrors.Wrap(err, "encode rex program_status args")
+	}
+	output, err := r.run("api", "call", "-s", session.ID, "com.superlogical.terminal.program_status", string(args))
+	// Rex exits 3 for a gone session as well as for a gone block, and a
+	// session whose agent block was closed is still live.
+	if rexTargetMissing(err) {
+		return AgentStatusUnknown, nil
+	}
+	if err != nil {
+		return AgentStatusUnknown, err
+	}
+	var reported struct {
+		Records []struct {
+			State string `json:"state"`
+		} `json:"records"`
+	}
+	if err := json.Unmarshal([]byte(output), &reported); err != nil {
+		return AgentStatusUnknown, pkgerrors.Wrapf(err, "decode rex program_status response for %s", session.ID)
+	}
+	if len(reported.Records) == 0 {
+		return AgentStatusUnknown, nil
+	}
+	// Rex sorts records by id, so the root record, which has none, is first
+	// when there is one.
+	status, ok := rexAgentStatuses[reported.Records[0].State]
+	if !ok {
+		return AgentStatusIdle, nil
+	}
+	return status, nil
+}
+
+// rexTargetMissing reports whether err is from a rex command whose target, an
+// ID, is missing. Rex exits 3 when a target is missing or ambiguous, and an ID
+// can't be ambiguous.
+func rexTargetMissing(err error) bool {
+	var exitErr *exec.ExitError
+	return errors.As(err, &exitErr) && exitErr.ExitCode() == 3
+}
+
+func (r *rex) sessionInfo(session rexSession) (SessionInfo, error) {
 	createdAt := rexSessionCreatedAt(session.ID)
 	if createdAt.IsZero() {
 		r.logger.Debug().Str("session", session.ID).Msg("rex session ID is not a UUIDv7; created-at unknown")
 	}
-	return SessionInfo{Name: session.Label, CreatedAt: createdAt, Multiplexer: string(MultiplexerRex)}
+	status, err := r.agentStatus(session)
+	if err != nil {
+		return SessionInfo{}, err
+	}
+	return SessionInfo{
+		Name:        session.Label,
+		CreatedAt:   createdAt,
+		Multiplexer: string(MultiplexerRex),
+		AgentStatus: status,
+		Address:     session.ID,
+	}, nil
 }
 
 func (r *rex) appClient() (rexClient, error) {
