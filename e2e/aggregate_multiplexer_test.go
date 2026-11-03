@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-func TestAggregateMultiplexerListAndCompletionFromConfig(t *testing.T) {
+func TestAggregateMultiplexerListAndCompletion(t *testing.T) {
 	t.Parallel()
 	h, backends := newAggregateMultiplexerHarness(t)
 	require.NoError(t, backends[session.MultiplexerTmux].Start("org/repo/tmux-session", "command"))
@@ -24,6 +23,24 @@ func TestAggregateMultiplexerListAndCompletionFromConfig(t *testing.T) {
 	completion := h.RunOK("__complete", "--session-manager", "herdr-tui", "session", "attach", "--name", "")
 	require.Contains(t, completion.Stdout, "org/repo/tmux-session\n")
 	require.Contains(t, completion.Stdout, "org/repo/herdr-tui-session\n")
+}
+
+func TestAggregateMultiplexerRetiredExperimentOnlyWarns(t *testing.T) {
+	t.Parallel()
+	h, backends := newAggregateMultiplexerHarness(t)
+	writeConfigFile(t, h, `
+version: 1
+defaults:
+  experiments:
+    - aggregate-multiplexer
+`)
+	backends[session.MultiplexerTmux].AddSessionWithBuffer("org/repo/tmux-session", "")
+	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-tui-session", "")
+
+	list := h.RunOK("session", "list")
+
+	require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-tui-session\n", list.Stdout)
+	require.Equal(t, "warning: experiment \"aggregate-multiplexer\" was mainlined and is now a no-op; remove it\n", list.Stderr)
 }
 
 func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
@@ -186,8 +203,5 @@ func newAggregateMultiplexerHarness(t *testing.T) (*testutils.Harness, map[sessi
 			return backend
 		},
 	))
-	configPath := filepath.Join(h.HomeDir, ".config", "remuda", "config.yaml")
-	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
-	require.NoError(t, os.WriteFile(configPath, []byte("version: 1\ndefaults:\n  experiments:\n    - aggregate-multiplexer\n"), 0o644))
 	return h, backends
 }
