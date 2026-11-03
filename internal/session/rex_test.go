@@ -28,10 +28,16 @@ const (
 	// rexTestVersion is what rex version prints for the release Remuda was
 	// verified against.
 	rexTestVersion = "rex 0.0.1792787366-g623b2d\ncommit: 623b2d17d416b146ce9993a7cd2dfce964ea60e5\nbuilt: 2026-10-23T20:29:26Z\napi: revision 7 (supports 0 to 7)"
-	rexTestWindow  = `{"window_id":"window:agent","label":"agent","focused_block_id":"block:agent","layers":[]}`
+	// rexTestAgentBlock is the agent block that Remuda creates, as its layer
+	// lists it.
+	rexTestAgentBlock = `{"block_id":"block:agent","flavor":"com.superlogical.terminal.shell","label":"agent"}`
 )
 
 var rexTestCreatedAt = time.Date(2026, time.October, 27, 0, 28, 25, 9_000_000, time.UTC)
+
+// rexTestInfo is the session info of the live session rexTestID, labeled
+// rexTestSession, whose agent never reported a status.
+var rexTestInfo = SessionInfo{Name: rexTestSession, CreatedAt: rexTestCreatedAt, Multiplexer: "rex", Address: rexTestID}
 
 func TestRexFind(t *testing.T) {
 	t.Parallel()
@@ -47,7 +53,7 @@ func TestRexFind(t *testing.T) {
 			name:     "exact label",
 			sessions: []rexSession{{ID: rexTestID, Label: rexTestSession, Windows: 1}},
 			find:     rexTestSession,
-			want:     SessionInfo{Name: rexTestSession, CreatedAt: rexTestCreatedAt, Multiplexer: "rex"},
+			want:     rexTestInfo,
 		},
 		{
 			name:     "label differing only in case",
@@ -71,7 +77,7 @@ func TestRexFind(t *testing.T) {
 			name:     "live session beside an empty one",
 			sessions: []rexSession{{ID: rexOtherID, Label: rexTestSession, Windows: 0}, {ID: rexTestID, Label: rexTestSession, Windows: 1}},
 			find:     rexTestSession,
-			want:     SessionInfo{Name: rexTestSession, CreatedAt: rexTestCreatedAt, Multiplexer: "rex"},
+			want:     rexTestInfo,
 		},
 		{
 			name:     "label outside the Remuda naming scheme",
@@ -107,36 +113,74 @@ func TestRexList(t *testing.T) {
 	sessions, err := r.List()
 	require.NoError(t, err)
 	require.Equal(t, []SessionInfo{
-		{Name: rexTestSession, CreatedAt: rexTestCreatedAt, Multiplexer: "rex"},
-		{Name: "yendo/remuda/unknown-age", Multiplexer: "rex"},
+		rexTestInfo,
+		{Name: "yendo/remuda/unknown-age", Multiplexer: "rex", Address: "session:main"},
 	}, sessions)
-	// Only sessions with Remuda labels are inspected.
+	// Only sessions with Remuda labels are inspected, and only live ones have
+	// their agent's status read.
 	require.Equal(t, []string{
 		"rex --autostart=false version",
 		"rex --autostart=false ls --json",
 		"rex --autostart=false session inspect " + rexTestID + " --json",
 		"rex --autostart=false session inspect " + rexOtherID + " --json",
 		"rex --autostart=false session inspect session:main --json",
+		"rex --autostart=false api call -s " + rexTestID + ` com.superlogical.terminal.program_status {"block_id":"block:agent"}`,
+		`rex --autostart=false api call -s session:main com.superlogical.terminal.program_status {"block_id":"block:agent"}`,
 	}, rexCalls(t, dir))
 }
 
-func TestRexListInspectFailures(t *testing.T) {
+func TestRexListAndFindFailures(t *testing.T) {
 	t.Parallel()
 
+	const (
+		lostConnection = `echo 'Error: lost connection to the server' >&2; exit 1`
+		// blockNotFound is Rex's reply to program_status for a block that isn't
+		// in the session.
+		blockNotFound = `echo 'Error: stream response "control-3" failed: block not found: block:agent (status=404 code=not_found)' >&2; exit 3`
+	)
+	// inspect answers the other session's session inspect by running reply.
+	inspect := func(reply string) string {
+		return `"session inspect ` + rexOtherID + ` --json") ` + reply + " ;;\n"
+	}
+	other := SessionInfo{
+		Name:        "yendo/remuda/other",
+		CreatedAt:   time.Date(2026, time.October, 27, 0, 28, 36, 992_000_000, time.UTC),
+		Multiplexer: "rex",
+		Address:     rexOtherID,
+	}
 	tests := []struct {
-		name    string
-		inspect string
-		want    []SessionInfo
+		name string
+		// failure answers one of the other session's calls.
+		failure string
+		// wantErr is the error from List and Find, when they fail.
 		wantErr string
+		// wantKept is whether the other session is still listed and found,
+		// with an unknown agent status, when List and Find don't fail.
+		// Otherwise it's gone from both.
+		wantKept bool
 	}{
 		{
 			name:    "session killed after ls",
-			inspect: `echo 'Error: session target "` + rexOtherID + `" not found' >&2; exit 3`,
-			want:    []SessionInfo{{Name: rexTestSession, CreatedAt: rexTestCreatedAt, Multiplexer: "rex"}},
+			failure: inspect(rexTargetNotFound(rexOtherID)),
 		},
 		{
-			name:    "other failure",
-			inspect: `echo 'Error: lost connection to the server' >&2; exit 1`,
+			name:    "other inspect failure",
+			failure: inspect(lostConnection),
+			wantErr: "rex: Error: lost connection to the server: exit status 1",
+		},
+		{
+			name:     "session killed after inspect",
+			failure:  rexStatusBranch(rexOtherID, rexTargetNotFound(rexOtherID)),
+			wantKept: true,
+		},
+		{
+			name:     "agent block closed after inspect",
+			failure:  rexStatusBranch(rexOtherID, blockNotFound),
+			wantKept: true,
+		},
+		{
+			name:    "other agent status failure",
+			failure: rexStatusBranch(rexOtherID, lostConnection),
 			wantErr: "rex: Error: lost connection to the server: exit status 1",
 		},
 	}
@@ -145,18 +189,113 @@ func TestRexListInspectFailures(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			r := newFakeRex(t, t.TempDir(), `"session inspect `+rexOtherID+` --json") `+tt.inspect+" ;;\n"+rexSessionBranches(
+			r := newFakeRex(t, t.TempDir(), tt.failure+rexSessionBranches(
 				rexSession{ID: rexTestID, Label: rexTestSession, Windows: 1},
 				rexSession{ID: rexOtherID, Label: "yendo/remuda/other", Windows: 1},
 			))
 
-			sessions, err := r.List()
+			sessions, listErr := r.List()
+			found, findErr := r.Find("yendo/remuda/other")
 			if tt.wantErr != "" {
-				require.EqualError(t, err, tt.wantErr)
+				require.EqualError(t, listErr, tt.wantErr)
+				require.EqualError(t, findErr, tt.wantErr)
 				return
 			}
+			require.NoError(t, listErr)
+			if !tt.wantKept {
+				require.Equal(t, []SessionInfo{rexTestInfo}, sessions)
+				require.Equal(t, ErrSessionNotFound, findErr)
+				return
+			}
+			require.Equal(t, []SessionInfo{rexTestInfo, other}, sessions)
+			require.NoError(t, findErr)
+			require.Equal(t, other, found)
+		})
+	}
+}
+
+func TestRexAgentStatus(t *testing.T) {
+	t.Parallel()
+
+	// reported lists one root record, which has state.
+	reported := func(state string) string {
+		return `[{"app":"codex","state":"` + state + `","updated_at":"2026-11-02T20:15:04Z"}]`
+	}
+	tests := []struct {
+		name string
+		// records are the status records of the session's agent block.
+		records    string
+		wantStatus AgentStatus
+	}{
+		{name: "never reported", records: `[]`, wantStatus: AgentStatusUnknown},
+		{name: "idle", records: reported("idle"), wantStatus: AgentStatusIdle},
+		{name: "working", records: reported("working"), wantStatus: AgentStatusWorking},
+		{name: "done", records: reported("done"), wantStatus: AgentStatusDone},
+		{name: "blocked", records: reported("blocked"), wantStatus: AgentStatusBlocked},
+		{name: "error", records: reported("error"), wantStatus: AgentStatusError},
+		{name: "unrecognized", records: reported("paused"), wantStatus: AgentStatusIdle},
+		{
+			name:       "root record beside child records",
+			records:    `[{"app":"codex","state":"working","updated_at":"2026-11-02T20:15:04Z"},{"app":"codex","id":"review","kind":"permission","state":"blocked","updated_at":"2026-11-02T20:15:05Z"}]`,
+			wantStatus: AgentStatusWorking,
+		},
+		{
+			name:       "child records only",
+			records:    `[{"app":"codex","id":"build","state":"done","updated_at":"2026-11-02T20:15:04Z"},{"app":"codex","id":"build/test","state":"error","updated_at":"2026-11-02T20:15:05Z"}]`,
+			wantStatus: AgentStatusDone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			r := newFakeRex(t, t.TempDir(), rexStatusBranch(rexTestID, `echo '{"records":`+tt.records+`}'`)+
+				rexSessionBranches(rexSession{ID: rexTestID, Label: rexTestSession, Windows: 1}))
+
+			sessions, err := r.List()
 			require.NoError(t, err)
-			require.Equal(t, tt.want, sessions)
+			want := rexTestInfo
+			want.AgentStatus = tt.wantStatus
+			require.Equal(t, []SessionInfo{want}, sessions)
+		})
+	}
+}
+
+func TestRexAgentBlock(t *testing.T) {
+	t.Parallel()
+
+	const userBlock = `{"block_id":"block:shell","flavor":"com.superlogical.terminal.shell"}`
+	tests := []struct {
+		name string
+		// blocks are the blocks of the session's window, whose agent block, if
+		// one is found, reports working.
+		blocks     []string
+		wantStatus AgentStatus
+	}{
+		{name: "beside a user's block", blocks: []string{userBlock, rexTestAgentBlock}, wantStatus: AgentStatusWorking},
+		{name: "closed, leaving a user's block", blocks: []string{userBlock}, wantStatus: AgentStatusUnknown},
+		{
+			name:       "label shared with a user's block",
+			blocks:     []string{rexTestAgentBlock, `{"block_id":"block:shell","flavor":"com.superlogical.terminal.shell","label":"agent"}`},
+			wantStatus: AgentStatusUnknown,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			session := rexSession{ID: rexTestID, Label: rexTestSession, Windows: 1}
+			r := newFakeRex(t, t.TempDir(), rexInspectBranch(session, rexTestWindow(tt.blocks...))+
+				rexStatusBranch(rexTestID, `echo '{"records":[{"app":"codex","state":"working","updated_at":"2026-11-02T20:15:04Z"}]}'`)+
+				rexSessionBranches(session))
+
+			sessions, err := r.List()
+			require.NoError(t, err)
+			want := rexTestInfo
+			want.AgentStatus = tt.wantStatus
+			require.Equal(t, []SessionInfo{want}, sessions)
 		})
 	}
 }
@@ -518,21 +657,48 @@ func writeExecutable(t *testing.T, path, script string) {
 	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
 }
 
-// rexSessionBranches answers rex ls --json and session inspect for sessions,
-// in the shapes Rex prints them. Rex leaves windows out of an empty session's
-// inspect output.
+// rexSessionBranches answers rex ls --json, and session inspect and
+// program_status for each of sessions, in the shapes Rex prints them. A
+// session's windows are each the one Remuda creates, and its agent block has
+// reported no status.
 func rexSessionBranches(sessions ...rexSession) string {
 	entries := make([]string, len(sessions))
-	var inspects strings.Builder
+	var branches strings.Builder
 	for i, session := range sessions {
 		entries[i] = fmt.Sprintf(`{"session_id":%q,"label":%q}`, session.ID, session.Label)
-		windows := ""
-		if session.Windows > 0 {
-			windows = `,"windows":[` + strings.Join(slices.Repeat([]string{rexTestWindow}, session.Windows), ",") + `]`
-		}
-		fmt.Fprintf(&inspects, `"session inspect %s --json") echo '{"revision":2,"session_id":%q,"label":%q,"clients":[]%s}' ;;`+"\n", session.ID, session.ID, session.Label, windows)
+		branches.WriteString(rexInspectBranch(session, slices.Repeat([]string{rexTestWindow(rexTestAgentBlock)}, session.Windows)...))
+		branches.WriteString(rexStatusBranch(session.ID, `echo '{"records":[]}'`))
 	}
-	return `"ls --json") echo '{"sessions":[` + strings.Join(entries, ",") + `]}' ;;` + "\n" + inspects.String()
+	return `"ls --json") echo '{"sessions":[` + strings.Join(entries, ",") + `]}' ;;` + "\n" + branches.String()
+}
+
+// rexInspectBranch answers session inspect for session as having windows. Rex
+// leaves windows out of an empty session's inspect output.
+func rexInspectBranch(session rexSession, windows ...string) string {
+	field := ""
+	if len(windows) > 0 {
+		field = `,"windows":[` + strings.Join(windows, ",") + `]`
+	}
+	return fmt.Sprintf(`"session inspect %s --json") echo '{"revision":2,"session_id":%q,"label":%q,"clients":[]%s}' ;;`+"\n", session.ID, session.ID, session.Label, field)
+}
+
+// rexTestWindow is the window Remuda creates, with blocks in its one layer.
+// The layer's layout is left out, since only the block_id and label of its
+// blocks are read.
+func rexTestWindow(blocks ...string) string {
+	return `{"window_id":"window:agent","label":"agent","focused_block_id":"block:agent","layers":[{"layer_id":"layer:agent","kind":"tiled","blocks":[` + strings.Join(blocks, ",") + `]}]}`
+}
+
+// rexStatusBranch answers program_status for the agent block of the session
+// id by running reply.
+func rexStatusBranch(id, reply string) string {
+	return `'api call -s ` + id + ` com.superlogical.terminal.program_status {"block_id":"block:agent"}') ` + reply + " ;;\n"
+}
+
+// rexTargetNotFound fails a rex command whose session target, the ID id,
+// names no session, as Rex does.
+func rexTargetNotFound(id string) string {
+	return `echo 'Error: session target "` + id + `" not found' >&2; exit 3`
 }
 
 func rexCalls(t *testing.T, dir string) []string {
