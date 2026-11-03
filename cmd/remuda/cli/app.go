@@ -236,17 +236,12 @@ func (a *app) finishSetup() {
 			session.SupportedMultiplexer(a.sessionManager),
 			logger,
 			a.multiplexerFactory,
-			a.experiments.ExperimentEnabled(expregistry.AggregateMultiplexer),
 		)
 	}
 }
 
-func buildMultiplexer(createTargetName session.SupportedMultiplexer, logger zerolog.Logger, factory MultiplexerFactory, aggregate bool) session.Multiplexer {
+func buildMultiplexer(createTargetName session.SupportedMultiplexer, logger zerolog.Logger, factory MultiplexerFactory) session.Multiplexer {
 	createTarget := factory(createTargetName, logger)
-	if !aggregate {
-		return createTarget
-	}
-
 	backends := make([]session.Multiplexer, 0, len(enums.ValidMultiplexers))
 	for _, name := range enums.ValidMultiplexers {
 		backend := createTarget
@@ -390,8 +385,7 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 		if sessionMgr := env.Get("REMUDA_SESSION_MANAGER"); sessionMgr != "" {
 			managerName = session.SupportedMultiplexer(sessionMgr)
 		}
-		aggregate := bootstrapExperimentEnabled(expregistry.AggregateMultiplexer, env, cfg)
-		cliCtx.Remuda.Multiplexer = buildMultiplexer(managerName, logger, multiplexerFactory, aggregate)
+		cliCtx.Remuda.Multiplexer = buildMultiplexer(managerName, logger, multiplexerFactory)
 	}
 	applyCloneHooksFromConfig(&cliCtx, cfg)
 
@@ -423,12 +417,4 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 	execCtx := context.WithValue(cliCtx.ctx, completionContextKey{}, &cliCtx)
 
 	return root.ExecuteContext(execCtx)
-}
-
-func bootstrapExperimentEnabled(name string, env EnvProvider, cfg *configfile.V1) bool {
-	experiments := env.Get("REMUDA_EXPERIMENTS")
-	if strings.TrimSpace(experiments) == "" && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Experiments != nil {
-		experiments = strings.Join(*cfg.Defaults.Experiments, ",")
-	}
-	return (ExperimentsOption{Experiments: experiments}).ExperimentEnabled(name)
 }

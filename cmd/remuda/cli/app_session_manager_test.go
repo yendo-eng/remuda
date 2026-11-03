@@ -3,8 +3,6 @@ package cli
 import (
 	"bytes"
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -63,7 +61,7 @@ func TestRun_WiresSessionManagerFlag(t *testing.T) {
 	}
 }
 
-func TestRun_AggregatesMultiplexersWhenExperimentEnabled(t *testing.T) {
+func TestRun_AggregatesMultiplexers(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
@@ -88,72 +86,8 @@ func TestRun_AggregatesMultiplexersWhenExperimentEnabled(t *testing.T) {
 		}),
 	)
 
-	require.NoError(t, Run(ctx, []string{"--experiments", "aggregate-multiplexer", "--session-manager", "herdr-tui", "session", "list"}))
+	require.NoError(t, Run(ctx, []string{"--session-manager", "herdr-tui", "session", "list"}))
 	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr-tui\norg/repo/rex\norg/repo/herdr-core\n", out.String())
-}
-
-func TestRun_AggregatesSessionNameCompletionWhenExperimentEnabled(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		env        EnvMap
-		configYAML string
-		args       []string
-	}{
-		{
-			name: "environment",
-			env: EnvMap{
-				"REMUDA_EXPERIMENTS":     "aggregate-multiplexer",
-				"REMUDA_SESSION_MANAGER": "herdr-tui",
-			},
-			args: []string{"__complete", "session", "kill", "--name", ""},
-		},
-		{
-			name:       "config",
-			configYAML: "version: 1\ndefaults:\n  experiments:\n    - aggregate-multiplexer\n",
-			args:       []string{"__complete", "--session-manager", "herdr-tui", "session", "attach", "--name", ""},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			home := t.TempDir()
-			if tt.configYAML != "" {
-				configPath := filepath.Join(home, ".config", "remuda", "config.yaml")
-				require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
-				require.NoError(t, os.WriteFile(configPath, []byte(tt.configYAML), 0o644))
-			}
-			var out bytes.Buffer
-			k := internal.NewRemuda(
-				internal.Config{ReposBaseDir: t.TempDir()},
-				noopGit{},
-				nil,
-				nil,
-				nil,
-				nil,
-				internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &bytes.Buffer{}}),
-			)
-			ctx := NewContext(context.Background(), k,
-				WithEnv(tt.env),
-				WithHomeDir(home),
-				WithWorkingDir(home),
-				WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-					return stubNamedMultiplexer{
-						name:     string(name),
-						sessions: []session.SessionInfo{{Name: "org/repo/" + string(name)}},
-					}
-				}),
-			)
-
-			require.NoError(t, Run(ctx, tt.args))
-			require.Contains(t, out.String(), "org/repo/tmux\n")
-			require.Contains(t, out.String(), "org/repo/zellij\n")
-			require.Contains(t, out.String(), "org/repo/herdr-tui\n")
-		})
-	}
 }
 
 type stubNamedMultiplexer struct {
