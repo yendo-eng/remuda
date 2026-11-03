@@ -76,8 +76,8 @@ func BuildRunCommand(
 
 // BuildRunArgv composes the docker run argv for containerized sessions.
 //
-// The returned argv is suitable for process APIs that launch without passing
-// through a shell, such as Herdr TUI's layout.apply command.
+// The returned argv is suitable for code that quotes each argument itself,
+// as the herdr-tui backend does for its launch script.
 func BuildRunArgv(
 	workspaceAbs, image string,
 	opts []string,
