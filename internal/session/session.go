@@ -105,8 +105,14 @@ type EnvStarter interface {
 	StartWithEnv(sessionName, command string, env []string) error
 }
 
+// RepoSlug is a repo's name in the form org/repo.
+type RepoSlug string
+
 type AgentStart struct {
 	SessionName string
+	// Repo is the repo of Workspace, which is zero for a workspace outside the
+	// repos base dir.
+	Repo        RepoSlug
 	Workspace   string
 	Command     string
 	CommandArgv []string

@@ -381,7 +381,7 @@ func TestHerdrCoreStartChecksExistingSessions(t *testing.T) {
 				require.Empty(t, core.params("terminal.run"))
 				return
 			}
-			_, argv := expectRun(t, core)
+			_, argv, _ := expectRun(t, core)
 			require.Equal(t, "codex", argv[2])
 		})
 	}
@@ -401,7 +401,7 @@ func TestHerdrCoreStartAgent(t *testing.T) {
 	}))
 
 	// Run params are saved to disk, so the secret must stay out of them.
-	params, argv := expectRun(t, core)
+	params, argv, _ := expectRun(t, core)
 	require.NotContains(t, params, "sk-test-secret")
 
 	envFile := filepath.Join(os.TempDir(), regexp.MustCompile(`remuda-herdr-core-env-\d+`).FindString(argv[2]))
@@ -420,6 +420,40 @@ func TestHerdrCoreStartAgent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "sk-test-secret|t1|unset|xterm-256color", string(got))
 	require.NoFileExists(t, envFile)
+}
+
+func TestHerdrCoreStartAgentLabels(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		session string
+		repo    RepoSlug
+		want    map[string]string
+	}{
+		{
+			name:    "with a repo",
+			session: herdrCoreTestSession,
+			repo:    "yendo/remuda",
+			want:    map[string]string{"remuda.session": "yendo/remuda/rm-u1r1", "herdr.space": "remuda/yendo/remuda", "herdr.tab": "remuda/yendo/remuda/rm-u1r1"},
+		},
+		{
+			name:    "with no repo",
+			session: "u/src/foo",
+			want:    map[string]string{"remuda.session": "u/src/foo", "herdr.space": "remuda/u/src/foo", "herdr.tab": "remuda/u/src/foo"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			core := newFakeHerdrCore(t)
+			require.NoError(t, core.backend().StartAgent(AgentStart{SessionName: tt.session, Repo: tt.repo, Workspace: herdrCoreTestWorkspace, Command: "codex"}))
+			_, _, labels := expectRun(t, core)
+			require.Equal(t, tt.want, labels)
+		})
+	}
 }
 
 func TestHerdrCoreKill(t *testing.T) {
@@ -571,37 +605,38 @@ func TestHerdrCoreAttach(t *testing.T) {
 }
 
 // herdrCoreTestRunParams is what terminal.run is sent for every session, with
-// bash's path and the script as placeholders.
+// bash's path, the script and the labels as placeholders.
 const herdrCoreTestRunParams = `{
 	"argv": ["<bash>", "-lc", "<script>"],
 	"cwd": "/src/remuda",
-	"labels": {"remuda.session": "yendo/remuda/rm-u1r1", "herdr.space": "remuda/yendo/remuda/rm-u1r1"},
+	"labels": "<labels>",
 	"no_parent": true,
 	"no_notify": true
 }`
 
 // expectRun checks that core was sent one terminal.run, with the params of
-// herdrCoreTestRunParams, and returns its params and argv.
-func expectRun(t *testing.T, core *fakeHerdrCore) (string, []string) {
+// herdrCoreTestRunParams, and returns its params, argv and labels.
+func expectRun(t *testing.T, core *fakeHerdrCore) (string, []string, map[string]string) {
 	t.Helper()
 
 	runs := core.params("terminal.run")
 	require.Len(t, runs, 1)
 	var run struct {
-		Argv []string `json:"argv"`
+		Argv   []string          `json:"argv"`
+		Labels map[string]string `json:"labels"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(runs[0]), &run))
 	require.Len(t, run.Argv, 3)
 	require.True(t, filepath.IsAbs(run.Argv[0]), run.Argv[0])
 	require.Equal(t, "bash", filepath.Base(run.Argv[0]))
 	params := runs[0]
-	for placeholder, value := range map[string]string{"<bash>": run.Argv[0], "<script>": run.Argv[2]} {
+	for placeholder, value := range map[string]any{"<bash>": run.Argv[0], "<script>": run.Argv[2], "<labels>": run.Labels} {
 		encoded, err := json.Marshal(value)
 		require.NoError(t, err)
 		params = strings.Replace(params, string(encoded), `"`+placeholder+`"`, 1)
 	}
 	require.JSONEq(t, herdrCoreTestRunParams, params)
-	return runs[0], run.Argv
+	return runs[0], run.Argv, run.Labels
 }
 
 // fakeHerdrCore stands in for a core: a JSON-RPC server on a Unix socket

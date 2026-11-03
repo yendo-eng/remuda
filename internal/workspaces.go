@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -144,6 +145,21 @@ func workspaceRelPath(base, workspace string) (string, error) {
 		return "", pkgerrors.New("workspace must be at depth 3 under repos base dir (org/repo/folder)")
 	}
 	return path.Join(org, repo, folder), nil
+}
+
+// workspaceRepo returns the repo of a workspace under base/org/repo, and the
+// zero slug for any other workspace.
+func workspaceRepo(base, workspace string) (session.RepoSlug, error) {
+	baseAbs, err := filepath.Abs(base)
+	if err != nil {
+		return "", pkgerrors.Wrap(err, "abs repos base dir")
+	}
+	org, repo, _ := util.SplitWorkspacePath(baseAbs, workspace)
+	// The org of a workspace outside base is "..".
+	if org == "" || org == ".." {
+		return "", nil
+	}
+	return session.RepoSlug(org + "/" + repo), nil
 }
 
 func validateIgnorePatterns(patterns []string) error {

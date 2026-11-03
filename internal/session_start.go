@@ -5,7 +5,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-func startSessionWithEnv(manager session.Multiplexer, sessionName, workspace, command string, commandArgv []string, container bool, agent string, agentArgs []string, prompt string, provider env.Provider, extraEnvNames, overrideEnvNames []string) error {
+func startSessionWithEnv(manager session.Multiplexer, sessionName string, repo session.RepoSlug, workspace, command string, commandArgv []string, container bool, agent string, agentArgs []string, prompt string, provider env.Provider, extraEnvNames, overrideEnvNames []string) error {
 	envValues := launchEnvValues(provider)
 	switch session.SupportedMultiplexer(manager.Name()) {
 	case session.MultiplexerTmux, session.MultiplexerRex, session.MultiplexerHerdrCore:
@@ -14,6 +14,7 @@ func startSessionWithEnv(manager session.Multiplexer, sessionName, workspace, co
 	if starter, ok := manager.(session.AgentStarter); ok {
 		return starter.StartAgent(session.AgentStart{
 			SessionName: sessionName,
+			Repo:        repo,
 			Workspace:   workspace,
 			Command:     command,
 			CommandArgv: commandArgv,

@@ -124,3 +124,56 @@ func TestLaunchAgentSessionPreservesExplicitBeadsDir(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "/tmp/explicit-beads", value)
 }
+
+func TestLaunchAgentSessionRepo(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		// workspace is under the test's directory, whose base subdirectory is
+		// the repos base dir.
+		workspace string
+		// relativeBase is whether the repos base dir is given relative to the
+		// working directory.
+		relativeBase bool
+		want         session.RepoSlug
+	}{
+		{name: "workspace in the repos base dir", workspace: "base/acme/widgets/feature-1", want: "acme/widgets"},
+		{name: "workspace in a relative repos base dir", workspace: "base/acme/widgets/feature-1", relativeBase: true, want: "acme/widgets"},
+		{name: "subdirectory of a workspace in the repos base dir", workspace: "base/acme/widgets/feature-1/pkg", want: "acme/widgets"},
+		{name: "workspace outside the repos base dir", workspace: "home/u/src/foo"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			workspace := filepath.Join(dir, tt.workspace)
+			require.NoError(t, os.MkdirAll(workspace, 0o755))
+			base := filepath.Join(dir, "base")
+			if tt.relativeBase {
+				wd, err := os.Getwd()
+				require.NoError(t, err)
+				base, err = filepath.Rel(wd, base)
+				require.NoError(t, err)
+			}
+			capture := &captureEnvSession{}
+			k := Remuda{
+				Config:      Config{ReposBaseDir: base},
+				Multiplexer: capture,
+				IO:          DefaultIO(),
+				Env:         env.StaticProvider{Values: map[string]string{"PATH": "/usr/bin:/bin"}},
+			}
+
+			_, err := k.launchAgentSession(agentLaunchCommand{
+				Workspace: workspace,
+				AgentName: "codex",
+				Command:   "true",
+				Detached:  true,
+			})
+			require.NoError(t, err)
+			require.Equal(t, tt.want, capture.agentStart.Repo)
+		})
+	}
+}

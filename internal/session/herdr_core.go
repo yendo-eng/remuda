@@ -28,8 +28,12 @@ const (
 	herdrCoreSessionLabel = "remuda.session"
 	// herdrCoreSpaceLabel is the key of the label holding the ID of the
 	// Herdr desktop app's space that a terminal appears in. A space is
-	// created for an ID that names none.
+	// created for an ID that names none, and closed along with its last tab.
 	herdrCoreSpaceLabel = "herdr.space"
+	// herdrCoreTabLabel is the key of the label holding the ID of the tab
+	// that a terminal appears in within its space. A tab is created for an
+	// ID that names none.
+	herdrCoreTabLabel = "herdr.tab"
 	// herdrCoreFullHistory is how many lines of history terminal.read is asked
 	// for when the full scrollback is wanted, since it can't be asked for all
 	// of it. It's assumed to be more than a core keeps.
@@ -176,7 +180,8 @@ func (h *herdrCore) StartAgent(start AgentStart) error {
 		"cwd":  start.Workspace,
 		"labels": map[string]string{
 			herdrCoreSessionLabel: start.SessionName,
-			herdrCoreSpaceLabel:   "remuda/" + start.SessionName,
+			herdrCoreSpaceLabel:   herdrCoreSpaceID(start.SessionName, start.Repo),
+			herdrCoreTabLabel:     "remuda/" + start.SessionName,
 		},
 		// Otherwise, when Remuda runs inside an hc terminal, the new terminal
 		// would become its child: ended along with it, with notes typed into it.
@@ -486,6 +491,16 @@ func (t herdrCoreTerminal) sessionInfo() (SessionInfo, error) {
 		Multiplexer: string(MultiplexerHerdrCore),
 		Address:     t.Address,
 	}, herdrCoreAgentStatuses, t.Status.State)
+}
+
+// herdrCoreSpaceID returns the ID of the space for the session named name in
+// repo, which is the repo's. A session with no repo is given a space of its
+// own rather than one shared with unrelated sessions.
+func herdrCoreSpaceID(name string, repo RepoSlug) string {
+	if repo == "" {
+		return "remuda/" + name
+	}
+	return "remuda/" + string(repo)
 }
 
 // findHC locates the hc CLI on PATH, else in ~/.local/bin.

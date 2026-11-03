@@ -124,7 +124,11 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	for key := range cmd.EnvOverrides {
 		overrideEnvNames = append(overrideEnvNames, key)
 	}
-	if err := startSessionWithEnv(k.Multiplexer, sessionName, workspaceAbs, startCmd, launch.argv, cmd.Container, cmd.AgentName, cmd.Args, cmd.Prompt, envProvider, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
+	repo, err := workspaceRepo(k.Config.ReposBaseDir, workspaceAbs)
+	if err != nil {
+		return agentLaunchResult{}, err
+	}
+	if err := startSessionWithEnv(k.Multiplexer, sessionName, repo, workspaceAbs, startCmd, launch.argv, cmd.Container, cmd.AgentName, cmd.Args, cmd.Prompt, envProvider, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
 
