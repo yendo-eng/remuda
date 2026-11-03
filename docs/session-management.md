@@ -145,14 +145,19 @@ with `Name`, `Attached`, `CreatedAt` and `Multiplexer`, each object has:
 - `Address`: the session manager's own address for the session. Empty when
   unknown.
 
-Only herdr-core and herdr-tui sessions have them:
+Only herdr-core, herdr-tui and rex sessions have them:
 
 - herdr-core: `AgentStatus` is the status the agent reports to hc, and
   `Address` is the address of the session's terminal, as `hc attach` takes it.
 - herdr-tui: `AgentStatus` is the agent status of the session's workspace, and
   `Address` is the workspace's ID, as `herdr workspace focus` takes it.
+- rex: `AgentStatus` is the status the agent reports to Rex with OSC 7501 in
+  the session's `agent` block, and `Address` is the session's ID, as `rex -s`
+  takes it.
 
-`session list` fails on a status that Remuda doesn't recognize.
+`session list` fails on a status that Remuda doesn't recognize, unless the
+session is in rex. An unrecognized rex status is reported as `idle`, per Rex's
+API schema.
 
 ## Resume Ignore Patterns
 
@@ -202,6 +207,8 @@ session:
   name, along with the live session of that name. For a name that only has
   empty sessions, `session kill` fails with "session not found"; close those
   sessions in Rex instead.
+- The agent status in `session list --json` is empty when the session's
+  `agent` block is closed, or when another block is also labeled `agent`.
 
 ## herdr-core
 
