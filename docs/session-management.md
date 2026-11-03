@@ -255,11 +255,17 @@ session:
   `session kill` of their name, along with the live terminal of that name.
   For a name that only has finished terminals, `session kill` fails with
   "session not found"; remove those with `hc` instead.
-- Each session appears in the Herdr desktop app in a space of its own,
-  named after the workspace folder. The space is set by the label
-  `herdr.space=remuda/org/repo/workspace` on the session's terminal.
-  Sessions started while the app is closed appear when it's opened, and a
-  session's space is removed along with its terminal by `session kill`.
+- In the Herdr desktop app, each repo has a space, with a tab for each of
+  its sessions. A session's space and tab are set by the labels
+  `herdr.space=remuda/org/repo` and `herdr.tab=remuda/org/repo/workspace`
+  on its terminal. A session started with `vibe --in` in a workspace
+  outside the repos base dir has a space of its own instead, with the ID
+  `remuda/<session name>`. Sessions started while the app is closed appear
+  when it's opened.
+- A space is named after the workspace folder of its first tab, so the name
+  changes when that tab's session is killed. Tabs are numbered. Killing a
+  repo's last session closes its space, which is reopened unnamed for the
+  repo's next session, so a name given to the space in the app is lost.
 
 ## Shell Completions
 
