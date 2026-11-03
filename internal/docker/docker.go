@@ -37,17 +37,17 @@ var ErrNotRunning = pkgerrors.New("docker is not running")
 var ErrContainerNotFound = pkgerrors.New("docker container not found")
 
 // BuildContainerAuthOpts returns recommended docker run options to forward
-// GitHub and SSH auth into the container, when available on the host.
+// GitHub and SSH auth into the container.
 //
 // - Mounts ~/.config/gh to /root/.config/gh (ro) if present.
-// - Mounts ~/.gitconfig to /root/.gitconfig (ro) if present.
-// - Forwards the SSH agent socket if present.
+// - On macOS, always forwards Docker Desktop's SSH agent socket.
+// - Elsewhere, forwards $SSH_AUTH_SOCK if set and present.
 func BuildContainerAuthOpts() []string {
 	return BuildContainerAuthOptsWithProvider(env.Default())
 }
 
 // BuildContainerAuthOptsWithProvider returns recommended docker run options to forward
-// GitHub and SSH auth into the container, when available on the host.
+// GitHub and SSH auth into the container.
 func BuildContainerAuthOptsWithProvider(provider env.Provider) []string {
 	provider = env.OrDefault(provider)
 	var opts []string
