@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/knadh/koanf/v2"
@@ -24,27 +23,11 @@ import (
 
 type MultiplexerFactory func(session.SupportedMultiplexer, zerolog.Logger) session.Multiplexer
 
-const (
-	defaultCLIName    = "remuda"
-	defaultCLIVersion = "unknown"
-)
-
-func normalizeCLIName(raw string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return defaultCLIName
-	}
-	base := strings.TrimSpace(filepath.Base(trimmed))
-	if base == "" || base == "." || base == string(filepath.Separator) {
-		return defaultCLIName
-	}
-	return base
-}
+const defaultCLIVersion = "unknown"
 
 // app wires the cobra command tree to a single CLI invocation.
 type app struct {
 	cliCtx             *Context
-	cliName            string
 	version            string
 	cfg                *configfile.V1
 	multiplexerFactory MultiplexerFactory
@@ -270,7 +253,7 @@ func buildMultiplexer(createTargetName session.SupportedMultiplexer, logger zero
 
 func (a *app) buildRoot() *cobra.Command {
 	root := &cobra.Command{
-		Use:           a.cliName,
+		Use:           "remuda",
 		Short:         "Clone repositories and launch AI coding sessions.",
 		Version:       a.version,
 		Args:          cobra.NoArgs,
@@ -352,12 +335,6 @@ func applyCloneHooksFromConfig(cliCtx *Context, cfg *configfile.V1) {
 }
 
 func Run(cliCtx Context, args []string) error {
-	return RunWithName(cliCtx, defaultCLIName, args)
-}
-
-func RunWithName(cliCtx Context, cliName string, args []string) error {
-	cliName = normalizeCLIName(cliName)
-
 	env := cliCtx.env()
 	multiplexerFactory := cliCtx.MultiplexerFactory
 	if multiplexerFactory == nil {
@@ -415,7 +392,6 @@ func RunWithName(cliCtx Context, cliName string, args []string) error {
 
 	a := &app{
 		cliCtx:             &cliCtx,
-		cliName:            cliName,
 		version:            version,
 		cfg:                cfg,
 		multiplexerFactory: multiplexerFactory,
