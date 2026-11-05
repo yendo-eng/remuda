@@ -11,50 +11,46 @@ import (
 )
 
 func TestResolveReasoningLevel_ClaudePreservesValue(t *testing.T) {
-	got, err := resolveReasoningLevel(
+	got := resolveReasoningLevel(
 		zerolog.New(io.Discard),
 		string(agentlauncher.AgentClaude),
 		"",
 		"",
 		" high ",
 	)
-	require.NoError(t, err)
 	require.Equal(t, "high", got)
 }
 
 func TestResolveReasoningLevel_ClaudeAllowsArbitraryEffortValue(t *testing.T) {
-	got, err := resolveReasoningLevel(
+	got := resolveReasoningLevel(
 		zerolog.New(io.Discard),
 		string(agentlauncher.AgentClaude),
 		"",
 		"",
 		" turbo-plus ",
 	)
-	require.NoError(t, err)
 	require.Equal(t, "turbo-plus", got)
 }
 
 func TestResolveReasoningLevel_WhitespaceValueIsIgnored(t *testing.T) {
-	got, err := resolveReasoningLevel(
+	got := resolveReasoningLevel(
 		zerolog.New(io.Discard),
 		string(agentlauncher.AgentClaude),
 		"",
 		"",
 		" \t\n ",
 	)
-	require.NoError(t, err)
 	require.Equal(t, "", got)
 }
 
 func TestResolveReasoningLevel_AgentCmdBypassesBuiltInReasoning(t *testing.T) {
-	got, err := resolveReasoningLevel(
+	got := resolveReasoningLevel(
 		zerolog.New(io.Discard),
 		string(agentlauncher.AgentClaude),
 		"",
 		"custom-agent --run",
 		"high",
 	)
-	require.NoError(t, err)
 	require.Equal(t, "", got)
 }
 
@@ -62,14 +58,13 @@ func TestResolveReasoningLevel_OpenCodeWarnsAndIgnores(t *testing.T) {
 	t.Parallel()
 
 	var logs bytes.Buffer
-	got, err := resolveReasoningLevel(
+	got := resolveReasoningLevel(
 		zerolog.New(&logs),
 		string(agentlauncher.AgentOpenCode),
 		"openai/gpt-5",
 		"",
 		"high",
 	)
-	require.NoError(t, err)
 	require.Equal(t, "", got)
 	require.Contains(t, logs.String(), "reasoning-level ignored")
 }
@@ -92,14 +87,13 @@ func TestResolveReasoningLevel_CodexWarnsAndPassesThroughUnsupportedLevels(t *te
 			t.Parallel()
 
 			var logs bytes.Buffer
-			got, err := resolveReasoningLevel(
+			got := resolveReasoningLevel(
 				zerolog.New(&logs),
 				string(agentlauncher.AgentCodex),
 				tt.model,
 				"",
 				tt.level,
 			)
-			require.NoError(t, err)
 			require.Equal(t, tt.level, got)
 			require.Contains(t, logs.String(), "reasoning level may not be supported by codex model")
 			require.Contains(t, logs.String(), tt.model)
@@ -126,14 +120,13 @@ func TestResolveReasoningLevel_CodexSupportsHighTierWithoutWarning(t *testing.T)
 			t.Parallel()
 
 			var logs bytes.Buffer
-			got, err := resolveReasoningLevel(
+			got := resolveReasoningLevel(
 				zerolog.New(&logs),
 				string(agentlauncher.AgentCodex),
 				tt.model,
 				"",
 				tt.level,
 			)
-			require.NoError(t, err)
 			require.Equal(t, tt.level, got)
 			require.Empty(t, logs.String())
 		})

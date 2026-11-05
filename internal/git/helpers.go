@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
-	"github.com/rs/zerolog"
 )
 
 func WorktreeAdd(
@@ -102,7 +101,7 @@ func worktreeLockReason(dir string) (string, bool, error) {
 	return strings.TrimSpace(string(reason)), true, nil
 }
 
-func CheckoutOrCreateBranch(logger zerolog.Logger, git Git, path, branch string) error {
+func CheckoutOrCreateBranch(git Git, path, branch string) error {
 	// Prefer a clean, single attempt based on what exists to avoid noisy
 	// failures printed by git during probing.
 	if LocalBranchExists(git, path, branch) {

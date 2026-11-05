@@ -151,7 +151,7 @@ func (k Remuda) Clone(
 	}
 
 	// Checkout/create the desired branch (defaults to workspace name when not overridden).
-	if err := git.CheckoutOrCreateBranch(logger, k.Git, target, branchName); err != nil {
+	if err := git.CheckoutOrCreateBranch(k.Git, target, branchName); err != nil {
 		// Attempt to clean up the partially-created worktree so a broken entry
 		// does not linger in the repository. If that removal itself fails we
 		// surface both errors.
