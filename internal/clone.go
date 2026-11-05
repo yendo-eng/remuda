@@ -189,7 +189,7 @@ func (k Remuda) Clone(
 			CacheDir:    cacheDir,
 			WorktreeDir: target,
 			Env:         k.envProvider(),
-			Logger:      &logger,
+			Logger:      logger,
 		}); err != nil {
 			if cleanErr := cleanupWorkspace(k.Git, baseDir, cacheDir, target, cmd.FullClone); cleanErr != nil {
 				return "", pkgerrors.Wrapf(err, "running clone hooks; additionally, cleaning worktree: %s", cleanErr.Error())
