@@ -12,13 +12,15 @@ import (
 )
 
 func Cmd(logger zerolog.Logger, name string, args ...string) *exec.Cmd {
-	logger.Debug().Str("cmd", name+" "+strings.Join(args, " ")).Msg("command")
+	// Log only the command name: args can carry secrets.
+	logger.Debug().Str("cmd", name).Msg("command")
 	//nolint:gosec,noctx // G204: intentionally executes caller-provided commands; legacy helper has no context parameter.
 	return exec.Command(name, args...)
 }
 
 func CmdWithEnv(logger zerolog.Logger, env []string, name string, args ...string) *exec.Cmd {
-	logger.Debug().Str("cmd", name+" "+strings.Join(args, " ")).Msg("command")
+	// Log only the command name: args can carry secrets.
+	logger.Debug().Str("cmd", name).Msg("command")
 	//nolint:gosec,noctx // G204: intentionally executes caller-provided commands; legacy helper has no context parameter.
 	cmd := exec.Command(name, args...)
 	if env != nil {
