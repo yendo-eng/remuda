@@ -65,7 +65,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	containerName := docker.ContainerNameFromSession(sessionName)
 
 	envProvider := k.launchEnvProvider(cmd, sessionName)
-	launch, err := k.composeLaunchCommandParts(
+	launch, err := k.composeLaunchCommand(
 		VibeCommand{
 			Agent:               cmd.AgentName,
 			Yolo:                cmd.Yolo,

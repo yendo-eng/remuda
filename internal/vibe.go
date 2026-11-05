@@ -317,22 +317,6 @@ func (k Remuda) composeLaunchCommand(
 	cmd VibeCommand,
 	workspace, agentCmd, sessionName, containerName string,
 	envProvider env.Provider,
-) (string, string, error) {
-	launch, err := k.composeLaunchCommandParts(
-		cmd,
-		workspace,
-		agentCmd,
-		sessionName,
-		containerName,
-		envProvider,
-	)
-	return launch.shell, launch.image, err
-}
-
-func (k Remuda) composeLaunchCommandParts(
-	cmd VibeCommand,
-	workspace, agentCmd, sessionName, containerName string,
-	envProvider env.Provider,
 ) (composedLaunchCommand, error) {
 	logger := k.Logger
 	if !cmd.Container {
