@@ -1,11 +1,6 @@
 package agentlauncher
 
-import (
-	"strings"
-
-	"github.com/yendo-eng/remuda/internal/logging"
-	"github.com/yendo-eng/remuda/internal/util"
-)
+import "strings"
 
 // If you have more configured, dump them with `opencode models` and add them
 // here.
@@ -156,13 +151,4 @@ func (o opencodeLauncher) launch(prompt string, extraArgs ...string) launch {
 
 func (o opencodeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool) {
 	return o, false
-}
-
-func (o opencodeLauncher) Version() (string, error) {
-	out, err := util.RunCmdOutput(logging.DefaultLogger(), "opencode", "--version")
-	if err != nil {
-		return "", err
-	}
-
-	return out, nil
 }
