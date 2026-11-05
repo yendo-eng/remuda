@@ -157,27 +157,6 @@ func Resolve(name string, provider env.Provider) (Prompt, error) {
 	return Prompt{}, ErrUnknownPrompt(name)
 }
 
-// Compose concatenates the selected built-in prompts in order, then two
-// newlines, then the user prompt.
-func Compose(names []string, userPrompt string, provider env.Provider) (string, error) {
-	if len(names) == 0 {
-		return userPrompt, nil
-	}
-	// Compute size and build efficiently.
-	var parts []string
-	parts = make([]string, 0, len(names)+1)
-	for _, n := range names {
-		p, err := Resolve(n, provider)
-		if err != nil {
-			return "", err
-		}
-		parts = append(parts, p.Content)
-	}
-	// Append user prompt last with required separation.
-	composed := joinWithDoubleNewline(parts...) + "\n\n" + userPrompt
-	return composed, nil
-}
-
 // ErrUnknownPrompt represents a request for an undefined built-in.
 type ErrUnknownPrompt string
 
@@ -188,18 +167,6 @@ type ErrInvalidPromptName string
 
 func (e ErrInvalidPromptName) Error() string {
 	return "invalid prompt name: " + string(e)
-}
-
-func joinWithDoubleNewline(parts ...string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	// avoid strings.Builder to keep it simple and adequate here
-	out := parts[0]
-	for i := 1; i < len(parts); i++ {
-		out += "\n\n" + parts[i]
-	}
-	return out
 }
 
 func loadCustomPrompts(provider env.Provider) ([]Prompt, error) {

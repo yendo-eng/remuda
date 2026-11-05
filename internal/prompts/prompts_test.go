@@ -22,16 +22,10 @@ func TestListAndGet(t *testing.T) {
 	require.True(t, strings.Contains(p.Content, "git commit"))
 }
 
-func TestComposeOrderAndJoin(t *testing.T) {
+func TestResolveUnknownPrompt(t *testing.T) {
 	t.Setenv(promptsDirEnv, t.TempDir())
-	// Single built-in + user prompt
-	out, err := Compose([]string{"small-commits"}, "User body", env.Default())
-	require.NoError(t, err)
-	require.True(t, strings.HasSuffix(out, "\n\nUser body"))
-
-	// Unknown name should error
-	_, err = Compose([]string{"nope"}, "X", env.Default())
-	require.Error(t, err)
+	_, err := Resolve("nope", env.Default())
+	require.ErrorIs(t, err, ErrUnknownPrompt("nope"))
 }
 
 func TestGetMakePR(t *testing.T) {
