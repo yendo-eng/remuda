@@ -44,7 +44,9 @@ func WithoutOrgPrefix(name string) string {
 }
 
 func FZFPreviewCommand(mgr Multiplexer) string {
-	switch mgr.(type) {
+	switch m := mgr.(type) {
+	case *aggregateMultiplexer:
+		return FZFPreviewCommand(m.createTarget)
 	case *tmux:
 		// fzf runs preview commands via the user's shell ($SHELL -c ...). Wrap in
 		// bash so we can safely default to a reasonable tail length even when
