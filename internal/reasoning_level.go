@@ -7,13 +7,13 @@ import (
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
 )
 
-func resolveReasoningLevel(logger zerolog.Logger, agentName, model, agentCmd, level string) (string, error) {
+func resolveReasoningLevel(logger zerolog.Logger, agentName, model, agentCmd, level string) string {
 	level = strings.TrimSpace(level)
 	if level == "" {
-		return "", nil
+		return ""
 	}
 	if strings.TrimSpace(agentCmd) != "" {
-		return "", nil
+		return ""
 	}
 
 	switch agentlauncher.SupportedAgent(agentName) {
@@ -25,19 +25,19 @@ func resolveReasoningLevel(logger zerolog.Logger, agentName, model, agentCmd, le
 				Str("reasoning_level", level).
 				Msg("reasoning level may not be supported by codex model")
 		}
-		return level, nil
+		return level
 	case agentlauncher.AgentClaude:
-		return level, nil
+		return level
 	case agentlauncher.AgentOpenCode:
 		logger.Warn().
 			Str("agent", agentName).
 			Str("model", model).
 			Str("reasoning_level", level).
 			Msg("reasoning-level ignored: opencode does not support reasoning variants")
-		return "", nil
+		return ""
 	case agentlauncher.AgentBash:
-		return "", nil
+		return ""
 	default:
-		return "", nil
+		return ""
 	}
 }
