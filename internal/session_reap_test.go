@@ -59,7 +59,7 @@ func TestSessionReapCandidates_FiltersByAge(t *testing.T) {
 	}, candidates)
 	require.Len(t, skipped, 1)
 	require.Equal(t, "org/repo/unknown", skipped[0].Name)
-	require.Equal(t, "unknown session age", skipped[0].SkippedReason)
+	require.Equal(t, "unknown age", skipped[0].SkippedReason)
 }
 
 func TestSessionReapCandidates_RejectsNonPositive(t *testing.T) {

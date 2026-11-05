@@ -113,17 +113,7 @@ func (c *SessionReapCmd) Run(ctx Context) error {
 
 func writeReapSkipped(ctx Context, skipped []internal.ReapedSession) {
 	for _, sess := range skipped {
-		reason := normalizeReapSkipReason(sess.SkippedReason)
-		ctx.Remuda.IO.Outf("skipped %s: %s\n", sess.Name, reason)
-	}
-}
-
-func normalizeReapSkipReason(reason string) string {
-	switch strings.TrimSpace(reason) {
-	case "", "unknown session age":
-		return "unknown age"
-	default:
-		return reason
+		ctx.Remuda.IO.Outf("skipped %s: %s\n", sess.Name, sess.SkippedReason)
 	}
 }
 
