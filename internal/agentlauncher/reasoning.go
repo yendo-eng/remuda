@@ -15,12 +15,6 @@ var codexBaseReasoningLevels = []string{
 	"xhigh",
 }
 
-// CodexReasoningLevels is the canonical union of reasoning levels supported by Codex models.
-var CodexReasoningLevels = append(append([]string(nil), codexBaseReasoningLevels...),
-	"max",
-	"ultra",
-)
-
 // ClaudeEffortLevels is the canonical list of effort levels supported by Claude.
 var ClaudeEffortLevels = []string{
 	"low",

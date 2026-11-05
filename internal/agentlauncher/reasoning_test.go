@@ -23,16 +23,17 @@ func TestSupportedReasoningLevels_CodexModelAware(t *testing.T) {
 
 	standard := []string{"none", "minimal", "low", "medium", "high", "xhigh"}
 	maxOnly := append(append([]string(nil), standard...), "max")
+	maxAndUltra := append(append([]string(nil), standard...), "max", "ultra")
 	tests := []struct {
 		name  string
 		model string
 		want  []string
 	}{
-		{name: "gpt 5.6 sol", model: "gpt-5.6-sol", want: CodexReasoningLevels},
-		{name: "gpt 5.6 terra", model: "gpt-5.6-terra", want: CodexReasoningLevels},
+		{name: "gpt 5.6 sol", model: "gpt-5.6-sol", want: maxAndUltra},
+		{name: "gpt 5.6 terra", model: "gpt-5.6-terra", want: maxAndUltra},
 		{name: "gpt 5.6 luna", model: "gpt-5.6-luna", want: maxOnly},
-		{name: "gpt 6 astra", model: "gpt-6-astra", want: CodexReasoningLevels},
-		{name: "gpt 6 sol", model: "gpt-6-sol", want: CodexReasoningLevels},
+		{name: "gpt 6 astra", model: "gpt-6-astra", want: maxAndUltra},
+		{name: "gpt 6 sol", model: "gpt-6-sol", want: maxAndUltra},
 		{name: "gpt 6 luna", model: "gpt-6-luna", want: maxOnly},
 		{name: "older codex model", model: "gpt-5.5", want: standard},
 		{name: "legacy codex model", model: "gpt-5-codex", want: standard},

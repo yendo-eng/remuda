@@ -45,11 +45,6 @@ func SupportedAgents() []SupportedAgent {
 	}
 }
 
-func IsSupportedAgent(agent string) bool {
-	_, _, err := Parse(agent, "", false)
-	return err == nil
-}
-
 var ErrUnsupportedAgent = pkgerrors.New("unsupported agent")
 
 // ModelAgentDefault is a sentinel value meaning "do not pass an explicit model".
