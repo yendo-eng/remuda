@@ -150,9 +150,6 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	checkModelSupported(logger, agent, cmd.Model)
 	prompt := assemblePrompt(cmd.BeforePrompt, cmd.Prompt, cmd.AfterPrompt)
 
-	// TODO: reinstate this if encessary
-	// cmd.APIKeyOptions.ApplyToEnv()
-
 	var workspace string
 	if strings.TrimSpace(cmd.ExistingWorkspace) != "" {
 		expanded, err := filepath.Abs(cmd.ExistingWorkspace)
@@ -280,9 +277,6 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 
 func checkModelSupported(logger zerolog.Logger, agent agentlauncher.AgentLauncher, model string) {
 	if model == "" {
-		return
-	}
-	if model == agentlauncher.ModelAgentDefault {
 		return
 	}
 	if model == agentlauncher.ModelAgentDefault {
@@ -713,13 +707,11 @@ type launchingAgentLogContext struct {
 }
 
 func logLaunchingAgent(logger zerolog.Logger, ctx launchingAgentLogContext) {
-	// TODO: clean this up so that it is actually useful
 	event := logger.Debug().
 		Str("workspace", ctx.Workspace).
 		Str("session", ctx.Session).
 		Str("agent", ctx.Agent).
 		Str("model", ctx.Model).
-		// Bool("custom_agent_cmd", ctx.CustomAgentCmd).
 		Bool("container", ctx.Container).
 		Str("container_name", ctx.ContainerName).
 		Bool("yolo", ctx.Yolo).
