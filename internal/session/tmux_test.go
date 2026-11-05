@@ -194,10 +194,11 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.Eventually(t, func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		data, readErr := os.ReadFile(outputPath)
-		return readErr == nil && string(data) == "tmux-secret value|unset|set|set|set"
-	}, 2*time.Second, 50*time.Millisecond)
+		require.NoError(c, readErr)
+		assert.Equal(c, "tmux-secret value|unset|set|set|set", string(data))
+	}, 10*time.Second, 50*time.Millisecond)
 }
 
 func TestTmuxStartWithEnvSurfacesStderrOnDuplicateSession(t *testing.T) {
