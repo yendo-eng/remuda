@@ -35,8 +35,6 @@ func resolveReasoningLevel(logger zerolog.Logger, agentName, model, agentCmd, le
 			Str("reasoning_level", level).
 			Msg("reasoning-level ignored: opencode does not support reasoning variants")
 		return ""
-	case agentlauncher.AgentBash:
-		return ""
 	default:
 		return ""
 	}

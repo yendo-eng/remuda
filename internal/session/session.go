@@ -187,12 +187,6 @@ func (s SessionInfo) WorkspacePath(base string) (string, error) {
 	}
 
 	parts := strings.Split(strings.TrimSpace(s.Name), "/")
-	if len(parts) != 3 {
-		return "", pkgerrors.New("invalid session name format")
-	}
-	if parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		return "", pkgerrors.New("invalid session name format")
-	}
 	org, repo, folder := parts[0], parts[1], parts[2]
 	// First try the direct mapping.
 	direct := filepath.Join(base, org, repo, folder)
