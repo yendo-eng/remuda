@@ -3,7 +3,7 @@
 package enums
 
 // ValidAgents is the canonical set of valid agent names.
-// Used by CLI enum tags and config file validation.
+// Used by CLI and config file validation.
 var ValidAgents = []string{"codex", "opencode", "claude", "bash"}
 
 // ValidMultiplexers is the canonical set of valid multiplexer names.
@@ -16,7 +16,7 @@ const (
 )
 
 // ValidUsePromptPositions is the canonical set of saved-prompt placements.
-// Used by CLI enum tags and config file validation.
+// Used by CLI and config file validation.
 var ValidUsePromptPositions = []string{UsePromptPositionBefore, UsePromptPositionAfter}
 
 // ValidSlugifyReasoningLevels is the canonical list of reasoning effort levels for slugify.
