@@ -10,10 +10,6 @@ func TestSupportedAgents_ContainsClaude(t *testing.T) {
 	require.Contains(t, SupportedAgents(), AgentClaude)
 }
 
-func TestIsSupportedAgent_Claude(t *testing.T) {
-	require.True(t, IsSupportedAgent(string(AgentClaude)))
-}
-
 func TestParse_ClaudeLauncherNameIsClaude(t *testing.T) {
 	launcher, _, err := Parse(string(AgentClaude), "", false)
 	require.NoError(t, err)
