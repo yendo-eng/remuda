@@ -60,14 +60,8 @@ func runVibeWithConfig(t *testing.T, configYAML string, args ...string) string {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 
 	mgr := &captureStartMultiplexer{}
-	remuda := internal.NewRemuda(
-		internal.Config{ReposBaseDir: base},
-		noopGit{},
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	remuda := internal.NewRemuda(internal.Config{ReposBaseDir: base})
+	remuda.Git = noopGit{}
 
 	ctx := NewContext(
 		context.Background(),

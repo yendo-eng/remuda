@@ -42,14 +42,9 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 
 	t.Run("default (quiet)", func(t *testing.T) {
 		runDir := t.TempDir()
-		k := internal.NewRemuda(
-			internal.Config{ReposBaseDir: runDir},
-			nil,
-			&testutils.MockMultiplexer{},
-			jira.Mock{},
-			nil,
-			nil,
-		)
+		k := internal.NewRemuda(internal.Config{ReposBaseDir: runDir})
+		k.Multiplexer = &testutils.MockMultiplexer{}
+		k.Jira = jira.Mock{}
 		cliCtx := cli.NewContext(t.Context(), k, cli.Stdout(&bytes.Buffer{}), cli.Stderr(&bytes.Buffer{}))
 
 		stderr, err := captureStderr(t, func() error {
@@ -62,14 +57,9 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 
 	t.Run("with -v", func(t *testing.T) {
 		runDir := t.TempDir()
-		k := internal.NewRemuda(
-			internal.Config{ReposBaseDir: runDir},
-			nil,
-			&testutils.MockMultiplexer{},
-			jira.Mock{},
-			nil,
-			nil,
-		)
+		k := internal.NewRemuda(internal.Config{ReposBaseDir: runDir})
+		k.Multiplexer = &testutils.MockMultiplexer{}
+		k.Jira = jira.Mock{}
 		cliCtx := cli.NewContext(t.Context(), k, cli.Stdout(&bytes.Buffer{}), cli.Stderr(&bytes.Buffer{}))
 
 		stderr, err := captureStderr(t, func() error {

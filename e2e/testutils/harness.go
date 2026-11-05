@@ -179,24 +179,26 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 
 	require.NoError(t, os.MkdirAll(h.RemudaConfig.ReposBaseDir, 0o755))
 
-	remudaOpts := []func(*internal.Remuda){
-		internal.WithLogger(logger),
-		internal.WithSlack(h.Slack),
-		internal.WithIO(internal.IO{
-			In:  h.Stdin,
-			Out: stdout,
-			Err: stderr,
-		}),
-		internal.WithEnvProvider(env.StaticProvider{
-			Values:  map[string]string(h.Env),
-			HomeDir: h.HomeDir,
-		}),
+	h.Remuda = internal.NewRemuda(h.RemudaConfig)
+	h.Remuda.Git = h.Git
+	h.Remuda.Multiplexer = h.Multiplexer
+	h.Remuda.Jira = h.Jira
+	h.Remuda.Docker = h.Docker
+	h.Remuda.GitHub = h.GitHub
+	h.Remuda.Slack = h.Slack
+	h.Remuda.IO = internal.IO{
+		In:  h.Stdin,
+		Out: stdout,
+		Err: stderr,
 	}
+	h.Remuda.Env = env.NewMutableProvider(env.StaticProvider{
+		Values:  map[string]string(h.Env),
+		HomeDir: h.HomeDir,
+	})
+	h.Remuda.Logger = logger
 	if h.CloneHooks != nil {
-		remudaOpts = append(remudaOpts, internal.WithCloneHooks(h.CloneHooks))
+		h.Remuda.CloneHooks = h.CloneHooks
 	}
-
-	h.Remuda = internal.NewRemuda(h.RemudaConfig, h.Git, h.Multiplexer, h.Jira, h.Docker, h.GitHub, remudaOpts...)
 
 	return h
 }

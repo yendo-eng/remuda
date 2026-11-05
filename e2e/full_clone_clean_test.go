@@ -21,14 +21,8 @@ func TestFullCloneProducesCleanWorkingTree(t *testing.T) {
 	remoteURL := testutils.InitTestRemote(t)
 	baseRoot := filepath.Join(t.TempDir(), "repos")
 
-	k := internal.NewRemuda(
-		internal.Config{ReposBaseDir: baseRoot},
-		nil,
-		&testutils.MockMultiplexer{},
-		nil,
-		nil,
-		nil,
-	)
+	k := internal.NewRemuda(internal.Config{ReposBaseDir: baseRoot})
+	k.Multiplexer = &testutils.MockMultiplexer{}
 
 	// Seed the cache by cloning once.
 	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k), []string{"clone", "--name", "seed", "--repo-url", remoteURL}))
