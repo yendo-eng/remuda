@@ -38,7 +38,7 @@ func (k Remuda) SessionReapCandidates(
 		if sess.CreatedAt.IsZero() {
 			skipped = append(skipped, ReapedSession{
 				Name:          sess.Name,
-				SkippedReason: "unknown session age",
+				SkippedReason: "unknown age",
 			})
 			continue
 		}
