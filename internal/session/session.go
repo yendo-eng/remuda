@@ -6,13 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/yendo-eng/remuda/internal/enums"
 )
 
 type SupportedMultiplexer string
@@ -48,16 +46,6 @@ func unavailableIfMissing(err error) error {
 		return unavailableError{err: err}
 	}
 	return err
-}
-
-func (s *SupportedMultiplexer) UnmarshalText(text []byte) error {
-	val := strings.ToLower(strings.TrimSpace(string(text)))
-	if !slices.Contains(enums.ValidMultiplexers, val) {
-		return pkgerrors.Errorf("unknown session manager %q (valid: %s)",
-			string(text), strings.Join(enums.ValidMultiplexers, ", "))
-	}
-	*s = SupportedMultiplexer(val)
-	return nil
 }
 
 func NewMultiplexer(name SupportedMultiplexer, logger zerolog.Logger) Multiplexer {
