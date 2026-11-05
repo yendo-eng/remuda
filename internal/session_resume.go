@@ -30,8 +30,6 @@ type SessionResumeCommand struct {
 	Yolo     bool
 	// ReasoningLevel overrides Codex reasoning effort when set.
 	ReasoningLevel string
-	// OpenAIAPIKey overrides OPENAI_API_KEY for this launch.
-	OpenAIAPIKey string
 
 	Container           bool
 	ContainerName       string
@@ -83,17 +81,6 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		agentCmd = agentlauncher.Custom(agentCmd).Command(prompt)
 	}
 
-	envOverrides := make(map[string]string, len(cmd.EnvOverrides)+1)
-	for key, value := range cmd.EnvOverrides {
-		envOverrides[key] = value
-	}
-	if openAIAPIKey := strings.TrimSpace(cmd.OpenAIAPIKey); openAIAPIKey != "" {
-		envOverrides["OPENAI_API_KEY"] = openAIAPIKey
-	}
-	if len(envOverrides) == 0 {
-		envOverrides = nil
-	}
-
 	_, err = k.launchAgentSession(agentLaunchCommand{
 		Workspace:           workspaceAbs,
 		SessionName:         sessionName,
@@ -109,7 +96,7 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		ContainerOpts:       cmd.ContainerOpts,
 		ContainerInheritEnv: cmd.ContainerInheritEnv,
 		Yolo:                cmd.Yolo,
-		EnvOverrides:        envOverrides,
+		EnvOverrides:        cmd.EnvOverrides,
 	})
 	return err
 }
