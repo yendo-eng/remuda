@@ -8,7 +8,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 // CloneHookContext provides context about a freshly created worktree to hooks.
@@ -19,7 +18,7 @@ type CloneHookContext struct {
 	CacheDir    string
 	WorktreeDir string
 	Env         env.Provider
-	Logger      *zerolog.Logger
+	Logger      zerolog.Logger
 }
 
 // CloneHook represents a post-clone hook that can run against certain repos.
@@ -110,13 +109,9 @@ func (r *CloneHookRegistry) RunCloneHooks(ctx CloneHookContext) error {
 		return nil
 	}
 
-	logger := logging.DefaultLogger()
-	if ctx.Logger != nil {
-		logger = *ctx.Logger
-	}
 	repoSlug := fmt.Sprintf("%s/%s", ctx.Org, ctx.Repo)
 	for _, hook := range hooks {
-		logger.Debug().
+		ctx.Logger.Debug().
 			Str("repo", repoSlug).
 			Str("hook", hook.Name()).
 			Str("worktree", ctx.WorktreeDir).
