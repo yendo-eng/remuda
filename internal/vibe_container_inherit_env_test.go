@@ -33,11 +33,11 @@ func TestComposeLaunchCommand_ForwardsContainerInheritEnv(t *testing.T) {
 		ContainerInheritEnv: []string{"AWS_REGION", "FOO_BAR", "GOPRIVATE"},
 	}
 
-	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.Contains(t, launchCmd, "'-e' 'AWS_REGION'")
-	require.Contains(t, launchCmd, "'-e' 'FOO_BAR'")
-	require.Contains(t, launchCmd, "'-e' 'GOPRIVATE'")
+	require.Contains(t, launch.shell, "'-e' 'AWS_REGION'")
+	require.Contains(t, launch.shell, "'-e' 'FOO_BAR'")
+	require.Contains(t, launch.shell, "'-e' 'GOPRIVATE'")
 }
 
 // TestComposeLaunchCommand_SplitsMultiTokenContainerOpt verifies that a raw
@@ -68,7 +68,7 @@ func TestComposeLaunchCommand_SplitsMultiTokenContainerOpt(t *testing.T) {
 		ContainerOpts: []string{"-v /a:/b"},
 	}
 
-	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
 
 	binDir := t.TempDir()
@@ -78,7 +78,7 @@ func TestComposeLaunchCommand_SplitsMultiTokenContainerOpt(t *testing.T) {
 	require.NoError(t, os.WriteFile(dockerPath, []byte(script), 0o755))
 
 	//nolint:gosec // G204: this test intentionally executes the generated shell command to verify quoting behavior.
-	run := exec.CommandContext(context.Background(), "bash", "-c", launchCmd)
+	run := exec.CommandContext(context.Background(), "bash", "-c", launch.shell)
 	run.Env = append(os.Environ(),
 		"PATH="+binDir+":"+os.Getenv("PATH"),
 		"CAPTURE_ARGS="+capturePath,
@@ -113,7 +113,7 @@ func TestComposeLaunchCommand_InvalidContainerInheritEnvFails(t *testing.T) {
 		ContainerInheritEnv: []string{"BAD=NOPE"},
 	}
 
-	_, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "invalid env var name")
 }
@@ -127,7 +127,7 @@ func TestComposeLaunchCommand_ContainerRequiresExplicitImage(t *testing.T) {
 		Container: true,
 	}
 
-	_, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "container mode requires an explicit image")
 }
@@ -158,14 +158,14 @@ func TestComposeLaunchCommand_BashAgentIncludesCodexStateMounts(t *testing.T) {
 		ContainerName: "vibe-dev",
 	}
 
-	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.Contains(t, launchCmd, "'-e' 'ANTHROPIC_API_KEY'")
-	require.Contains(t, launchCmd, ":/root/.codex/history.jsonl:rw")
-	require.Contains(t, launchCmd, ":/root/.codex/sessions:rw")
-	require.Contains(t, launchCmd, ":/root/.local/share/opencode:rw")
-	require.Contains(t, launchCmd, claudeDir+":/root/.claude:rw")
-	require.Contains(t, launchCmd, claudeJSON+":/root/.claude.json:rw")
+	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
+	require.Contains(t, launch.shell, ":/root/.codex/history.jsonl:rw")
+	require.Contains(t, launch.shell, ":/root/.codex/sessions:rw")
+	require.Contains(t, launch.shell, ":/root/.local/share/opencode:rw")
+	require.Contains(t, launch.shell, claudeDir+":/root/.claude:rw")
+	require.Contains(t, launch.shell, claudeJSON+":/root/.claude.json:rw")
 }
 
 func TestComposeLaunchCommand_ClaudeAgentIncludesClaudeStateMountsAndEnv(t *testing.T) {
@@ -194,12 +194,12 @@ func TestComposeLaunchCommand_ClaudeAgentIncludesClaudeStateMountsAndEnv(t *test
 		ContainerName: "vibe-dev",
 	}
 
-	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.Contains(t, launchCmd, "'-e' 'ANTHROPIC_API_KEY'")
-	require.NotContains(t, launchCmd, "IS_SANDBOX")
-	require.Contains(t, launchCmd, claudeDir+":/root/.claude:rw")
-	require.Contains(t, launchCmd, claudeJSON+":/root/.claude.json:rw")
+	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
+	require.NotContains(t, launch.shell, "IS_SANDBOX")
+	require.Contains(t, launch.shell, claudeDir+":/root/.claude:rw")
+	require.Contains(t, launch.shell, claudeJSON+":/root/.claude.json:rw")
 }
 
 func TestComposeLaunchCommand_ClaudeYoloSetsSandboxEnv(t *testing.T) {
@@ -229,10 +229,10 @@ func TestComposeLaunchCommand_ClaudeYoloSetsSandboxEnv(t *testing.T) {
 		ContainerName: "vibe-dev",
 	}
 
-	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.Contains(t, launchCmd, "'-e' 'ANTHROPIC_API_KEY'")
-	require.Contains(t, launchCmd, "'-e' 'IS_SANDBOX'")
+	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
+	require.Contains(t, launch.shell, "'-e' 'IS_SANDBOX'")
 }
 
 func TestComposeLaunchCommand_CodexAgentOmitsClaudeStateMountsAndEnv(t *testing.T) {
@@ -261,9 +261,9 @@ func TestComposeLaunchCommand_CodexAgentOmitsClaudeStateMountsAndEnv(t *testing.
 		ContainerName: "vibe-dev",
 	}
 
-	launchCmd, _, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
-	require.NotContains(t, launchCmd, "ANTHROPIC_API_KEY")
-	require.NotContains(t, launchCmd, "/root/.claude")
-	require.NotContains(t, launchCmd, "/root/.claude.json")
+	require.NotContains(t, launch.shell, "ANTHROPIC_API_KEY")
+	require.NotContains(t, launch.shell, "/root/.claude")
+	require.NotContains(t, launch.shell, "/root/.claude.json")
 }
