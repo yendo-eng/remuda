@@ -18,9 +18,8 @@ func main() {
 
 	remuda := internal.NewRemuda(cfg)
 
-	err := clipkg.RunWithName(
+	err := clipkg.Run(
 		clipkg.NewContext(context.Background(), remuda, clipkg.WithVersion(version)),
-		os.Args[0],
 		os.Args[1:],
 	)
 	if err != nil {
