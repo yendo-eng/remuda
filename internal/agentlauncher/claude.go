@@ -1,11 +1,6 @@
 package agentlauncher
 
-import (
-	"strings"
-
-	"github.com/yendo-eng/remuda/internal/logging"
-	"github.com/yendo-eng/remuda/internal/util"
-)
+import "strings"
 
 var claudeSupportedModels = []string{
 	"sonnet",
@@ -89,8 +84,4 @@ func (c claudeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bo
 
 func (c claudeLauncher) SupportedModels() []string {
 	return append([]string(nil), claudeSupportedModels...)
-}
-
-func (c claudeLauncher) Version() (string, error) {
-	return util.RunCmdOutput(logging.DefaultLogger(), "claude", "--version")
 }
