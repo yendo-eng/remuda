@@ -33,15 +33,6 @@ const (
 // HTTPClientOption allows overriding HTTP client behavior.
 type HTTPClientOption func(*httpClient)
 
-// WithHTTPClient overrides the underlying net/http client.
-func WithHTTPClient(client *http.Client) HTTPClientOption {
-	return func(c *httpClient) {
-		if client != nil {
-			c.httpClient = client
-		}
-	}
-}
-
 // WithRequestTimeout overrides the per-request timeout.
 func WithRequestTimeout(timeout time.Duration) HTTPClientOption {
 	return func(c *httpClient) {
@@ -51,22 +42,12 @@ func WithRequestTimeout(timeout time.Duration) HTTPClientOption {
 	}
 }
 
-// WithCommentPageSize overrides the page size used for comment pagination.
-func WithCommentPageSize(pageSize int) HTTPClientOption {
-	return func(c *httpClient) {
-		if pageSize > 0 {
-			c.commentPageSize = pageSize
-		}
-	}
-}
-
 type httpClient struct {
-	endpoint        *url.URL
-	user            string
-	token           string
-	httpClient      *http.Client
-	requestTimeout  time.Duration
-	commentPageSize int
+	endpoint       *url.URL
+	user           string
+	token          string
+	httpClient     *http.Client
+	requestTimeout time.Duration
 }
 
 // NewHTTPClient builds a Jira Cloud REST API v3 client.
@@ -83,12 +64,11 @@ func NewHTTPClient(cfg AuthConfig, opts ...HTTPClientOption) (Client, error) {
 	}
 
 	client := &httpClient{
-		endpoint:        endpoint,
-		user:            cfg.User,
-		token:           cfg.Token,
-		httpClient:      &http.Client{},
-		requestTimeout:  defaultRequestTimeout,
-		commentPageSize: defaultCommentPageSize,
+		endpoint:       endpoint,
+		user:           cfg.User,
+		token:          cfg.Token,
+		httpClient:     &http.Client{},
+		requestTimeout: defaultRequestTimeout,
 	}
 
 	for _, opt := range opts {
@@ -187,7 +167,7 @@ func (c *httpClient) GetComments(ctx context.Context, key string) ([]Comment, er
 	for {
 		query := url.Values{}
 		query.Set("startAt", strconv.Itoa(startAt))
-		query.Set("maxResults", strconv.Itoa(c.commentPageSize))
+		query.Set("maxResults", strconv.Itoa(defaultCommentPageSize))
 
 		var page commentsPageResponse
 		if err := c.getJSON(ctx, commentsPath(trimmedKey), query, trimmedKey, &page); err != nil {
