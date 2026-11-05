@@ -451,7 +451,7 @@ func TestSessionResume_OpenAIKeyOverridesEnvironment(t *testing.T) {
 	err := k.SessionResume(context.Background(), SessionResumeCommand{
 		Workspace:    workspace,
 		Detached:     true,
-		OpenAIAPIKey: "override-key",
+		EnvOverrides: map[string]string{"OPENAI_API_KEY": "override-key"},
 	})
 	require.NoError(t, err)
 

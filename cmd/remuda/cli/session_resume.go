@@ -256,7 +256,6 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 		Attach:              c.Attach,
 		Yolo:                c.Yolo,
 		ReasoningLevel:      c.ReasoningLevel,
-		OpenAIAPIKey:        c.OpenAIAPIKey,
 		Container:           c.Container,
 		ContainerName:       c.ContainerName,
 		ContainerOpts:       c.ContainerOpt,
