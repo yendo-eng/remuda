@@ -212,7 +212,7 @@ func BuildOpenCodeStateMountOpts(logger zerolog.Logger, provider env.Provider) [
 		return nil
 	}
 
-	return buildOpenCodeStateMountOpts(logger, util.CurrentGOOS(), home)
+	return buildOpenCodeStateMountOpts(logger, runtime.GOOS, home)
 }
 
 func buildOpenCodeStateMountOpts(logger zerolog.Logger, goos, home string) []string {
