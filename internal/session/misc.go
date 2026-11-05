@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// SessionNameFromWorkspaceName returns a compact tmux session name in the form
+// SessionNameFromWorkspaceName returns a compact session name in the form
 // "org/repo/<folder>" based on the provided workspace path, which is expected
 // to follow the layout: <baseRoot>/<org>/<repo>/<folder>.
 // If the path has fewer than 3 components, it falls back to the last element.
