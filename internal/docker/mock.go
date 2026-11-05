@@ -7,9 +7,6 @@ type Mock struct {
 	// ContainerRunning values (keyed by container name). When absent, defaults to ErrContainerNotFound.
 	RunningContainers map[string]bool
 
-	// docker run commands that were passed in.
-	Runs [][]string
-
 	// docker exec commands that were passed in.
 	Execs []struct {
 		Container string
@@ -32,10 +29,6 @@ func (m Mock) ContainerRunning(container string) (bool, error) {
 		}
 	}
 	return false, ErrContainerNotFound
-}
-
-func (m Mock) Run(args ...string) error {
-	panic("TODO:")
 }
 
 func (m *Mock) Exec(container string, command string) error {
