@@ -305,6 +305,64 @@ func TestTmuxStartWithEnvBoundsArgvForLargeEnvironment(t *testing.T) {
 	require.Less(t, len(args), 4096)
 }
 
+func TestTmuxPreviewMatchesSessionNameExactly(t *testing.T) {
+	t.Parallel()
+
+	realTmux, err := exec.LookPath("tmux")
+	if err != nil {
+		t.Skip("tmux not available")
+	}
+
+	// tmux is run under `bash -lc` in the preview, where PATH can be reset by
+	// the login profile, so the server is isolated with TMUX_TMPDIR rather
+	// than a -L wrapper on PATH. Its socket path has to fit macOS's 103-byte
+	// cap, which t.TempDir can exceed. HOME is a temp directory so that no
+	// user profile is sourced there.
+	tmuxDir, err := os.MkdirTemp("", "tmux")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmuxDir) })
+	env := append(filteredEnvWithout("HOME", "TMUX", "TMUX_PANE", "TMUX_TMPDIR"), "HOME="+t.TempDir(), "TMUX_TMPDIR="+tmuxDir)
+	tmux := func(ctx context.Context, args ...string) (string, error) {
+		//nolint:gosec // G204: realTmux is the tmux on PATH, and args are test-owned.
+		cmd := exec.CommandContext(ctx, realTmux, args...)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	out, err := tmux(t.Context(), "-f", "/dev/null", "new-session", "-d", "-s", "org/repo/rm-uumo_4", "echo rm-uumo_4 pane; exec cat")
+	require.NoError(t, err, out)
+	t.Cleanup(func() { _, _ = tmux(context.Background(), "kill-server") })
+	require.Eventually(t, func() bool {
+		out, err := tmux(t.Context(), "capture-pane", "-p", "-t", "org/repo/rm-uumo_4:")
+		return err == nil && strings.Contains(out, "rm-uumo_4 pane")
+	}, 2*time.Second, 50*time.Millisecond)
+
+	preview := session.FZFPreviewCommand(session.NewTmux(logging.DefaultLogger()))
+	tests := []struct {
+		name string
+		row  string
+		want string
+	}{
+		{name: "exact tmux session", row: "org/repo/rm-uumo_4", want: "rm-uumo_4 pane"},
+		{name: "prefix of a tmux session", row: "org/repo/rm-uumo", want: "<no buffer>"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// As in fzf, {} is replaced with the single-quoted row, and the
+			// preview is run with $SHELL -c.
+			//nolint:gosec // G204: the preview is built by FZFPreviewCommand, and the row is test-owned.
+			cmd := exec.CommandContext(t.Context(), "sh", "-c", strings.ReplaceAll(preview, "{}", shell.SingleQuote(tt.row)))
+			cmd.Env = env
+			out, err := cmd.Output()
+			require.NoError(t, err)
+			require.Contains(t, string(out), tt.want)
+		})
+	}
+}
+
 func filteredEnvWithout(keys ...string) []string {
 	skip := make(map[string]struct{}, len(keys))
 	for _, key := range keys {
