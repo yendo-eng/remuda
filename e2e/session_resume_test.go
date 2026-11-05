@@ -21,14 +21,10 @@ func TestSessionResume(t *testing.T) {
 	setup := func(t *testing.T) (string, *testutils.MockMultiplexer, internal.Remuda) {
 		baseDir := t.TempDir()
 		mgr := &testutils.MockMultiplexer{}
-		k := internal.NewRemuda(
-			internal.Config{ReposBaseDir: baseDir},
-			nil,
-			mgr,
-			jira.Mock{},
-			&docker.Mock{Running: false},
-			nil,
-		)
+		k := internal.NewRemuda(internal.Config{ReposBaseDir: baseDir})
+		k.Multiplexer = mgr
+		k.Jira = jira.Mock{}
+		k.Docker = &docker.Mock{Running: false}
 		return baseDir, mgr, k
 	}
 

@@ -25,14 +25,8 @@ func runSessionResume(t *testing.T, workspace string, args ...string) string {
 
 	base := filepath.Dir(filepath.Dir(filepath.Dir(workspace)))
 	mgr := &captureStartMultiplexer{}
-	remuda := internal.NewRemuda(
-		internal.Config{ReposBaseDir: base},
-		noopGit{},
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	remuda := internal.NewRemuda(internal.Config{ReposBaseDir: base})
+	remuda.Git = noopGit{}
 
 	ctx := NewContext(
 		context.Background(),

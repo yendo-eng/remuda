@@ -63,15 +63,10 @@ func (c *captureSendMultiplexer) Kill(name string) error { return nil }
 func TestSessionSend_UsesPromptArg(t *testing.T) {
 	t.Parallel()
 	mgr := &captureSendMultiplexer{}
-	k := internal.NewRemuda(
-		internal.Config{},
-		sendStubGit{},
-		mgr,
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}),
-	)
+	k := internal.NewRemuda(internal.Config{})
+	k.Git = sendStubGit{}
+	k.Multiplexer = mgr
+	k.IO = internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}
 	ctx := cli.NewContext(context.Background(), k)
 
 	cmd := cli.SessionSendCmd{
@@ -87,15 +82,10 @@ func TestSessionSend_UsesPromptArg(t *testing.T) {
 func TestSessionSend_UsesPromptFromStdin(t *testing.T) {
 	t.Parallel()
 	mgr := &captureSendMultiplexer{}
-	k := internal.NewRemuda(
-		internal.Config{},
-		sendStubGit{},
-		mgr,
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{In: strings.NewReader("from-stdin\n"), Out: io.Discard, Err: io.Discard}),
-	)
+	k := internal.NewRemuda(internal.Config{})
+	k.Git = sendStubGit{}
+	k.Multiplexer = mgr
+	k.IO = internal.IO{In: strings.NewReader("from-stdin\n"), Out: io.Discard, Err: io.Discard}
 	ctx := cli.NewContext(context.Background(), k)
 
 	cmd := cli.SessionSendCmd{
@@ -110,15 +100,10 @@ func TestSessionSend_UsesPromptFromStdin(t *testing.T) {
 func TestSessionSend_NoNewline(t *testing.T) {
 	t.Parallel()
 	mgr := &captureSendMultiplexer{}
-	k := internal.NewRemuda(
-		internal.Config{},
-		sendStubGit{},
-		mgr,
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}),
-	)
+	k := internal.NewRemuda(internal.Config{})
+	k.Git = sendStubGit{}
+	k.Multiplexer = mgr
+	k.IO = internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}
 	ctx := cli.NewContext(context.Background(), k)
 
 	cmd := cli.SessionSendCmd{
@@ -133,15 +118,10 @@ func TestSessionSend_NoNewline(t *testing.T) {
 func TestSessionSend_RejectsEmptyPrompt(t *testing.T) {
 	t.Parallel()
 	mgr := &captureSendMultiplexer{}
-	k := internal.NewRemuda(
-		internal.Config{},
-		sendStubGit{},
-		mgr,
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}),
-	)
+	k := internal.NewRemuda(internal.Config{})
+	k.Git = sendStubGit{}
+	k.Multiplexer = mgr
+	k.IO = internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}
 	ctx := cli.NewContext(context.Background(), k)
 
 	cmd := cli.SessionSendCmd{
@@ -155,15 +135,10 @@ func TestSessionSend_RejectsEmptyPrompt(t *testing.T) {
 func TestSessionSend_MultipleNames(t *testing.T) {
 	t.Parallel()
 	mgr := &captureSendMultiplexer{}
-	k := internal.NewRemuda(
-		internal.Config{},
-		sendStubGit{},
-		mgr,
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}),
-	)
+	k := internal.NewRemuda(internal.Config{})
+	k.Git = sendStubGit{}
+	k.Multiplexer = mgr
+	k.IO = internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}
 	ctx := cli.NewContext(context.Background(), k)
 
 	cmd := cli.SessionSendCmd{

@@ -17,16 +17,9 @@ import (
 func getRemuda(t *testing.T) (internal.Remuda, *bytes.Buffer, *bytes.Buffer, cli.EnvMap) {
 	reposDir := t.TempDir()
 
-	k := internal.NewRemuda(
-		internal.Config{
-			ReposBaseDir: reposDir,
-		},
-		nil,
-		&testutils.MockMultiplexer{},
-		jira.Mock{},
-		nil,
-		nil,
-	)
+	k := internal.NewRemuda(internal.Config{ReposBaseDir: reposDir})
+	k.Multiplexer = &testutils.MockMultiplexer{}
+	k.Jira = jira.Mock{}
 
 	stdout := bytes.NewBufferString("")
 	stderr := bytes.NewBufferString("")

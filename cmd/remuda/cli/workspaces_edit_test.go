@@ -14,7 +14,7 @@ import (
 func runCLI(t *testing.T, args ...string) error {
 	t.Helper()
 	var out, errOut bytes.Buffer
-	k := internal.NewRemuda(internal.Config{}, nil, nil, nil, nil, nil)
+	k := internal.NewRemuda(internal.Config{})
 	cliCtx := cli.NewContext(context.Background(), k,
 		cli.Stdout(&out),
 		cli.Stderr(&errOut),

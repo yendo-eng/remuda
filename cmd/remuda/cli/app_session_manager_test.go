@@ -37,15 +37,9 @@ func TestRun_WiresSessionManagerFlag(t *testing.T) {
 
 			var out bytes.Buffer
 			var errBuf bytes.Buffer
-			k := internal.NewRemuda(
-				internal.Config{ReposBaseDir: t.TempDir()},
-				noopGit{},
-				nil,
-				nil,
-				nil,
-				nil,
-				internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &errBuf}),
-			)
+			k := internal.NewRemuda(internal.Config{ReposBaseDir: t.TempDir()})
+			k.Git = noopGit{}
+			k.IO = internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &errBuf}
 			ctx := NewContext(context.Background(), k,
 				WithEnv(EnvMap{}),
 				WithHomeDir(t.TempDir()),
@@ -65,15 +59,9 @@ func TestRun_AggregatesMultiplexers(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	k := internal.NewRemuda(
-		internal.Config{ReposBaseDir: t.TempDir()},
-		noopGit{},
-		nil,
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &bytes.Buffer{}}),
-	)
+	k := internal.NewRemuda(internal.Config{ReposBaseDir: t.TempDir()})
+	k.Git = noopGit{}
+	k.IO = internal.IO{In: bytes.NewBuffer(nil), Out: &out, Err: &bytes.Buffer{}}
 	ctx := NewContext(context.Background(), k,
 		WithEnv(EnvMap{}),
 		WithHomeDir(t.TempDir()),

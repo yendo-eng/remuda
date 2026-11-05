@@ -31,67 +31,15 @@ type Remuda struct {
 	Logger      zerolog.Logger
 }
 
-func WithCloneHooks(r *CloneHookRegistry) func(*Remuda) {
-	return func(k *Remuda) {
-		k.CloneHooks = r
-	}
-}
-
-func WithIO(io IO) func(*Remuda) {
-	return func(k *Remuda) {
-		k.IO = io
-	}
-}
-
-func WithSlack(slack slack.Slack) func(*Remuda) {
-	return func(k *Remuda) {
-		k.Slack = slack
-	}
-}
-
-func WithEnvProvider(provider env.Provider) func(*Remuda) {
-	return func(k *Remuda) {
-		k.Env = env.NewMutableProvider(provider)
-	}
-}
-
-func WithLogger(logger zerolog.Logger) func(*Remuda) {
-	return func(k *Remuda) {
-		k.Logger = logger
-	}
-}
-
-func NewRemuda(
-	cfg Config,
-	git git.Git,
-	multiplexer session.Multiplexer,
-	jira jira.Jira,
-	docker docker.Docker,
-	gitHub github.GitHub,
-	opts ...func(*Remuda),
-) Remuda {
+func NewRemuda(cfg Config) Remuda {
 	k := Remuda{
-		Config:      cfg,
-		Git:         git,
-		Multiplexer: multiplexer,
-		Jira:        jira,
-		Docker:      docker,
-		GitHub:      gitHub,
-		CloneHooks:  NewCloneHookRegistry(),
-		IO:          DefaultIO(),
-		Env:         env.Default(),
-		Logger:      logging.DefaultLogger(),
+		Config:     cfg,
+		CloneHooks: NewCloneHookRegistry(),
+		IO:         DefaultIO(),
+		Env:        env.NewMutableProvider(env.Default()),
+		Logger:     logging.DefaultLogger(),
 	}
-
-	for _, opt := range opts {
-		opt(&k)
-	}
-
-	k.Env = env.NewMutableProvider(k.Env)
-	if k.Slack == nil {
-		k.Slack = slack.NewHTTPSlackWithEnv(http.Client{Timeout: 30 * time.Second}, k.Env)
-	}
-
+	k.Slack = slack.NewHTTPSlackWithEnv(http.Client{Timeout: 30 * time.Second}, k.Env)
 	return k
 }
 

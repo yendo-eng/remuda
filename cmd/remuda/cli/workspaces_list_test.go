@@ -191,19 +191,14 @@ func TestWorkspacesListCmd(t *testing.T) {
 func newWorkspacesListContext(base string, sessions []session.SessionInfo, cfg *configfile.V1) (Context, *bytes.Buffer) {
 	var out bytes.Buffer
 
-	k := internal.NewRemuda(
-		internal.Config{ReposBaseDir: base},
-		stubGit{},
-		stubMultiplexer{sessions: sessions},
-		nil,
-		nil,
-		nil,
-		internal.WithIO(internal.IO{
-			In:  strings.NewReader(""),
-			Out: &out,
-			Err: io.Discard,
-		}),
-	)
+	k := internal.NewRemuda(internal.Config{ReposBaseDir: base})
+	k.Git = stubGit{}
+	k.Multiplexer = stubMultiplexer{sessions: sessions}
+	k.IO = internal.IO{
+		In:  strings.NewReader(""),
+		Out: &out,
+		Err: io.Discard,
+	}
 	ctx := NewContext(context.Background(), k)
 	ctx.ConfigFile = cfg
 	return ctx, &out

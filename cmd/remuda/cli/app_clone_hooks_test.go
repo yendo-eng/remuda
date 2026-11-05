@@ -29,16 +29,10 @@ func TestApplyCloneHooksFromConfig_AppendsAfterRegisteredHooks(t *testing.T) {
 		return err
 	}))
 
-	k := internal.NewRemuda(
-		internal.Config{ReposBaseDir: t.TempDir()},
-		noopGit{},
-		nil,
-		nil,
-		nil,
-		nil,
-		internal.WithCloneHooks(registry),
-		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}),
-	)
+	k := internal.NewRemuda(internal.Config{ReposBaseDir: t.TempDir()})
+	k.Git = noopGit{}
+	k.CloneHooks = registry
+	k.IO = internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
 	cliCtx := Context{Remuda: k}
 
 	cfg := &configfile.V1{
@@ -71,16 +65,10 @@ func TestApplyCloneHooksFromConfig_ReplacesAndClearsConfigHooks(t *testing.T) {
 	markerFile := filepath.Join(worktreeDir, "marker.txt")
 
 	registry := internal.NewCloneHookRegistry()
-	k := internal.NewRemuda(
-		internal.Config{ReposBaseDir: t.TempDir()},
-		noopGit{},
-		nil,
-		nil,
-		nil,
-		nil,
-		internal.WithCloneHooks(registry),
-		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}),
-	)
+	k := internal.NewRemuda(internal.Config{ReposBaseDir: t.TempDir()})
+	k.Git = noopGit{}
+	k.CloneHooks = registry
+	k.IO = internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
 	cliCtx := Context{Remuda: k}
 
 	cfgA := &configfile.V1{
@@ -138,16 +126,10 @@ func TestApplyCloneHooksFromConfig_ReplacesAndClearsConfigHooks(t *testing.T) {
 func TestApplyCloneHooksFromConfig_GeneratesDefaultHookNames(t *testing.T) {
 	t.Parallel()
 	registry := internal.NewCloneHookRegistry()
-	k := internal.NewRemuda(
-		internal.Config{ReposBaseDir: t.TempDir()},
-		noopGit{},
-		nil,
-		nil,
-		nil,
-		nil,
-		internal.WithCloneHooks(registry),
-		internal.WithIO(internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}),
-	)
+	k := internal.NewRemuda(internal.Config{ReposBaseDir: t.TempDir()})
+	k.Git = noopGit{}
+	k.CloneHooks = registry
+	k.IO = internal.IO{In: bytes.NewBuffer(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
 	cliCtx := Context{Remuda: k}
 
 	cfg := &configfile.V1{

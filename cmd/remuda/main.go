@@ -16,14 +16,7 @@ func main() {
 	cfg := internal.ConfigFromEnv()
 	version := resolveVersion(buildVersion, debug.ReadBuildInfo)
 
-	remuda := internal.NewRemuda(
-		cfg,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	remuda := internal.NewRemuda(cfg)
 
 	err := clipkg.RunWithName(
 		clipkg.NewContext(context.Background(), remuda, clipkg.WithVersion(version)),
