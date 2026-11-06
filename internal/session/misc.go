@@ -42,24 +42,3 @@ func WithoutOrgPrefix(name string) string {
 	}
 	return strings.Join(parts[1:], "/")
 }
-
-func FZFPreviewCommand(mgr Multiplexer) string {
-	switch m := mgr.(type) {
-	case *aggregateMultiplexer:
-		return FZFPreviewCommand(m.createTarget)
-	case *tmux:
-		// fzf runs preview commands via the user's shell ($SHELL -c ...). Wrap in
-		// bash so we can safely default to a reasonable tail length even when
-		// fzf doesn't provide FZF_PREVIEW_LINES.
-		//
-		// Use ={}: to target the session's *current* pane, since users may have
-		// switched windows/panes after launch. With the =, only an exact name is
-		// matched; without it, a session held by another backend would be
-		// previewed with the pane of a tmux session whose name starts with its own.
-		return "bash -lc 'term_lines=$(tput lines 2>/dev/null || echo 60); max=$((term_lines*66/100)); if (( max < 10 )); then max=10; fi; lines=${FZF_PREVIEW_LINES:-}; if [[ -z \"$lines\" || ! \"$lines\" =~ ^[0-9]+$ || \"$lines\" -le 0 ]]; then lines=$max; fi; if (( lines > max )); then lines=$max; fi; tmux capture-pane -p -S -$lines -t ={}: 2>/dev/null || echo \"<no buffer>\"'"
-	case *zellij:
-		return ""
-	default:
-		return ""
-	}
-}
