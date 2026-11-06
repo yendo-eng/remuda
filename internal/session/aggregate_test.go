@@ -233,26 +233,3 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 		require.Equal(t, "org/repo/agent", createTarget.agentStart[0].SessionName)
 	})
 }
-
-func TestAggregateMultiplexerPreviewsWithCreateTarget(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name          string
-		createTarget  session.Multiplexer
-		assertPreview require.ValueAssertionFunc
-	}{
-		{name: "tmux", createTarget: session.NewTmux(logging.DefaultLogger()), assertPreview: require.NotEmpty},
-		{name: "zellij", createTarget: session.NewZellij(logging.DefaultLogger()), assertPreview: require.Empty},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			mgr := session.NewAggregateMultiplexer(tt.createTarget, logging.DefaultLogger(), tt.createTarget)
-
-			tt.assertPreview(t, session.FZFPreviewCommand(mgr))
-		})
-	}
-}

@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/logging"
-	"github.com/yendo-eng/remuda/internal/session"
 )
 
 // SessionReapCmd kills active sessions older than a threshold (safe with --dry-run).
@@ -73,7 +72,7 @@ func (c *SessionReapCmd) Run(ctx Context) error {
 	}
 
 	if c.Pick {
-		selected, err := pickSessionNamesWithFZF(logging.FromContext(ctx.ctx), ctx.env(), names, ctx.Remuda.Multiplexer, true)
+		selected, err := pickSessionNamesWithFZF(logging.FromContext(ctx.ctx), ctx.env(), names, true)
 		if err != nil {
 			return pkgerrors.Wrap(err, "pick sessions")
 		}
@@ -147,7 +146,6 @@ func pickSessionNamesWithFZF(
 	logger zerolog.Logger,
 	env EnvProvider,
 	candidates []string,
-	mgr session.Multiplexer,
 	multi bool,
 ) ([]string, error) {
 	var lines []string
@@ -162,5 +160,5 @@ func pickSessionNamesWithFZF(
 		return nil, pkgerrors.Errorf("no sessions available to pick")
 	}
 
-	return runFZF(logger, env, lines, multi, session.FZFPreviewCommand(mgr))
+	return runSessionFZF(logger, env, lines, multi)
 }

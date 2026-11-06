@@ -15,6 +15,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/slack"
 	"github.com/yendo-eng/remuda/internal/util"
+	"github.com/yendo-eng/remuda/internal/util/shell"
 )
 
 // NameWizardOption groups CLI switches that require either --name or --wizard.
@@ -682,7 +683,22 @@ func pickSessionsWithFZF(
 		return nil, pkgerrors.Errorf("no sessions available to pick")
 	}
 
-	return runFZF(logger, env, lines, multi, session.FZFPreviewCommand(mgr))
+	return runSessionFZF(logger, env, lines, multi)
+}
+
+// runSessionFZF runs fzf over session names. Each session's buffer is
+// previewed with this executable's session readbuf, since a remuda on PATH
+// may be missing or another build.
+func runSessionFZF(logger zerolog.Logger, env EnvProvider, names []string, multi bool) ([]string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "resolve remuda executable")
+	}
+	// In fzf, {} is replaced with the single-quoted row, and the preview is
+	// run with $SHELL -c, with FZF_PREVIEW_LINES set to the preview window's
+	// height.
+	preview := shell.SingleQuote(exe) + ` session readbuf --name {} --lines "$FZF_PREVIEW_LINES"`
+	return runFZF(logger, env, names, multi, preview)
 }
 
 func pickOneWorkspaceWithFZF(logger zerolog.Logger, env EnvProvider, candidates []string, base string) (string, error) {
