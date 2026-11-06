@@ -198,8 +198,9 @@ func (m *tmux) ReadBuffer(name string, lines int) (string, error) {
 		lines = 200
 	}
 
-	// Capture from the first pane of the first window.
-	target := fmt.Sprintf("%s:0.0", resolved)
+	// Capture from the first pane of the first window, which base-index and
+	// pane-base-index can number from 1.
+	target := fmt.Sprintf("%s:^.{top-left}", resolved)
 	out, err := util.RunCmdOutput(m.logger, "tmux", "capture-pane", "-p", "-S", "-", "-t", target)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "tmux capture-pane")
