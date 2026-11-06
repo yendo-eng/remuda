@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -303,6 +304,60 @@ func TestTmuxStartWithEnvBoundsArgvForLargeEnvironment(t *testing.T) {
 	args, err := os.ReadFile(argsPath)
 	require.NoError(t, err)
 	require.Less(t, len(args), 4096)
+}
+
+func TestTmuxReadBufferReadsFirstPane(t *testing.T) {
+	realTmux, err := exec.LookPath("tmux")
+	if err != nil {
+		t.Skip("tmux not available")
+	}
+
+	tests := []struct {
+		name string
+		conf string
+	}{
+		{name: "windows and panes numbered from 0"},
+		{name: "windows and panes numbered from 1", conf: "set -g base-index 1\nsetw -g pane-base-index 1\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// tmux is run by ReadBuffer with the process env, so the server is
+			// isolated there with t.Setenv, and t.Parallel can't be used. TMUX
+			// is cleared so that an enclosing session's server isn't used. The
+			// socket path has to fit macOS's 103-byte cap, which t.TempDir can
+			// exceed.
+			tmuxDir, err := os.MkdirTemp("", "tmux")
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = os.RemoveAll(tmuxDir) })
+			t.Setenv("TMUX_TMPDIR", tmuxDir)
+			t.Setenv("TMUX", "")
+			confPath := filepath.Join(t.TempDir(), "tmux.conf")
+			require.NoError(t, os.WriteFile(confPath, []byte(tt.conf), 0o600))
+			tmux := func(ctx context.Context, args ...string) (string, error) {
+				//nolint:gosec // G204: realTmux is the tmux on PATH, and args are test-owned.
+				out, err := exec.CommandContext(ctx, realTmux, args...).CombinedOutput()
+				return string(out), err
+			}
+			out, err := tmux(t.Context(), "-f", confPath, "new-session", "-d", "-s", "org/repo/agent", "echo agent pane; exec cat")
+			require.NoError(t, err, out)
+			t.Cleanup(func() { _, _ = tmux(context.Background(), "kill-server") })
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				out, err := tmux(t.Context(), "capture-pane", "-p", "-t", "=org/repo/agent:")
+				assert.NoError(c, err, out)
+				assert.Contains(c, out, "agent pane")
+			}, 10*time.Second, 50*time.Millisecond)
+
+			// As when a shell is opened next to the agent, a second window is
+			// made current.
+			out, err = tmux(t.Context(), "new-window", "-t", "=org/repo/agent:", "exec cat")
+			require.NoError(t, err, out)
+
+			buf, err := session.NewTmux(logging.DefaultLogger()).ReadBuffer("org/repo/agent", 10)
+			require.NoError(t, err)
+			require.Contains(t, buf, "agent pane")
+		})
+	}
 }
 
 func TestTmuxPreviewMatchesSessionNameExactly(t *testing.T) {
