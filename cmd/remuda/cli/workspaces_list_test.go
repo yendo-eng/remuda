@@ -14,6 +14,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
 func TestWorkspacesListCmd(t *testing.T) {
@@ -193,7 +194,11 @@ func newWorkspacesListContext(base string, sessions []session.SessionInfo, cfg *
 
 	k := internal.NewRemuda(internal.Config{ReposBaseDir: base})
 	k.Git = stubGit{}
-	k.Multiplexer = stubMultiplexer{sessions: sessions}
+	mgr := &testutils.MockMultiplexer{}
+	for _, info := range sessions {
+		mgr.AddSession(info)
+	}
+	k.Multiplexer = mgr
 	k.IO = internal.IO{
 		In:  strings.NewReader(""),
 		Out: &out,
@@ -231,20 +236,3 @@ func (g stubGit) RevParse(dir, rev string, opts ...string) (string, error) { ret
 func (g stubGit) Branch(dir string, args ...string) error                  { return nil }
 
 var _ git.Git = stubGit{}
-
-type stubMultiplexer struct {
-	sessions []session.SessionInfo
-}
-
-func (m stubMultiplexer) Name() string                         { return "stub" }
-func (m stubMultiplexer) Start(start session.AgentStart) error { return nil }
-func (m stubMultiplexer) List() ([]session.SessionInfo, error) { return m.sessions, nil }
-func (m stubMultiplexer) Find(name string) (session.SessionInfo, error) {
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-func (m stubMultiplexer) Attach(name string) error                          { return nil }
-func (m stubMultiplexer) ReadBuffer(name string, lines int) (string, error) { return "", nil }
-func (m stubMultiplexer) Send(name string, payload string, appendNewline bool) error {
-	return nil
-}
-func (m stubMultiplexer) Kill(name string) error { return nil }
