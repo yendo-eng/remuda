@@ -1,6 +1,14 @@
 package agentlauncher
 
-import "strings"
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/rs/zerolog"
+	"github.com/yendo-eng/remuda/internal/env"
+)
 
 // If you have more configured, dump them with `opencode models` and add them
 // here.
@@ -151,4 +159,47 @@ func (o opencodeLauncher) launch(prompt string, extraArgs ...string) launch {
 
 func (o opencodeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool) {
 	return o, false
+}
+
+func (o opencodeLauncher) ContainerEnv() map[string]string { return nil }
+
+func (o opencodeLauncher) ContainerMounts(logger zerolog.Logger, provider env.Provider) []string {
+	provider = env.OrDefault(provider)
+	home, err := provider.UserHomeDir()
+	if err != nil || strings.TrimSpace(home) == "" {
+		return nil
+	}
+
+	return buildOpenCodeStateMountOpts(logger, runtime.GOOS, home)
+}
+
+func buildOpenCodeStateMountOpts(logger zerolog.Logger, goos, home string) []string {
+	candidates := opencodeStateDirCandidates(goos, home)
+	for _, dir := range candidates {
+		if st, err := os.Stat(dir); err == nil && st.IsDir() {
+			return []string{"-v", dir + ":/root/.local/share/opencode:rw"}
+		}
+	}
+
+	// No existing state dir found; create the OS-preferred one so future sessions
+	// persist state.
+	if len(candidates) == 0 {
+		return nil
+	}
+	preferred := candidates[0]
+	if err := os.MkdirAll(preferred, 0o700); err != nil {
+		logger.Warn().Err(err).Str("path", preferred).Msg("failed ensuring OpenCode state directory exists; continuing without mount")
+		return nil
+	}
+	return []string{"-v", preferred + ":/root/.local/share/opencode:rw"}
+}
+
+func opencodeStateDirCandidates(goos, home string) []string {
+	macDir := filepath.Join(home, "Library", "Application Support", "opencode")
+	linuxDir := filepath.Join(home, ".local", "share", "opencode")
+
+	if strings.EqualFold(goos, "darwin") {
+		return []string{macDir, linuxDir}
+	}
+	return []string{linuxDir, macDir}
 }

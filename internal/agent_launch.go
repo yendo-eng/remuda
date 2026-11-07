@@ -3,11 +3,14 @@ package internal
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -20,11 +23,13 @@ type agentLaunchCommand struct {
 
 	SessionName string
 
-	AgentName string
-	Model     string
-	Command   string
-	Args      []string
-	Prompt    string
+	// Agent is the session's agent and the source of its container env and
+	// mounts; Command and Args may come from a custom command instead.
+	Agent   agentlauncher.AgentLauncher
+	Model   string
+	Command string
+	Args    []string
+	Prompt  string
 
 	Detached bool
 	Attach   bool
@@ -35,7 +40,6 @@ type agentLaunchCommand struct {
 	ContainerImage      string
 	ContainerOpts       []string
 	ContainerInheritEnv []string
-	Yolo                bool
 
 	EnvOverrides map[string]string
 }
@@ -65,21 +69,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	containerName := docker.ContainerNameFromSession(sessionName)
 
 	envProvider := k.launchEnvProvider(cmd, sessionName)
-	launch, err := k.composeLaunchCommand(
-		VibeCommand{
-			Agent:               cmd.AgentName,
-			Yolo:                cmd.Yolo,
-			Container:           cmd.Container,
-			ContainerName:       cmd.ContainerImage,
-			ContainerOpts:       cmd.ContainerOpts,
-			ContainerInheritEnv: cmd.ContainerInheritEnv,
-		},
-		workspaceAbs,
-		cmd.Command,
-		sessionName,
-		containerName,
-		envProvider,
-	)
+	launch, err := k.composeLaunchCommand(cmd, workspaceAbs, sessionName, containerName, envProvider)
 	if err != nil {
 		return agentLaunchResult{}, err
 	}
@@ -124,7 +114,11 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	for key := range cmd.EnvOverrides {
 		overrideEnvNames = append(overrideEnvNames, key)
 	}
-	if err := startSessionWithEnv(k.Multiplexer, sessionName, workspaceAbs, startCmd, launch.argv, cmd.Container, cmd.AgentName, cmd.Args, cmd.Prompt, envProvider, cmd.ContainerInheritEnv, overrideEnvNames); err != nil {
+	extraEnvNames := cmd.ContainerInheritEnv
+	if cmd.Container {
+		extraEnvNames = slices.Concat(extraEnvNames, slices.Collect(maps.Keys(cmd.Agent.ContainerEnv())))
+	}
+	if err := startSessionWithEnv(k.Multiplexer, sessionName, workspaceAbs, startCmd, launch.argv, cmd.Container, cmd.Agent.Name(), cmd.Args, cmd.Prompt, envProvider, extraEnvNames, overrideEnvNames); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
 
@@ -168,19 +162,19 @@ func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName string) en
 		provider.Setenv(key, value)
 	}
 
-	if strings.TrimSpace(cmd.AgentName) != "" {
-		provider.Setenv("REMUDA_AGENT", cmd.AgentName)
-	}
+	provider.Setenv("REMUDA_AGENT", cmd.Agent.Name())
 	if strings.TrimSpace(cmd.Model) != "" {
 		provider.Setenv("REMUDA_MODEL", cmd.Model)
 	}
 	// Set BD_ACTOR to the session name so beads issue tracking can attribute
 	// actions to the running Remuda agent/session.
 	provider.Setenv("BD_ACTOR", sessionName)
-	// Claude container yolo mode relies on this env being visible inside the
-	// container via docker's "-e IS_SANDBOX" forwarding.
-	if cmd.Container && strings.EqualFold(cmd.AgentName, "claude") && cmd.Yolo {
-		provider.Setenv("IS_SANDBOX", "1")
+	if cmd.Container {
+		for name, value := range cmd.Agent.ContainerEnv() {
+			if value != "" {
+				provider.Setenv(name, value)
+			}
+		}
 	}
 
 	return provider
