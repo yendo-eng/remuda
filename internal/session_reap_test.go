@@ -8,45 +8,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
-
-type fakeMultiplexer struct {
-	sessions []session.SessionInfo
-	killed   []string
-}
-
-func (f *fakeMultiplexer) Name() string { return "fake" }
-
-func (f *fakeMultiplexer) Start(start session.AgentStart) error { return nil }
-
-func (f *fakeMultiplexer) List() ([]session.SessionInfo, error) { return f.sessions, nil }
-
-func (f *fakeMultiplexer) Find(name string) (session.SessionInfo, error) {
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-
-func (f *fakeMultiplexer) Attach(name string) error { return nil }
-
-func (f *fakeMultiplexer) ReadBuffer(name string, lines int) (string, error) { return "", nil }
-
-func (f *fakeMultiplexer) Send(name string, payload string, appendNewline bool) error {
-	return nil
-}
-
-func (f *fakeMultiplexer) Kill(name string) error {
-	f.killed = append(f.killed, name)
-	return nil
-}
 
 func TestSessionReapCandidates_FiltersByAge(t *testing.T) {
 	now := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
-	mgr := &fakeMultiplexer{
-		sessions: []session.SessionInfo{
-			{Name: "org/repo/old", CreatedAt: now.Add(-10 * time.Hour)},
-			{Name: "org/repo/edge", CreatedAt: now.Add(-5 * time.Hour)},
-			{Name: "org/repo/new", CreatedAt: now.Add(-4 * time.Hour)},
-			{Name: "org/repo/unknown"},
-			{Name: "not-remuda", CreatedAt: now.Add(-10 * time.Hour)},
+	mgr := &testutils.MockMultiplexer{
+		Sessions: []testutils.Session{
+			{SessionInfo: session.SessionInfo{Name: "org/repo/old", CreatedAt: now.Add(-10 * time.Hour)}},
+			{SessionInfo: session.SessionInfo{Name: "org/repo/edge", CreatedAt: now.Add(-5 * time.Hour)}},
+			{SessionInfo: session.SessionInfo{Name: "org/repo/new", CreatedAt: now.Add(-4 * time.Hour)}},
+			{SessionInfo: session.SessionInfo{Name: "org/repo/unknown"}},
+			{SessionInfo: session.SessionInfo{Name: "not-remuda", CreatedAt: now.Add(-10 * time.Hour)}},
 		},
 	}
 	k := Remuda{Multiplexer: mgr}
@@ -63,7 +36,7 @@ func TestSessionReapCandidates_FiltersByAge(t *testing.T) {
 }
 
 func TestSessionReapCandidates_RejectsNonPositive(t *testing.T) {
-	k := Remuda{Multiplexer: &fakeMultiplexer{}}
+	k := Remuda{Multiplexer: &testutils.MockMultiplexer{}}
 	_, _, err := k.SessionReapCandidates(0, time.Now())
 	require.Error(t, err)
 }
@@ -84,23 +57,23 @@ func TestSessionReap_DryRunCleanupWorkspacePath(t *testing.T) {
 }
 
 func TestSessionReap_NonDryRunCallsKill(t *testing.T) {
-	mgr := &fakeMultiplexer{}
+	mgr := &testutils.MockMultiplexer{}
 	k := Remuda{Multiplexer: mgr}
 
 	results, err := k.SessionReap([]string{"org/repo/work"}, false, false)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
-	require.Equal(t, []string{"org/repo/work"}, mgr.killed)
+	require.Equal(t, []string{"org/repo/work"}, mgr.Killed)
 }
 
 func TestSessionReap_CleanupSkipsInvalidWorkspacePath(t *testing.T) {
-	mgr := &fakeMultiplexer{}
+	mgr := &testutils.MockMultiplexer{}
 	k := Remuda{Multiplexer: mgr, Config: Config{ReposBaseDir: t.TempDir()}}
 
 	results, err := k.SessionReap([]string{"not-remuda"}, true, false)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
-	require.Equal(t, []string{"not-remuda"}, mgr.killed)
+	require.Equal(t, []string{"not-remuda"}, mgr.Killed)
 	require.True(t, results[0].Cleanup)
 	require.Empty(t, results[0].WorkspacePath)
 	require.NotEmpty(t, results[0].WorkspacePathError)
