@@ -182,19 +182,20 @@ func TestTmuxStartSetsPaneEnvWithExistingServer(t *testing.T) {
 
 	outputPath := filepath.Join(tmp, "pane-env")
 	startEnv := append([]string{}, baseEnv...)
-	startEnv = append(startEnv, "REMUDA_TEST_PANE_ENV=tmux-secret value")
+	startEnv = append(startEnv, "REMUDA_TEST_PANE_ENV=tmux-secret value", "POSTMAN_API_KEY=passthrough-secret", "UNFORWARDED_SECRET=do-not-forward")
 
 	err = session.NewTmux(logging.DefaultLogger()).Start(session.AgentStart{
 		SessionName: "env-check",
-		Command:     "printf '%s|%s|%s|%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"${STALE_SECRET-unset}\" \"${TERM:+set}\" \"${TMUX:+set}\" \"${TMUX_PANE:+set}\" > " + shell.SingleQuote(outputPath),
+		Command:     "printf '%s|%s|%s|%s|%s|%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"$POSTMAN_API_KEY\" \"${UNFORWARDED_SECRET-unset}\" \"${STALE_SECRET-unset}\" \"${TERM:+set}\" \"${TMUX:+set}\" \"${TMUX_PANE:+set}\" > " + shell.SingleQuote(outputPath),
 		Env:         startEnv,
+		ForwardEnv:  []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		data, readErr := os.ReadFile(outputPath)
 		require.NoError(c, readErr)
-		assert.Equal(c, "tmux-secret value|unset|set|set|set", string(data))
+		assert.Equal(c, "tmux-secret value|passthrough-secret|unset|unset|set|set|set", string(data))
 	}, 10*time.Second, 50*time.Millisecond)
 }
 
@@ -263,7 +264,12 @@ func TestTmuxStartKeepsValuesOffArgv(t *testing.T) {
 		"OPENAI_API_KEY=" + secret,
 	}
 
-	require.NoError(t, session.NewTmux(logging.DefaultLogger()).Start(session.AgentStart{SessionName: "argv-check", Command: "true", Env: env}))
+	require.NoError(t, session.NewTmux(logging.DefaultLogger()).Start(session.AgentStart{
+		SessionName: "argv-check",
+		Command:     "true",
+		Env:         env,
+		ForwardEnv:  []string{"TMUX_ARGS_FILE"},
+	}))
 
 	args, err := os.ReadFile(argsPath)
 	require.NoError(t, err)
@@ -288,11 +294,19 @@ func TestTmuxStartBoundsArgvForLargeEnvironment(t *testing.T) {
 		"PATH=" + pathEnv,
 		"TMUX_ARGS_FILE=" + argsPath,
 	}
+	forward := []string{"TMUX_ARGS_FILE"}
 	for i := 0; i < 256; i++ {
-		env = append(env, fmt.Sprintf("SYNTHETIC_%03d=%s", i, strings.Repeat("x", 1024)))
+		name := fmt.Sprintf("SYNTHETIC_%03d", i)
+		env = append(env, name+"="+strings.Repeat("x", 1024))
+		forward = append(forward, name)
 	}
 
-	require.NoError(t, session.NewTmux(logging.DefaultLogger()).Start(session.AgentStart{SessionName: "large-env", Command: "true", Env: env}))
+	require.NoError(t, session.NewTmux(logging.DefaultLogger()).Start(session.AgentStart{
+		SessionName: "large-env",
+		Command:     "true",
+		Env:         env,
+		ForwardEnv:  forward,
+	}))
 
 	args, err := os.ReadFile(argsPath)
 	require.NoError(t, err)

@@ -121,6 +121,14 @@ func TestCodexDockerVolumeMountOptions_SkipsAgentsMountWhenFileMissing(t *testin
 	require.False(t, containsMountSuffix(opts, ":/root/.codex/AGENTS.md:ro"))
 }
 
+// namedCaptureMultiplexer captures starts under another backend's name.
+type namedCaptureMultiplexer struct {
+	*captureMultiplexer
+	name session.SupportedMultiplexer
+}
+
+func (m namedCaptureMultiplexer) Name() string { return string(m.name) }
+
 func TestVibe_DetachedHerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
 	t.Parallel()
 

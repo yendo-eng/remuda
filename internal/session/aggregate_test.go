@@ -210,7 +210,7 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 
 		createTarget := &aggregateBackend{name: "herdr-tui"}
 		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget)
-		start := session.AgentStart{SessionName: "org/repo/agent", Command: "command", Env: []string{"KEY=value"}}
+		start := session.AgentStart{SessionName: "org/repo/agent", Command: "command", Env: []string{"KEY=value"}, ForwardEnv: []string{"KEY"}}
 
 		require.Equal(t, "herdr-tui", mgr.Name())
 		require.NoError(t, mgr.Start(start))

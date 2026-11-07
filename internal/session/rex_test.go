@@ -344,8 +344,9 @@ func TestRexStart(t *testing.T) {
 
 	require.NoError(t, r.Start(AgentStart{
 		SessionName: rexTestSession,
-		Command:     `printf '%s|%s|%s|%s' "$OPENAI_API_KEY" "$REX_SESSION" "${REX_CALLER-unset}" "$TERM" > ` + shellutil.SingleQuote(panePath),
-		Env:         []string{"OPENAI_API_KEY=sk-test-secret", "REX_SESSION=session:caller", "REX_CALLER=caller", "HOME=" + dir, "PATH=/usr/bin:/bin"},
+		Command:     `printf '%s|%s|%s|%s|%s|%s' "$OPENAI_API_KEY" "$POSTMAN_API_KEY" "${UNFORWARDED_SECRET-unset}" "$REX_SESSION" "${REX_CALLER-unset}" "$TERM" > ` + shellutil.SingleQuote(panePath),
+		Env:         []string{"OPENAI_API_KEY=sk-test-secret", "POSTMAN_API_KEY=passthrough-secret", "UNFORWARDED_SECRET=do-not-forward", "REX_SESSION=session:caller", "REX_CALLER=caller", "HOME=" + dir, "PATH=/usr/bin:/bin"},
+		ForwardEnv:  []string{"POSTMAN_API_KEY"},
 	}))
 
 	// The secret stays out of argv and the create spec.
@@ -404,7 +405,7 @@ func TestRexStart(t *testing.T) {
 	require.NoError(t, err, string(output))
 	got, err := os.ReadFile(panePath)
 	require.NoError(t, err)
-	require.Equal(t, "sk-test-secret|session:pane|unset|xterm-rex", string(got))
+	require.Equal(t, "sk-test-secret|passthrough-secret|unset|session:pane|unset|xterm-rex", string(got))
 	require.NoFileExists(t, envFile)
 }
 

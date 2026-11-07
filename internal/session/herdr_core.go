@@ -159,7 +159,7 @@ func (h *herdrCore) Start(start AgentStart) error {
 
 	// Run params are saved to disk, so the environment is passed only through
 	// the env file.
-	envFile, err := herdrCorePaneEnv.writeEnvFile(start.Env)
+	envFile, err := herdrCorePaneEnv.writeEnvFile(start.isolatedEnv())
 	if err != nil {
 		return err
 	}

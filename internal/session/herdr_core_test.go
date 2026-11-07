@@ -396,8 +396,9 @@ func TestHerdrCoreStart(t *testing.T) {
 	require.NoError(t, core.backend().Start(AgentStart{
 		SessionName: herdrCoreTestSession,
 		Workspace:   herdrCoreTestWorkspace,
-		Command:     `printf '%s|%s|%s|%s' "$OPENAI_API_KEY" "$HC_TERMINAL_ID" "${HC_CALLER-unset}" "$TERM" > ` + shellutil.SingleQuote(panePath),
-		Env:         []string{"OPENAI_API_KEY=sk-test-secret", "HC_TERMINAL_ID=t9", "HC_CALLER=caller", "HOME=" + dir, "PATH=/usr/bin:/bin"},
+		Command:     `printf '%s|%s|%s|%s|%s|%s' "$OPENAI_API_KEY" "$POSTMAN_API_KEY" "${UNFORWARDED_SECRET-unset}" "$HC_TERMINAL_ID" "${HC_CALLER-unset}" "$TERM" > ` + shellutil.SingleQuote(panePath),
+		Env:         []string{"OPENAI_API_KEY=sk-test-secret", "POSTMAN_API_KEY=passthrough-secret", "UNFORWARDED_SECRET=do-not-forward", "HC_TERMINAL_ID=t9", "HC_CALLER=caller", "HOME=" + dir, "PATH=/usr/bin:/bin"},
+		ForwardEnv:  []string{"POSTMAN_API_KEY"},
 	}))
 
 	// Run params are saved to disk, so the secret must stay out of them.
@@ -418,7 +419,7 @@ func TestHerdrCoreStart(t *testing.T) {
 	require.NoError(t, err, string(output))
 	got, err := os.ReadFile(panePath)
 	require.NoError(t, err)
-	require.Equal(t, "sk-test-secret|t1|unset|xterm-256color", string(got))
+	require.Equal(t, "sk-test-secret|passthrough-secret|unset|t1|unset|xterm-256color", string(got))
 	require.NoFileExists(t, envFile)
 }
 

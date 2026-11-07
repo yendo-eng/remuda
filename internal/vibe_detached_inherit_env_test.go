@@ -30,7 +30,7 @@ func (m *captureMultiplexer) Send(name string, payload string, appendNewline boo
 }
 func (m *captureMultiplexer) Kill(name string) error { return nil }
 
-func TestVibe_Detached_TmuxExportsInheritedEnvVars(t *testing.T) {
+func TestVibe_DetachedExportsInheritedEnvVars(t *testing.T) {
 	t.Setenv("POSTMAN_API_KEY", "secret")
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
@@ -60,9 +60,10 @@ func TestVibe_Detached_TmuxExportsInheritedEnvVars(t *testing.T) {
 	value, ok := envValue(sm.start.Env, "POSTMAN_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "secret", value)
+	require.Contains(t, sm.start.ForwardEnv, "POSTMAN_API_KEY")
 }
 
-func TestVibe_Detached_TmuxUnsetsMissingInheritedEnvVars(t *testing.T) {
+func TestVibe_DetachedUnsetsMissingInheritedEnvVars(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
 	sm := &captureMultiplexer{}
@@ -92,7 +93,7 @@ func TestVibe_Detached_TmuxUnsetsMissingInheritedEnvVars(t *testing.T) {
 	require.False(t, ok)
 }
 
-func TestVibe_Detached_TmuxPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T) {
+func TestVibe_DetachedPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 	t.Setenv("POSTMAN_API_KEY", "  spaced \nvalue\t")
 
@@ -138,7 +139,7 @@ func TestVibe_Detached_TmuxPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T)
 	require.Empty(t, value)
 }
 
-func TestVibe_Detached_TmuxExportsImplicitAnthropicForClaude(t *testing.T) {
+func TestVibe_DetachedExportsImplicitAnthropicForClaude(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "anthropic-secret")
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
@@ -169,7 +170,7 @@ func TestVibe_Detached_TmuxExportsImplicitAnthropicForClaude(t *testing.T) {
 	require.Equal(t, "anthropic-secret", value)
 }
 
-func TestVibe_Detached_TmuxUnsetsImplicitAnthropicWhenMissingForClaude(t *testing.T) {
+func TestVibe_DetachedUnsetsImplicitAnthropicWhenMissingForClaude(t *testing.T) {
 	t.Parallel()
 
 	sm := &captureMultiplexer{}
@@ -234,6 +235,7 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 	value, ok = envValue(sm.start.Env, "CUSTOM_OVERRIDE")
 	require.True(t, ok)
 	require.Equal(t, "custom-secret", value)
+	require.Subset(t, sm.start.ForwardEnv, []string{"OPENAI_API_KEY", "CUSTOM_OVERRIDE"})
 }
 
 func TestVibe_DetachedLaunchEnvDoesNotLeakIntoLaterLaunches(t *testing.T) {
@@ -285,53 +287,5 @@ func TestVibe_DetachedLaunchEnvDoesNotLeakIntoLaterLaunches(t *testing.T) {
 	for key := range firstLaunchEnv {
 		_, ok := envValue(sm.start.Env, key)
 		require.False(t, ok, "%s leaked from the first launch", key)
-	}
-}
-
-// namedCaptureMultiplexer captures starts under another backend's name.
-type namedCaptureMultiplexer struct {
-	*captureMultiplexer
-	name session.SupportedMultiplexer
-}
-
-func (m namedCaptureMultiplexer) Name() string { return string(m.name) }
-
-func TestVibe_DetachedIsolatedSessionsForwardAllowlistedEnvOnly(t *testing.T) {
-	t.Setenv("OPENAI_API_KEY", "openai-secret")
-	t.Setenv("GH_TOKEN", "github-token")
-	t.Setenv("POSTMAN_API_KEY", "passthrough-secret")
-	t.Setenv("UNFORWARDED_SECRET", "do-not-forward")
-
-	for _, name := range []session.SupportedMultiplexer{session.MultiplexerTmux, session.MultiplexerRex, session.MultiplexerHerdrCore} {
-		t.Run(string(name), func(t *testing.T) {
-			sm := namedCaptureMultiplexer{captureMultiplexer: &captureMultiplexer{}, name: name}
-			k := Remuda{
-				Git:         &fakeGit{},
-				Multiplexer: sm,
-				IO:          DefaultIO(),
-			}
-
-			err := k.Vibe(context.Background(), VibeCommand{
-				Agent:               "codex",
-				AgentCmd:            "true",
-				Prompt:              "ignored",
-				Detached:            true,
-				ExistingWorkspace:   t.TempDir(),
-				ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
-			})
-			require.NoError(t, err)
-
-			value, ok := envValue(sm.start.Env, "OPENAI_API_KEY")
-			require.True(t, ok)
-			require.Equal(t, "openai-secret", value)
-			value, ok = envValue(sm.start.Env, "GH_TOKEN")
-			require.True(t, ok)
-			require.Equal(t, "github-token", value)
-			value, ok = envValue(sm.start.Env, "POSTMAN_API_KEY")
-			require.True(t, ok)
-			require.Equal(t, "passthrough-secret", value)
-			_, ok = envValue(sm.start.Env, "UNFORWARDED_SECRET")
-			require.False(t, ok)
-		})
 	}
 }
