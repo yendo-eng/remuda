@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
 	"github.com/yendo-eng/remuda/internal"
@@ -19,6 +20,37 @@ import (
 // name.
 func TestRemudaCollisionErrors(t *testing.T) {
 	t.Parallel()
+	for _, cloneMode := range []struct {
+		name  string
+		flags []string
+	}{
+		{name: "full clone", flags: []string{"--full-clone"}},
+		{name: "copy-on-write full clone", flags: []string{"--full-clone", "--experiments", "cow-clone"}},
+	} {
+		t.Run(cloneMode.name+" without --force", func(t *testing.T) {
+			t.Parallel()
+			remoteURL := testutils.InitTestRemote(t)
+			runDir := t.TempDir()
+			name := "wk"
+			h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}))
+
+			args := []string{"clone", "--name", name, "--repo-url", remoteURL}
+			args = append(args, cloneMode.flags...)
+			res := h.Run(args...)
+			require.NoError(t, res.Err, res.String())
+
+			org, repo, err := github.ParseRepo(remoteURL)
+			require.NoError(t, err)
+			workspace := filepath.Join(runDir, org, repo, name)
+			preciousFile := filepath.Join(workspace, "precious.txt")
+			require.NoError(t, os.WriteFile(preciousFile, []byte("work"), 0o644))
+
+			res = h.Run(args...)
+			assert.ErrorIs(t, res.Err, internal.ErrWorkspaceExists)
+			require.FileExists(t, preciousFile, "existing workspace content must survive a collision")
+		})
+	}
+
 	t.Run("without --force", func(t *testing.T) {
 		remoteURL := testutils.InitTestRemote(t)
 		runDir := t.TempDir()

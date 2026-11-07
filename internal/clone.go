@@ -15,6 +15,9 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
+// ErrWorkspaceExists indicates that the requested clone target already exists.
+var ErrWorkspaceExists = pkgerrors.New("workspace already exists, use --force")
+
 type CloneCommand struct {
 	// The name to give the cloned workspace (also the branch name).
 	Name string
@@ -104,6 +107,14 @@ func (k Remuda) Clone(
 		}
 
 		if cmd.FullClone {
+			if !cmd.Force {
+				if _, err := os.Lstat(target); err == nil {
+					return pkgerrors.Wrap(ErrWorkspaceExists, target)
+				} else if !errors.Is(err, fs.ErrNotExist) {
+					return pkgerrors.Wrap(err, "checking workspace collision")
+				}
+			}
+
 			if err := os.MkdirAll(filepath.Dir(target), dirPermissions); err != nil {
 				return pkgerrors.Wrap(err, "creating workspace parent")
 			}
