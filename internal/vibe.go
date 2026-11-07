@@ -374,8 +374,8 @@ func (k Remuda) composeLaunchCommand(
 		allOpts = append(allOpts, docker.BuildClaudeStateMountOpts(logger, envProvider)...)
 	}
 	containerAgent := util.SSHRewriteSnippet() + "\n" + agentCmd
-	launchCmd := docker.BuildRunCommand(absWS, containerImage, allOpts, containerAgent, false, containerName)
-	launchArgv := docker.BuildRunArgv(absWS, containerImage, allOpts, containerAgent, false, containerName)
+	launchCmd := docker.BuildRunCommand(absWS, containerImage, allOpts, containerAgent, containerName)
+	launchArgv := docker.BuildRunArgv(absWS, containerImage, allOpts, containerAgent, containerName)
 	return composedLaunchCommand{
 		shell: launchCmd,
 		argv:  launchArgv,
