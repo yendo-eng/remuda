@@ -15,6 +15,9 @@ import (
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
+// ErrWorkspaceExists indicates that the requested clone target already exists.
+var ErrWorkspaceExists = pkgerrors.New("workspace already exists, use --force")
+
 type CloneCommand struct {
 	// The name to give the cloned workspace (also the branch name).
 	Name string
