@@ -64,15 +64,6 @@ func (f MockMultiplexer) Name() string {
 	return "mock"
 }
 
-func (f *MockMultiplexer) FindStart(sessionName string) (session.AgentStart, bool) {
-	for _, start := range f.Starts {
-		if start.SessionName == sessionName {
-			return start, true
-		}
-	}
-	return session.AgentStart{}, false
-}
-
 func (f *MockMultiplexer) Start(start session.AgentStart) error {
 	if f.StartErr != nil {
 		return f.StartErr
