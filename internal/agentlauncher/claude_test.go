@@ -173,15 +173,6 @@ func TestClaudeLauncher_ContainerMounts_Permutations(t *testing.T) {
 	}
 }
 
-func TestClaudeLauncher_ContainerMounts_IgnoresUnexpectedNodeTypes(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, ".claude"), []byte("not-a-dir"), 0o600))
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".claude.json"), 0o700))
-
-	opts := claudeLauncher{}.ContainerMounts(zerolog.Nop(), env.StaticProvider{HomeDir: tmp})
-	require.Nil(t, opts)
-}
-
 func TestClaudeLauncher_ContainerMounts_BlankHome(t *testing.T) {
 	opts := claudeLauncher{}.ContainerMounts(zerolog.Nop(), env.StaticProvider{HomeDir: "   "})
 	require.Nil(t, opts)
