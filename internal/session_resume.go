@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -67,24 +68,35 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 	model := strings.TrimSpace(cmd.Model)
 
 	agentCmd := strings.TrimSpace(cmd.AgentCmd)
+	var agent agentlauncher.AgentLauncher
 	var agentArgs []string
 	prompt := assemblePrompt(cmd.BeforePrompt, cmd.Prompt, cmd.AfterPrompt)
 	if agentCmd == "" {
 		extraArgs := sessionAgentArgs(k.Multiplexer, cmd.Detached, agentName)
-		launcher, err := agentlauncher.Resume(agentName, model, cmd.ReasoningLevel, cmd.Yolo)
+		agent, err = agentlauncher.Resume(agentName, model, cmd.ReasoningLevel, cmd.Yolo)
 		if err != nil {
 			return err
 		}
-		agentCmd = launcher.Command(prompt, extraArgs...)
-		agentArgs = launcher.Arguments("", extraArgs...)
+		agentCmd = agent.Command(prompt, extraArgs...)
+		agentArgs = agent.Arguments("", extraArgs...)
 	} else {
-		agentCmd = agentlauncher.Custom(agentCmd).Command(prompt)
+		custom := agentlauncher.Custom(agentCmd)
+		agentCmd = custom.Command(prompt)
+		// Only the resume command is replaced by --agent-cmd, so a built-in
+		// agent's container env and mounts still apply.
+		agent, _, err = agentlauncher.Parse(agentName, model, cmd.Yolo)
+		switch {
+		case errors.Is(err, agentlauncher.ErrUnsupportedAgent):
+			agent = custom
+		case err != nil:
+			return err
+		}
 	}
 
 	_, err = k.launchAgentSession(agentLaunchCommand{
 		Workspace:           workspaceAbs,
 		SessionName:         sessionName,
-		AgentName:           agentName,
+		Agent:               agent,
 		Model:               model,
 		Command:             agentCmd,
 		Args:                agentArgs,
@@ -95,7 +107,6 @@ func (k Remuda) SessionResume(ctx context.Context, cmd SessionResumeCommand) err
 		ContainerImage:      cmd.ContainerName,
 		ContainerOpts:       cmd.ContainerOpts,
 		ContainerInheritEnv: cmd.ContainerInheritEnv,
-		Yolo:                cmd.Yolo,
 		EnvOverrides:        cmd.EnvOverrides,
 	})
 	return err

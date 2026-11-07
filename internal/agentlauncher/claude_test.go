@@ -1,10 +1,15 @@
 package agentlauncher
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/env"
 )
 
 func TestClaudeLauncher_Command_IncludesPromptWhenNonEmpty(t *testing.T) {
@@ -103,4 +108,87 @@ func TestClaudeLauncher_Arguments(t *testing.T) {
 		"--foo",
 		"fix it",
 	}, l.Arguments("fix it", "--foo"))
+}
+
+func TestBuildClaudeStateMountOpts_BothPathsPresent(t *testing.T) {
+	tmp := t.TempDir()
+	claudeDir := filepath.Join(tmp, ".claude")
+	claudeJSON := filepath.Join(tmp, ".claude.json")
+
+	require.NoError(t, os.MkdirAll(claudeDir, 0o700))
+	require.NoError(t, os.WriteFile(claudeJSON, []byte(`{"token":"redacted"}`), 0o600))
+
+	opts := buildClaudeStateMountOpts(zerolog.Nop(), tmp)
+	require.Equal(
+		t,
+		[]string{
+			"-v", claudeDir + ":/root/.claude:rw",
+			"-v", claudeJSON + ":/root/.claude.json:rw",
+		},
+		opts,
+	)
+}
+
+func TestClaudeLauncher_ContainerMounts_Permutations(t *testing.T) {
+	tcs := []struct {
+		name      string
+		withDir   bool
+		withFile  bool
+		expectNil bool
+	}{
+		{name: "both", withDir: true, withFile: true},
+		{name: "dir only", withDir: true},
+		{name: "file only", withFile: true},
+		{name: "missing", expectNil: true},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			claudeDir := filepath.Join(tmp, ".claude")
+			claudeJSON := filepath.Join(tmp, ".claude.json")
+
+			if tc.withDir {
+				require.NoError(t, os.MkdirAll(claudeDir, 0o700))
+			}
+			if tc.withFile {
+				require.NoError(t, os.WriteFile(claudeJSON, []byte(`{"token":"redacted"}`), 0o600))
+			}
+
+			opts := claudeLauncher{}.ContainerMounts(zerolog.Nop(), env.StaticProvider{HomeDir: tmp})
+			if tc.expectNil {
+				require.Nil(t, opts)
+				return
+			}
+
+			var want []string
+			if tc.withDir {
+				want = append(want, "-v", claudeDir+":/root/.claude:rw")
+			}
+			if tc.withFile {
+				want = append(want, "-v", claudeJSON+":/root/.claude.json:rw")
+			}
+			require.Equal(t, want, opts)
+		})
+	}
+}
+
+func TestClaudeLauncher_ContainerMounts_IgnoresUnexpectedNodeTypes(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, ".claude"), []byte("not-a-dir"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".claude.json"), 0o700))
+
+	opts := claudeLauncher{}.ContainerMounts(zerolog.Nop(), env.StaticProvider{HomeDir: tmp})
+	require.Nil(t, opts)
+}
+
+func TestClaudeLauncher_ContainerMounts_BlankHome(t *testing.T) {
+	opts := claudeLauncher{}.ContainerMounts(zerolog.Nop(), env.StaticProvider{HomeDir: "   "})
+	require.Nil(t, opts)
+}
+
+func TestClaudeLauncher_ContainerMounts_HomeUnavailable(t *testing.T) {
+	provider := env.StaticProvider{HomeErr: errors.New("no home")}
+	opts := claudeLauncher{}.ContainerMounts(zerolog.Nop(), provider)
+	require.Nil(t, opts)
 }

@@ -1,5 +1,10 @@
 package agentlauncher
 
+import (
+	"github.com/rs/zerolog"
+	"github.com/yendo-eng/remuda/internal/env"
+)
+
 // debugLauncher is like the bash launcher, but it runs the prompt itself as
 // a command. Useful for e2e testing and debugging.
 type debugLauncher struct{}
@@ -17,3 +22,7 @@ func (b debugLauncher) WithRemoteControl(sessionName string) (AgentLauncher, boo
 }
 
 func (b debugLauncher) SupportedModels() []string { return nil }
+
+func (b debugLauncher) ContainerEnv() map[string]string { return nil }
+
+func (b debugLauncher) ContainerMounts(_ zerolog.Logger, _ env.Provider) []string { return nil }

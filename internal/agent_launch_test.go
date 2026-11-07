@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -86,7 +87,7 @@ func TestLaunchAgentSessionDoesNotInferSharedBeadsDir(t *testing.T) {
 	_, err := k.launchAgentSession(agentLaunchCommand{
 		Workspace:   workspace,
 		SessionName: "org/repo/folder",
-		AgentName:   "codex",
+		Agent:       agentlauncher.Codex("", false, ""),
 		Command:     "true",
 		Detached:    true,
 	})
@@ -118,7 +119,7 @@ func TestLaunchAgentSessionPreservesExplicitBeadsDir(t *testing.T) {
 	_, err := k.launchAgentSession(agentLaunchCommand{
 		Workspace:   workspace,
 		SessionName: "org/repo/folder",
-		AgentName:   "codex",
+		Agent:       agentlauncher.Codex("", false, ""),
 		Command:     "true",
 		Detached:    true,
 	})
@@ -154,6 +155,7 @@ func TestLaunchAgentSessionStartEnvPath(t *testing.T) {
 			_, err := k.launchAgentSession(agentLaunchCommand{
 				Workspace:   t.TempDir(),
 				SessionName: "org/repo/folder",
+				Agent:       agentlauncher.Custom("true"),
 				Command:     "true",
 				Detached:    true,
 			})
@@ -183,7 +185,7 @@ func TestLaunchAgentSessionStartsContainer(t *testing.T) {
 	_, err := k.launchAgentSession(agentLaunchCommand{
 		Workspace:      workspace,
 		SessionName:    "org/repo/folder",
-		AgentName:      "codex",
+		Agent:          agentlauncher.Codex("", false, ""),
 		Command:        "codex",
 		Prompt:         "prompt",
 		Detached:       true,
@@ -196,6 +198,51 @@ func TestLaunchAgentSessionStartsContainer(t *testing.T) {
 	require.True(t, sm.LastStart.Container)
 	require.Equal(t, []string{"docker", "run"}, sm.LastStart.CommandArgv[:2])
 	require.Contains(t, sm.LastStart.Command, "'docker' 'run'")
+}
+
+// containerEnvLauncher declares container env names that are not in
+// session.isolatedEnvAllowlist.
+type containerEnvLauncher struct {
+	agentlauncher.AgentLauncher
+}
+
+func (containerEnvLauncher) ContainerEnv() map[string]string {
+	return map[string]string{"HOST_VALUE": "", "LAUNCH_VALUE": "set"}
+}
+
+func TestLaunchAgentSessionForwardsContainerEnvToIsolatedSessions(t *testing.T) {
+	t.Parallel()
+
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
+	k := Remuda{
+		Multiplexer: sm,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
+		Env: env.StaticProvider{Values: map[string]string{
+			"PATH":       "/usr/bin:/bin",
+			"GH_TOKEN":   "test-token", // avoid invoking `gh auth token`
+			"HOST_VALUE": "from-host",
+		}},
+	}
+
+	_, err := k.launchAgentSession(agentLaunchCommand{
+		Workspace:      t.TempDir(),
+		Agent:          containerEnvLauncher{agentlauncher.Custom("true")},
+		Command:        "true",
+		Detached:       true,
+		Container:      true,
+		ContainerImage: "img",
+	})
+	require.NoError(t, err)
+	require.Contains(t, sm.LastStart.Command, "'-e' 'HOST_VALUE'")
+	require.Contains(t, sm.LastStart.Command, "'-e' 'LAUNCH_VALUE'")
+	value, ok := envValue(sm.LastStart.Env, "HOST_VALUE")
+	require.True(t, ok)
+	require.Equal(t, "from-host", value)
+	value, ok = envValue(sm.LastStart.Env, "LAUNCH_VALUE")
+	require.True(t, ok)
+	require.Equal(t, "set", value)
+	require.Subset(t, sm.LastStart.ForwardEnv, []string{"HOST_VALUE", "LAUNCH_VALUE"})
 }
 
 func envValue(values []string, key string) (string, bool) {
