@@ -143,7 +143,7 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 	sel.AgentCmd = cmd
 	sel.Yolo = yolo
 
-	// Step: choose whether or not to use tmux
+	// Step: choose whether or not to use the multiplexer
 	detached, err := wizardDetachedFlow(sel.DetachedMode())
 	if err != nil {
 		return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")

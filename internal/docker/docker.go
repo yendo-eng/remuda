@@ -138,7 +138,7 @@ func ExtraGitMountForWorktree(workspaceAbs string) (string, bool) {
 	return "", false
 }
 
-// ContainerNameFromSession converts a tmux session name into a Docker-safe container name.
+// ContainerNameFromSession converts a session name into a Docker-safe container name.
 // Docker names must match the regex `[a-zA-Z0-9][a-zA-Z0-9_.-]+`, so we map invalid
 // characters to dashes, collapse stray separators, and ensure the first character is
 // alphanumeric. Session names like "org/repo/worktree" become "org-repo-worktree".
