@@ -107,6 +107,14 @@ func (k Remuda) Clone(
 		}
 
 		if cmd.FullClone {
+			if !cmd.Force {
+				if _, err := os.Lstat(target); err == nil {
+					return pkgerrors.Wrap(ErrWorkspaceExists, target)
+				} else if !errors.Is(err, fs.ErrNotExist) {
+					return pkgerrors.Wrap(err, "checking workspace collision")
+				}
+			}
+
 			if err := os.MkdirAll(filepath.Dir(target), dirPermissions); err != nil {
 				return pkgerrors.Wrap(err, "creating workspace parent")
 			}
