@@ -26,11 +26,7 @@ type MutableProvider struct {
 }
 
 // NewMutableProvider wraps the base Provider with an override-aware provider.
-// If base is already a MutableProvider, it is returned as-is.
 func NewMutableProvider(base Provider) *MutableProvider {
-	if mp, ok := base.(*MutableProvider); ok {
-		return mp
-	}
 	return &MutableProvider{
 		base:      OrDefault(base),
 		overrides: make(map[string]envOverride),
