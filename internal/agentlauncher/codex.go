@@ -2,6 +2,7 @@ package agentlauncher
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -118,24 +119,23 @@ func (c codexLauncher) ContainerMounts(logger zerolog.Logger, provider env.Provi
 	}
 
 	customizationMounts := slices.Concat(
-		codexPromptsMountOptions(provider),
-		codexRulesMountOptions(provider),
-		codexSkillsMountOptions(logger, provider),
-		codexAgentsMountOptions(provider),
+		bindIfExists(logger, filepath.Join(codexDir, "prompts"), "/root/.codex/prompts", "ro", fs.FileMode.IsDir),
+		bindIfExists(logger, filepath.Join(codexDir, "rules"), "/root/.codex/rules", "ro", func(m fs.FileMode) bool { return m.IsDir() || m.IsRegular() }),
+		bindIfExists(logger, filepath.Join(codexDir, "skills"), "/root/.codex/skills", "ro", fs.FileMode.IsDir),
+		bindIfExists(logger, filepath.Join(codexDir, "AGENTS.md"), "/root/.codex/AGENTS.md", "ro", fs.FileMode.IsRegular),
 	)
 	if apiKey != "" {
 		tmpDir, err := writeCodexAPIKeyAuth(logger, apiKey, codexDir)
 		if err == nil {
-			opts := []string{
-				"--tmpfs", "/root/.codex:rw,mode=0755",
-				"-v", filepath.Join(tmpDir, "auth.json") + ":/root/.codex/auth.json:ro",
-			}
-			opts = append(opts, codexStateMountOptions(logger, codexDir)...)
-			cfgDst := filepath.Join(tmpDir, "config.toml")
-			if _, err := os.Stat(cfgDst); err == nil {
-				opts = append(opts, "-v", cfgDst+":/root/.codex/config.toml:ro")
-			}
-			return append(opts, customizationMounts...)
+			return slices.Concat(
+				[]string{
+					"--tmpfs", "/root/.codex:rw,mode=0755",
+					"-v", filepath.Join(tmpDir, "auth.json") + ":/root/.codex/auth.json:ro",
+				},
+				codexStateMountOptions(logger, codexDir),
+				bindIfExists(logger, filepath.Join(tmpDir, "config.toml"), "/root/.codex/config.toml", "ro", fs.FileMode.IsRegular),
+				customizationMounts,
+			)
 		}
 		logger.Warn().Err(err).Msg("failed preparing Codex auth.json; continuing without mount")
 	}
@@ -161,75 +161,6 @@ func writeCodexAPIKeyAuth(logger zerolog.Logger, apiKey, codexDir string) (strin
 		}
 	}
 	return tmpDir, nil
-}
-
-// codexPromptsMountOptions returns a read-only bind mount for ~/.codex/prompts when present.
-func codexPromptsMountOptions(provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, herr := provider.UserHomeDir()
-	if herr != nil {
-		return nil
-	}
-	promptsDir := filepath.Join(home, ".codex", "prompts")
-	info, err := os.Stat(promptsDir)
-	if err != nil || !info.IsDir() {
-		return nil
-	}
-	return []string{"-v", promptsDir + ":/root/.codex/prompts:ro"}
-}
-
-// codexRulesMountOptions returns a read-only bind mount for ~/.codex/rules when present.
-func codexRulesMountOptions(provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, herr := provider.UserHomeDir()
-	if herr != nil {
-		return nil
-	}
-	rulesPath := filepath.Join(home, ".codex", "rules")
-	info, err := os.Stat(rulesPath)
-	if err != nil {
-		return nil
-	}
-	if !info.IsDir() && !info.Mode().IsRegular() {
-		return nil
-	}
-	return []string{"-v", rulesPath + ":/root/.codex/rules:ro"}
-}
-
-// codexSkillsMountOptions returns a read-only bind mount for ~/.codex/skills when present.
-func codexSkillsMountOptions(logger zerolog.Logger, provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, herr := provider.UserHomeDir()
-	if herr != nil {
-		return nil
-	}
-	skillsDir := filepath.Join(home, ".codex", "skills")
-	info, err := os.Stat(skillsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			logger.Debug().Str("path", skillsDir).Msg("codex skills dir missing; skipping mount")
-		}
-		return nil
-	}
-	if !info.IsDir() {
-		return nil
-	}
-	return []string{"-v", skillsDir + ":/root/.codex/skills:ro"}
-}
-
-// codexAgentsMountOptions returns a read-only bind mount for ~/.codex/AGENTS.md when present.
-func codexAgentsMountOptions(provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, herr := provider.UserHomeDir()
-	if herr != nil {
-		return nil
-	}
-	agentsPath := filepath.Join(home, ".codex", "AGENTS.md")
-	info, err := os.Stat(agentsPath)
-	if err != nil || !info.Mode().IsRegular() {
-		return nil
-	}
-	return []string{"-v", agentsPath + ":/root/.codex/AGENTS.md:ro"}
 }
 
 func codexStateMountOptions(logger zerolog.Logger, codexDir string) []string {
