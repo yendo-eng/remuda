@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/logging"
 )
 
 func TestBuildClaudeStateMountOpts_BothPathsPresent(t *testing.T) {
@@ -19,7 +19,7 @@ func TestBuildClaudeStateMountOpts_BothPathsPresent(t *testing.T) {
 	require.NoError(t, os.MkdirAll(claudeDir, 0o700))
 	require.NoError(t, os.WriteFile(claudeJSON, []byte(`{"token":"redacted"}`), 0o600))
 
-	opts := buildClaudeStateMountOpts(logging.NewDisabledLogger(), tmp)
+	opts := buildClaudeStateMountOpts(zerolog.Nop(), tmp)
 	require.Equal(
 		t,
 		[]string{
@@ -56,7 +56,7 @@ func TestBuildClaudeStateMountOpts_Permutations(t *testing.T) {
 				require.NoError(t, os.WriteFile(claudeJSON, []byte(`{"token":"redacted"}`), 0o600))
 			}
 
-			opts := BuildClaudeStateMountOpts(logging.NewDisabledLogger(), env.StaticProvider{HomeDir: tmp})
+			opts := BuildClaudeStateMountOpts(zerolog.Nop(), env.StaticProvider{HomeDir: tmp})
 			if tc.expectNil {
 				require.Nil(t, opts)
 				return
@@ -79,17 +79,17 @@ func TestBuildClaudeStateMountOpts_IgnoresUnexpectedNodeTypes(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, ".claude"), []byte("not-a-dir"), 0o600))
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".claude.json"), 0o700))
 
-	opts := BuildClaudeStateMountOpts(logging.NewDisabledLogger(), env.StaticProvider{HomeDir: tmp})
+	opts := BuildClaudeStateMountOpts(zerolog.Nop(), env.StaticProvider{HomeDir: tmp})
 	require.Nil(t, opts)
 }
 
 func TestBuildClaudeStateMountOpts_BlankHome(t *testing.T) {
-	opts := BuildClaudeStateMountOpts(logging.NewDisabledLogger(), env.StaticProvider{HomeDir: "   "})
+	opts := BuildClaudeStateMountOpts(zerolog.Nop(), env.StaticProvider{HomeDir: "   "})
 	require.Nil(t, opts)
 }
 
 func TestBuildClaudeStateMountOpts_HomeUnavailable(t *testing.T) {
 	provider := env.StaticProvider{HomeErr: errors.New("no home")}
-	opts := BuildClaudeStateMountOpts(logging.NewDisabledLogger(), provider)
+	opts := BuildClaudeStateMountOpts(zerolog.Nop(), provider)
 	require.Nil(t, opts)
 }

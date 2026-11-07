@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
@@ -29,7 +29,7 @@ func TestCodexDockerVolumeMountOptions_IncludesPromptsMountWithAuthArtifacts(t *
 	cfgPath := filepath.Join(tmpHome, ".codex", "config.toml")
 	require.NoError(t, os.WriteFile(cfgPath, []byte("version = 1"), 0o644))
 
-	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	opts := codexDockerVolumeMountOptions(zerolog.Nop(), env.Default())
 	require.Contains(t, opts, "--tmpfs")
 	require.Contains(t, opts, "/root/.codex:rw,mode=0755")
 	require.True(t, containsMountSuffix(opts, ":/root/.codex/auth.json:ro"))
@@ -57,7 +57,7 @@ func TestCodexDockerVolumeMountOptions_ForwardsPromptsWithoutOpenAIKey(t *testin
 	agentsPath := filepath.Join(tmpHome, ".codex", "AGENTS.md")
 	require.NoError(t, os.WriteFile(agentsPath, []byte("agent instructions"), 0o644))
 
-	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	opts := codexDockerVolumeMountOptions(zerolog.Nop(), env.Default())
 	expected := []string{
 		"-v", promptsDir + ":/root/.codex/prompts:ro",
 		"-v", rulesDir + ":/root/.codex/rules:ro",
@@ -81,7 +81,7 @@ func TestCodexDockerVolumeMountOptions_ForwardsAccountAuthDirWithoutOpenAIKey(t 
 	promptsDir := filepath.Join(codexDir, "prompts")
 	require.NoError(t, os.MkdirAll(promptsDir, 0o755))
 
-	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	opts := codexDockerVolumeMountOptions(zerolog.Nop(), env.Default())
 	require.Equal(t, []string{"-v", codexDir + ":/root/.codex:rw"}, opts)
 }
 
@@ -94,7 +94,7 @@ func TestCodexDockerVolumeMountOptions_OmitsAccountAuthDirWithOpenAIKey(t *testi
 	require.NoError(t, os.MkdirAll(codexDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(codexDir, "auth.json"), []byte(`{"tokens":{}}`), 0o600))
 
-	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	opts := codexDockerVolumeMountOptions(zerolog.Nop(), env.Default())
 	require.False(t, containsMountWithSource(opts, codexDir, ":/root/.codex:rw"))
 	require.True(t, containsMountSuffix(opts, ":/root/.codex/auth.json:ro"))
 }
@@ -106,7 +106,7 @@ func TestCodexDockerVolumeMountOptions_OmitsAccountAuthDirWhenFileMissing(t *tes
 	codexDir := filepath.Join(tmpHome, ".codex")
 	require.NoError(t, os.MkdirAll(codexDir, 0o755))
 
-	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	opts := codexDockerVolumeMountOptions(zerolog.Nop(), env.Default())
 	require.False(t, containsMountWithSource(opts, codexDir, ":/root/.codex:rw"))
 }
 
@@ -117,7 +117,7 @@ func TestCodexDockerVolumeMountOptions_SkipsAgentsMountWhenFileMissing(t *testin
 	promptsDir := filepath.Join(tmpHome, ".codex", "prompts")
 	require.NoError(t, os.MkdirAll(promptsDir, 0o755))
 
-	opts := codexDockerVolumeMountOptions(logging.NewDisabledLogger(), env.Default())
+	opts := codexDockerVolumeMountOptions(zerolog.Nop(), env.Default())
 	require.False(t, containsMountSuffix(opts, ":/root/.codex/AGENTS.md:ro"))
 }
 
