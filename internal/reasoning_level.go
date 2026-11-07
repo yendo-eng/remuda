@@ -7,12 +7,9 @@ import (
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
 )
 
-func resolveReasoningLevel(logger zerolog.Logger, agentName, model, agentCmd, level string) string {
+func resolveReasoningLevel(logger zerolog.Logger, agentName, model, level string) string {
 	level = strings.TrimSpace(level)
 	if level == "" {
-		return ""
-	}
-	if strings.TrimSpace(agentCmd) != "" {
 		return ""
 	}
 

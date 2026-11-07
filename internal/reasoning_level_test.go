@@ -15,7 +15,6 @@ func TestResolveReasoningLevel_ClaudePreservesValue(t *testing.T) {
 		zerolog.New(io.Discard),
 		string(agentlauncher.AgentClaude),
 		"",
-		"",
 		" high ",
 	)
 	require.Equal(t, "high", got)
@@ -25,7 +24,6 @@ func TestResolveReasoningLevel_ClaudeAllowsArbitraryEffortValue(t *testing.T) {
 	got := resolveReasoningLevel(
 		zerolog.New(io.Discard),
 		string(agentlauncher.AgentClaude),
-		"",
 		"",
 		" turbo-plus ",
 	)
@@ -37,19 +35,7 @@ func TestResolveReasoningLevel_WhitespaceValueIsIgnored(t *testing.T) {
 		zerolog.New(io.Discard),
 		string(agentlauncher.AgentClaude),
 		"",
-		"",
 		" \t\n ",
-	)
-	require.Equal(t, "", got)
-}
-
-func TestResolveReasoningLevel_AgentCmdBypassesBuiltInReasoning(t *testing.T) {
-	got := resolveReasoningLevel(
-		zerolog.New(io.Discard),
-		string(agentlauncher.AgentClaude),
-		"",
-		"custom-agent --run",
-		"high",
 	)
 	require.Equal(t, "", got)
 }
@@ -62,7 +48,6 @@ func TestResolveReasoningLevel_OpenCodeWarnsAndIgnores(t *testing.T) {
 		zerolog.New(&logs),
 		string(agentlauncher.AgentOpenCode),
 		"openai/gpt-5",
-		"",
 		"high",
 	)
 	require.Equal(t, "", got)
@@ -91,7 +76,6 @@ func TestResolveReasoningLevel_CodexWarnsAndPassesThroughUnsupportedLevels(t *te
 				zerolog.New(&logs),
 				string(agentlauncher.AgentCodex),
 				tt.model,
-				"",
 				tt.level,
 			)
 			require.Equal(t, tt.level, got)
@@ -124,7 +108,6 @@ func TestResolveReasoningLevel_CodexSupportsHighTierWithoutWarning(t *testing.T)
 				zerolog.New(&logs),
 				string(agentlauncher.AgentCodex),
 				tt.model,
-				"",
 				tt.level,
 			)
 			require.Equal(t, tt.level, got)
