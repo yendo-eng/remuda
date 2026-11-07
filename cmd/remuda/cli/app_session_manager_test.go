@@ -10,6 +10,7 @@ import (
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
 type noopGit struct{}
@@ -46,7 +47,7 @@ func TestRun_WiresSessionManagerFlag(t *testing.T) {
 				WithWorkingDir(t.TempDir()),
 			)
 			ctx.MultiplexerFactory = func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-				return stubNamedMultiplexer{name: string(name)}
+				return newNamedMockMultiplexer(string(name), nil)
 			}
 
 			require.NoError(t, Run(ctx, []string{"--session-manager", manager, "session", "list"}))
@@ -68,36 +69,17 @@ func TestRun_AggregatesMultiplexers(t *testing.T) {
 		WithWorkingDir(t.TempDir()),
 	)
 	ctx.MultiplexerFactory = func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-		return stubNamedMultiplexer{
-			name:     string(name),
-			sessions: []session.SessionInfo{{Name: "org/repo/" + string(name)}},
-		}
+		return newNamedMockMultiplexer(string(name), []session.SessionInfo{{Name: "org/repo/" + string(name)}})
 	}
 
 	require.NoError(t, Run(ctx, []string{"--session-manager", "herdr-tui", "session", "list"}))
 	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr-tui\norg/repo/rex\norg/repo/herdr-core\n", out.String())
 }
 
-type stubNamedMultiplexer struct {
-	name     string
-	sessions []session.SessionInfo
+func newNamedMockMultiplexer(name string, sessions []session.SessionInfo) *testutils.MockMultiplexer {
+	mgr := &testutils.MockMultiplexer{MultiplexerName: name}
+	for _, info := range sessions {
+		mgr.AddSession(info)
+	}
+	return mgr
 }
-
-func (m stubNamedMultiplexer) Name() string { return m.name }
-func (m stubNamedMultiplexer) Start(start session.AgentStart) error {
-	return nil
-}
-func (m stubNamedMultiplexer) List() ([]session.SessionInfo, error) {
-	return m.sessions, nil
-}
-func (m stubNamedMultiplexer) Find(name string) (session.SessionInfo, error) {
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-func (m stubNamedMultiplexer) Attach(name string) error { return nil }
-func (m stubNamedMultiplexer) ReadBuffer(name string, lines int) (string, error) {
-	return "", nil
-}
-func (m stubNamedMultiplexer) Send(name string, payload string, appendNewline bool) error {
-	return nil
-}
-func (m stubNamedMultiplexer) Kill(name string) error { return nil }
