@@ -107,7 +107,7 @@ func launchVibeCheckWizard(logger zerolog.Logger, env EnvProvider, provider env.
 	sel.Model = model
 	sel.AgentCmd = cmd
 
-	// Step: choose No tmux.
+	// Step: choose whether or not to use the multiplexer.
 	detached, err := wizardDetachedFlow(sel.DetachedMode())
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "wizard cancelled or failed")

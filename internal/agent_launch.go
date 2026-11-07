@@ -117,7 +117,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 
 	// Keep detached command text limited to navigation + launch. Agent metadata
 	// and secrets travel through the session start environment so values such as
-	// OPENAI_API_KEY never appear in shell history, tmux buffers, or logs.
+	// OPENAI_API_KEY never appear in shell history, multiplexer buffers, or logs.
 	startCmd := fmt.Sprintf("cd %s && %s", shell.SingleQuote(workspaceAbs), launchCmd)
 	startCmd = wrapWithCrashRecoverySleep(startCmd)
 	overrideEnvNames := make([]string, 0, len(cmd.EnvOverrides))
@@ -157,7 +157,7 @@ func sessionAgentArgs(manager session.Multiplexer, detached bool, agent string) 
 
 func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName string) env.Provider {
 	// The launch boundary owns env overrides for both inline and detached
-	// starts. Do not convert these to command-string prefixes; detached tmux
+	// starts. Do not convert these to command-string prefixes; detached
 	// and container runs depend on the process/session environment carrying
 	// the actual values.
 	provider := env.NewMutableProvider(k.envProvider())
