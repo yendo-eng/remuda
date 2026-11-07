@@ -44,10 +44,10 @@ func TestRun_WiresSessionManagerFlag(t *testing.T) {
 				WithEnv(EnvMap{}),
 				WithHomeDir(t.TempDir()),
 				WithWorkingDir(t.TempDir()),
-				WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-					return stubNamedMultiplexer{name: string(name)}
-				}),
 			)
+			ctx.MultiplexerFactory = func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
+				return stubNamedMultiplexer{name: string(name)}
+			}
 
 			require.NoError(t, Run(ctx, []string{"--session-manager", manager, "session", "list"}))
 			require.Contains(t, out.String(), "("+manager+")")
@@ -66,13 +66,13 @@ func TestRun_AggregatesMultiplexers(t *testing.T) {
 		WithEnv(EnvMap{}),
 		WithHomeDir(t.TempDir()),
 		WithWorkingDir(t.TempDir()),
-		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-			return stubNamedMultiplexer{
-				name:     string(name),
-				sessions: []session.SessionInfo{{Name: "org/repo/" + string(name)}},
-			}
-		}),
 	)
+	ctx.MultiplexerFactory = func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
+		return stubNamedMultiplexer{
+			name:     string(name),
+			sessions: []session.SessionInfo{{Name: "org/repo/" + string(name)}},
+		}
+	}
 
 	require.NoError(t, Run(ctx, []string{"--session-manager", "herdr-tui", "session", "list"}))
 	require.Equal(t, "org/repo/tmux\norg/repo/zellij\norg/repo/herdr-tui\norg/repo/rex\norg/repo/herdr-core\n", out.String())

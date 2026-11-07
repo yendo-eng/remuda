@@ -39,9 +39,8 @@ func TestVibeCheckUnknownExperimentFailsBeforeCommandValidation(t *testing.T) {
 	var stderr bytes.Buffer
 	ctx := NewContext(
 		context.Background(),
-		internal.Remuda{},
+		internal.Remuda{IO: internal.IO{Err: &stderr}},
 		WithEnv(EnvMap{}),
-		Stderr(&stderr),
 	)
 
 	err := Run(ctx, []string{"vibe-check", "--experiments", "not-real"})
@@ -55,9 +54,8 @@ func TestVibeCheckRetiredExperimentWarnsAndContinues(t *testing.T) {
 	var stderr bytes.Buffer
 	ctx := NewContext(
 		context.Background(),
-		internal.Remuda{},
+		internal.Remuda{IO: internal.IO{Err: &stderr}},
 		WithEnv(EnvMap{}),
-		Stderr(&stderr),
 	)
 
 	err := Run(ctx, []string{"vibe-check", "--experiments", "auto-workspace-name"})

@@ -15,9 +15,9 @@ func runCLI(t *testing.T, args ...string) error {
 	t.Helper()
 	var out, errOut bytes.Buffer
 	k := internal.NewRemuda(internal.Config{})
+	k.IO.Out = &out
+	k.IO.Err = &errOut
 	cliCtx := cli.NewContext(context.Background(), k,
-		cli.Stdout(&out),
-		cli.Stderr(&errOut),
 		cli.WithEnv(cli.EnvMap{}),
 		cli.WithHomeDir(t.TempDir()),
 	)

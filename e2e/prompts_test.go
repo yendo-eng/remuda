@@ -23,16 +23,18 @@ func getRemuda(t *testing.T) (internal.Remuda, *bytes.Buffer, *bytes.Buffer, cli
 
 	stdout := bytes.NewBufferString("")
 	stderr := bytes.NewBufferString("")
+	k.IO.Out = stdout
+	k.IO.Err = stderr
 
 	return k, stdout, stderr, cli.EnvMap(testutils.ProcessEnvMap())
 }
 
 func TestVibeListPrompts(t *testing.T) {
 	t.Parallel()
-	k, stdout, stderr, env := getRemuda(t)
+	k, stdout, _, env := getRemuda(t)
 	env["REMUDA_PROMPTS_DIR"] = t.TempDir()
 	args := []string{"prompts", "list"}
-	err := cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]), cli.Stdout(stdout), cli.Stderr(stderr)), args)
+	err := cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"])), args)
 	require.NoError(t, err)
 
 	require.Equal(t,
@@ -48,10 +50,10 @@ func TestVibeListPrompts(t *testing.T) {
 
 func TestVibeShowPrompt(t *testing.T) {
 	t.Parallel()
-	k, stdout, stderr, env := getRemuda(t)
+	k, stdout, _, env := getRemuda(t)
 	env["REMUDA_PROMPTS_DIR"] = t.TempDir()
 	args := []string{"prompts", "show", "small-commits"}
-	err := cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]), cli.Stdout(stdout), cli.Stderr(stderr)), args)
+	err := cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"])), args)
 	require.NoError(t, err)
 
 	prompt, ok := prompts.Get("small-commits")
@@ -69,14 +71,14 @@ func TestVibeCustomPromptLifecycle(t *testing.T) {
 	k, stdout, stderr, env := getRemuda(t)
 	env["REMUDA_PROMPTS_DIR"] = customDir
 	args := []string{"prompts", "list"}
-	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]), cli.Stdout(stdout), cli.Stderr(stderr)), args))
+	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"])), args))
 	require.Contains(t, stdout.String(), "Built-in prompts:\n")
 	require.Contains(t, stdout.String(), "\nCustom prompts:\n")
 	require.Contains(t, stdout.String(), "Custom prompts:\n  tell-jokes")
 
 	stdout.Reset()
 	stderr.Reset()
-	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]), cli.Stdout(stdout), cli.Stderr(stderr)), []string{"prompts", "show", "tell-jokes"}))
+	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"])), []string{"prompts", "show", "tell-jokes"}))
 	require.Equal(t, content+"\n", stdout.String())
 }
 
@@ -88,12 +90,12 @@ func TestPromptsCustomOverrideBuiltin(t *testing.T) {
 
 	k, stdout, stderr, env := getRemuda(t)
 	env["REMUDA_PROMPTS_DIR"] = customDir
-	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]), cli.Stdout(stdout), cli.Stderr(stderr)), []string{"prompts", "show", "small-commits"}))
+	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"])), []string{"prompts", "show", "small-commits"}))
 	require.Equal(t, content+"\n", stdout.String())
 
 	stdout.Reset()
 	stderr.Reset()
-	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]), cli.Stdout(stdout), cli.Stderr(stderr)), []string{"prompts", "list"}))
+	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"])), []string{"prompts", "list"}))
 	require.Equal(t,
 		`Built-in prompts:
   make-pr           When you're done, open a GitHub PR using gh; assume you're already on a feature branc...
@@ -114,9 +116,9 @@ func TestVibeListPromptsTruncatesLongCustomDescription(t *testing.T) {
 	content := longLine + "\nsecond line ignored in description"
 	require.NoError(t, os.WriteFile(filepath.Join(customDir, "long-subject"), []byte(content), 0o644))
 
-	k, stdout, stderr, env := getRemuda(t)
+	k, stdout, _, env := getRemuda(t)
 	env["REMUDA_PROMPTS_DIR"] = customDir
-	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]), cli.Stdout(stdout), cli.Stderr(stderr)), []string{"prompts", "list"}))
+	require.NoError(t, cli.Run(cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"])), []string{"prompts", "list"}))
 
 	require.Contains(t, stdout.String(), "\nCustom prompts:\n")
 	require.Regexp(t, `(?m)^  long-subject\s+This is a very long custom prompt subject that should be truncated in list output so\.\.\.$`, stdout.String())

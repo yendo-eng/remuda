@@ -28,12 +28,10 @@ func runComplete(t *testing.T, env cli.EnvMap, home string, args ...string) []st
 	var stdout, stderr bytes.Buffer
 	ctx := cli.NewContext(
 		context.Background(),
-		internal.Remuda{},
+		internal.Remuda{IO: internal.IO{Out: &stdout, Err: &stderr}},
 		cli.WithEnv(env),
 		cli.WithHomeDir(home),
 		cli.WithWorkingDir(home),
-		cli.Stdout(&stdout),
-		cli.Stderr(&stderr),
 	)
 	err := cli.Run(ctx, append([]string{"__complete"}, args...))
 	require.NoError(t, err, stderr.String())
@@ -61,12 +59,10 @@ func runCompleteDirective(t *testing.T, env cli.EnvMap, home string, args ...str
 	var stdout, stderr bytes.Buffer
 	ctx := cli.NewContext(
 		context.Background(),
-		internal.Remuda{},
+		internal.Remuda{IO: internal.IO{Out: &stdout, Err: &stderr}},
 		cli.WithEnv(env),
 		cli.WithHomeDir(home),
 		cli.WithWorkingDir(home),
-		cli.Stdout(&stdout),
-		cli.Stderr(&stderr),
 	)
 	err := cli.Run(ctx, append([]string{"__complete"}, args...))
 	require.NoError(t, err, stderr.String())
@@ -294,12 +290,10 @@ func TestCompletionsCmd_GeneratesBashScript(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	ctx := cli.NewContext(
 		context.Background(),
-		internal.Remuda{},
+		internal.Remuda{IO: internal.IO{Out: &stdout, Err: &stderr}},
 		cli.WithEnv(cli.EnvMap{}),
 		cli.WithHomeDir(home),
 		cli.WithWorkingDir(home),
-		cli.Stdout(&stdout),
-		cli.Stderr(&stderr),
 	)
 	require.NoError(t, cli.Run(ctx, []string{"completions", "bash"}))
 	require.Contains(t, stdout.String(), "remuda")

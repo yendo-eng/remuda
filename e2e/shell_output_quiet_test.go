@@ -45,7 +45,9 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 		k := internal.NewRemuda(internal.Config{ReposBaseDir: runDir})
 		k.Multiplexer = &testutils.MockMultiplexer{}
 		k.Jira = jira.Mock{}
-		cliCtx := cli.NewContext(t.Context(), k, cli.Stdout(&bytes.Buffer{}), cli.Stderr(&bytes.Buffer{}))
+		k.IO.Out = &bytes.Buffer{}
+		k.IO.Err = &bytes.Buffer{}
+		cliCtx := cli.NewContext(t.Context(), k)
 
 		stderr, err := captureStderr(t, func() error {
 			return cli.Run(cliCtx, []string{"clone", "--name", "wk", "--repo-url", remoteURL})
@@ -60,7 +62,9 @@ func TestShellCommandOutputHiddenUnlessVerbose(t *testing.T) {
 		k := internal.NewRemuda(internal.Config{ReposBaseDir: runDir})
 		k.Multiplexer = &testutils.MockMultiplexer{}
 		k.Jira = jira.Mock{}
-		cliCtx := cli.NewContext(t.Context(), k, cli.Stdout(&bytes.Buffer{}), cli.Stderr(&bytes.Buffer{}))
+		k.IO.Out = &bytes.Buffer{}
+		k.IO.Err = &bytes.Buffer{}
+		cliCtx := cli.NewContext(t.Context(), k)
 
 		stderr, err := captureStderr(t, func() error {
 			return cli.Run(cliCtx, []string{"-v", "clone", "--name", "wk2", "--repo-url", remoteURL})

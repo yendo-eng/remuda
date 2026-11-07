@@ -19,9 +19,9 @@ func loadConfigThroughCLI(t *testing.T, env cli.EnvMap, home string) error {
 	ctx := newTestContext(t, env,
 		cli.WithHomeDir(home),
 		cli.WithWorkingDir(home),
-		cli.Stdout(&stdout),
-		cli.Stderr(&stderr),
 	)
+	ctx.Remuda.IO.Out = &stdout
+	ctx.Remuda.IO.Err = &stderr
 	return cli.Run(ctx, []string{"config", "validate"})
 }
 

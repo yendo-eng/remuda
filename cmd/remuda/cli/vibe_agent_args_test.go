@@ -69,10 +69,10 @@ func runVibeWithConfig(t *testing.T, configYAML string, args ...string) string {
 		WithEnv(EnvMap{"REMUDA_CONFIG": configPath}),
 		WithHomeDir(t.TempDir()),
 		WithWorkingDir(t.TempDir()),
-		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-			return mgr
-		}),
 	)
+	ctx.MultiplexerFactory = func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
+		return mgr
+	}
 
 	runArgs := []string{"vibe", "--in", workspace}
 	runArgs = append(runArgs, args...)
