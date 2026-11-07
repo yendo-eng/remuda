@@ -58,6 +58,7 @@ func TestSessionReap_DryRunCleanupWorkspacePath(t *testing.T) {
 
 func TestSessionReap_NonDryRunCallsKill(t *testing.T) {
 	mgr := &testutils.MockMultiplexer{}
+	mgr.AddSession(session.SessionInfo{Name: "org/repo/work"})
 	k := Remuda{Multiplexer: mgr}
 
 	results, err := k.SessionReap([]string{"org/repo/work"}, false, false)
@@ -68,6 +69,7 @@ func TestSessionReap_NonDryRunCallsKill(t *testing.T) {
 
 func TestSessionReap_CleanupSkipsInvalidWorkspacePath(t *testing.T) {
 	mgr := &testutils.MockMultiplexer{}
+	mgr.AddSession(session.SessionInfo{Name: "not-remuda"})
 	k := Remuda{Multiplexer: mgr, Config: Config{ReposBaseDir: t.TempDir()}}
 
 	results, err := k.SessionReap([]string{"not-remuda"}, true, false)
