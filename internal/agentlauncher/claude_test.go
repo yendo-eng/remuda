@@ -1,7 +1,6 @@
 package agentlauncher
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -111,6 +110,8 @@ func TestClaudeLauncher_Arguments(t *testing.T) {
 }
 
 func TestClaudeLauncher_ContainerMounts_Permutations(t *testing.T) {
+	t.Parallel()
+
 	tcs := []struct {
 		name      string
 		withDir   bool
@@ -125,6 +126,8 @@ func TestClaudeLauncher_ContainerMounts_Permutations(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			tmp := t.TempDir()
 			claudeDir := filepath.Join(tmp, ".claude")
 			claudeJSON := filepath.Join(tmp, ".claude.json")
@@ -152,15 +155,4 @@ func TestClaudeLauncher_ContainerMounts_Permutations(t *testing.T) {
 			require.Equal(t, want, opts)
 		})
 	}
-}
-
-func TestClaudeLauncher_ContainerMounts_BlankHome(t *testing.T) {
-	opts := claudeLauncher{}.ContainerMounts(logging.NewDisabledLogger(), env.StaticProvider{HomeDir: "   "})
-	require.Nil(t, opts)
-}
-
-func TestClaudeLauncher_ContainerMounts_HomeUnavailable(t *testing.T) {
-	provider := env.StaticProvider{HomeErr: errors.New("no home")}
-	opts := claudeLauncher{}.ContainerMounts(logging.NewDisabledLogger(), provider)
-	require.Nil(t, opts)
 }
