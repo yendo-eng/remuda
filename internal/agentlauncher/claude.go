@@ -1,9 +1,8 @@
 package agentlauncher
 
 import (
-	"errors"
-	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -113,32 +112,8 @@ func (c claudeLauncher) ContainerMounts(logger zerolog.Logger, provider env.Prov
 		return nil
 	}
 
-	return buildClaudeStateMountOpts(logger, home)
-}
-
-func buildClaudeStateMountOpts(logger zerolog.Logger, home string) []string {
-	claudeDir := filepath.Join(home, ".claude")
-	claudeJSON := filepath.Join(home, ".claude.json")
-
-	var opts []string
-	if st, err := os.Stat(claudeDir); err == nil {
-		if st.IsDir() {
-			opts = append(opts, "-v", claudeDir+":/root/.claude:rw")
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		logger.Warn().Err(err).Str("path", claudeDir).Msg("failed checking Claude state directory; skipping mount")
-	}
-
-	if st, err := os.Stat(claudeJSON); err == nil {
-		if !st.IsDir() {
-			opts = append(opts, "-v", claudeJSON+":/root/.claude.json:rw")
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		logger.Warn().Err(err).Str("path", claudeJSON).Msg("failed checking Claude state file; skipping mount")
-	}
-
-	if len(opts) == 0 {
-		return nil
-	}
-	return opts
+	return slices.Concat(
+		bindIfExists(logger, filepath.Join(home, ".claude"), "/root/.claude", "rw"),
+		bindIfExists(logger, filepath.Join(home, ".claude.json"), "/root/.claude.json", "rw"),
+	)
 }

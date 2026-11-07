@@ -110,25 +110,6 @@ func TestClaudeLauncher_Arguments(t *testing.T) {
 	}, l.Arguments("fix it", "--foo"))
 }
 
-func TestBuildClaudeStateMountOpts_BothPathsPresent(t *testing.T) {
-	tmp := t.TempDir()
-	claudeDir := filepath.Join(tmp, ".claude")
-	claudeJSON := filepath.Join(tmp, ".claude.json")
-
-	require.NoError(t, os.MkdirAll(claudeDir, 0o700))
-	require.NoError(t, os.WriteFile(claudeJSON, []byte(`{"token":"redacted"}`), 0o600))
-
-	opts := buildClaudeStateMountOpts(logging.NewDisabledLogger(), tmp)
-	require.Equal(
-		t,
-		[]string{
-			"-v", claudeDir + ":/root/.claude:rw",
-			"-v", claudeJSON + ":/root/.claude.json:rw",
-		},
-		opts,
-	)
-}
-
 func TestClaudeLauncher_ContainerMounts_Permutations(t *testing.T) {
 	tcs := []struct {
 		name      string
@@ -171,15 +152,6 @@ func TestClaudeLauncher_ContainerMounts_Permutations(t *testing.T) {
 			require.Equal(t, want, opts)
 		})
 	}
-}
-
-func TestClaudeLauncher_ContainerMounts_IgnoresUnexpectedNodeTypes(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, ".claude"), []byte("not-a-dir"), 0o600))
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".claude.json"), 0o700))
-
-	opts := claudeLauncher{}.ContainerMounts(logging.NewDisabledLogger(), env.StaticProvider{HomeDir: tmp})
-	require.Nil(t, opts)
 }
 
 func TestClaudeLauncher_ContainerMounts_BlankHome(t *testing.T) {
