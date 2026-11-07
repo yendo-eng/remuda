@@ -10,53 +10,23 @@ import (
 	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
-type aggregateBackend struct {
-	name     string
-	sessions []session.SessionInfo
-	listErr  error
-	started  []session.AgentStart
-	attached []string
-	read     []string
-	sent     []string
-	killed   []string
+func newMockMultiplexer(name string, sessions ...session.SessionInfo) *testutils.MockMultiplexer {
+	mgr := &testutils.MockMultiplexer{MultiplexerName: name, ReadBuf: name}
+	for _, info := range sessions {
+		mgr.AddSession(info)
+	}
+	return mgr
 }
 
-func (b *aggregateBackend) Name() string { return b.name }
-func (b *aggregateBackend) Start(start session.AgentStart) error {
-	b.started = append(b.started, start)
-	return nil
-}
-func (b *aggregateBackend) List() ([]session.SessionInfo, error) {
-	return b.sessions, b.listErr
-}
-func (b *aggregateBackend) Find(name string) (session.SessionInfo, error) {
-	if b.listErr != nil {
-		return session.SessionInfo{}, b.listErr
+func sendNames(calls []testutils.SendCall) []string {
+	names := make([]string, 0, len(calls))
+	for _, call := range calls {
+		names = append(names, call.Name)
 	}
-	for _, info := range b.sessions {
-		if info.Name == name {
-			return info, nil
-		}
-	}
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-func (b *aggregateBackend) Attach(name string) error {
-	b.attached = append(b.attached, name)
-	return nil
-}
-func (b *aggregateBackend) ReadBuffer(name string, _ int) (string, error) {
-	b.read = append(b.read, name)
-	return b.name, nil
-}
-func (b *aggregateBackend) Send(name, _ string, _ bool) error {
-	b.sent = append(b.sent, name)
-	return nil
-}
-func (b *aggregateBackend) Kill(name string) error {
-	b.killed = append(b.killed, name)
-	return nil
+	return names
 }
 
 func TestAggregateMultiplexerSkipsOnlyUnavailableBackends(t *testing.T) {
@@ -102,7 +72,8 @@ exit 1
 			if tt.herdr != "" {
 				writeHerdrStub(t, dir, tt.herdr)
 			}
-			owner := &aggregateBackend{name: "owner", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
+			ownerSessions := []session.SessionInfo{{Name: "org/repo/owned"}}
+			owner := newMockMultiplexer("owner", ownerSessions...)
 			backends := make([]session.Multiplexer, 0, len(enums.ValidMultiplexers)+1)
 			for _, name := range enums.ValidMultiplexers {
 				backends = append(backends, session.NewMultiplexer(session.SupportedMultiplexer(name), zerolog.Nop()))
@@ -117,9 +88,9 @@ exit 1
 				return
 			}
 			require.NoError(t, listErr)
-			require.Equal(t, owner.sessions, sessions)
+			require.Equal(t, ownerSessions, sessions)
 			require.NoError(t, findErr)
-			require.Equal(t, owner.sessions[0], info)
+			require.Equal(t, ownerSessions[0], info)
 		})
 	}
 }
@@ -130,20 +101,20 @@ func TestAggregateMultiplexerDispatchesToSessionOwner(t *testing.T) {
 	tests := []struct {
 		name string
 		run  func(session.Multiplexer) error
-		got  func(*aggregateBackend) []string
+		got  func(*testutils.MockMultiplexer) []string
 	}{
-		{name: "attach", run: func(m session.Multiplexer) error { return m.Attach("org/repo/owned") }, got: func(b *aggregateBackend) []string { return b.attached }},
-		{name: "read", run: func(m session.Multiplexer) error { _, err := m.ReadBuffer("org/repo/owned", 20); return err }, got: func(b *aggregateBackend) []string { return b.read }},
-		{name: "send", run: func(m session.Multiplexer) error { return m.Send("org/repo/owned", "hello", true) }, got: func(b *aggregateBackend) []string { return b.sent }},
-		{name: "kill", run: func(m session.Multiplexer) error { return m.Kill("org/repo/owned") }, got: func(b *aggregateBackend) []string { return b.killed }},
+		{name: "attach", run: func(m session.Multiplexer) error { return m.Attach("org/repo/owned") }, got: func(b *testutils.MockMultiplexer) []string { return b.Attached }},
+		{name: "read", run: func(m session.Multiplexer) error { _, err := m.ReadBuffer("org/repo/owned", 20); return err }, got: func(b *testutils.MockMultiplexer) []string { return b.ReadNames }},
+		{name: "send", run: func(m session.Multiplexer) error { return m.Send("org/repo/owned", "hello", true) }, got: func(b *testutils.MockMultiplexer) []string { return sendNames(b.Sends) }},
+		{name: "kill", run: func(m session.Multiplexer) error { return m.Kill("org/repo/owned") }, got: func(b *testutils.MockMultiplexer) []string { return b.Killed }},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			unavailable := &aggregateBackend{name: "tmux", listErr: session.ErrMultiplexerUnavailable}
-			owner := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/owned"}}}
+			unavailable := &testutils.MockMultiplexer{MultiplexerName: "tmux", ListErr: session.ErrMultiplexerUnavailable}
+			owner := newMockMultiplexer("herdr-tui", session.SessionInfo{Name: "org/repo/owned"})
 			mgr := session.NewAggregateMultiplexer(unavailable, logging.DefaultLogger(), unavailable, owner)
 
 			require.NoError(t, tt.run(mgr))
@@ -175,15 +146,16 @@ func TestAggregateMultiplexerReturnsBackendErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			createTarget := &aggregateBackend{name: "tmux"}
-			failing := &aggregateBackend{name: "herdr-core", sessions: []session.SessionInfo{{Name: "org/repo/held"}}, listErr: backendErr}
+			createTarget := newMockMultiplexer("tmux")
+			failing := &testutils.MockMultiplexer{MultiplexerName: "herdr-core", ListErr: backendErr}
+			failing.AddSession(session.SessionInfo{Name: "org/repo/held"})
 			mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget, failing)
 
 			err := tt.run(mgr)
 
 			require.ErrorIs(t, err, backendErr)
 			require.ErrorContains(t, err, "herdr-core")
-			require.Empty(t, createTarget.started)
+			require.Empty(t, createTarget.Starts)
 		})
 	}
 }
@@ -194,26 +166,26 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 	t.Run("rejects duplicate from another backend", func(t *testing.T) {
 		t.Parallel()
 
-		createTarget := &aggregateBackend{name: "tmux"}
-		owner := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/existing"}}}
+		createTarget := newMockMultiplexer("tmux")
+		owner := newMockMultiplexer("herdr-tui", session.SessionInfo{Name: "org/repo/existing"})
 		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget, owner)
 
 		err := mgr.Start(session.AgentStart{SessionName: "org/repo/existing", Command: "command"})
 
 		var duplicate session.SessionAlreadyExistsError
 		require.ErrorAs(t, err, &duplicate)
-		require.Empty(t, createTarget.started)
+		require.Empty(t, createTarget.Starts)
 	})
 
 	t.Run("delegates name and start", func(t *testing.T) {
 		t.Parallel()
 
-		createTarget := &aggregateBackend{name: "herdr-tui"}
+		createTarget := newMockMultiplexer("herdr-tui")
 		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget)
 		start := session.AgentStart{SessionName: "org/repo/agent", Command: "command", Env: []string{"KEY=value"}, ForwardEnv: []string{"KEY"}}
 
 		require.Equal(t, "herdr-tui", mgr.Name())
 		require.NoError(t, mgr.Start(start))
-		require.Equal(t, []session.AgentStart{start}, createTarget.started)
+		require.Equal(t, []session.AgentStart{start}, createTarget.Starts)
 	})
 }

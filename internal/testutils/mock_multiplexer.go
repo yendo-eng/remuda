@@ -26,6 +26,7 @@ type MockMultiplexer struct {
 	Started         map[string]string
 	StartEnv        map[string][]string
 	Attached        []string
+	ReadNames       []string
 	LastReadName    string
 	LastReadLines   int
 	LastSendName    string
@@ -132,6 +133,7 @@ func (f *MockMultiplexer) Attach(name string) error {
 func (f *MockMultiplexer) ReadBuffer(name string, lines int) (string, error) {
 	f.LastReadName = name
 	f.LastReadLines = lines
+	f.ReadNames = append(f.ReadNames, name)
 	if f.ReadBufferErr != nil {
 		return "", f.ReadBufferErr
 	}
