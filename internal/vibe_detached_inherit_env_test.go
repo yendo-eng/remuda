@@ -245,6 +245,58 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 	require.Equal(t, "custom-secret", value)
 }
 
+func TestVibe_DetachedLaunchEnvDoesNotLeakIntoLaterLaunches(t *testing.T) {
+	t.Parallel()
+
+	sm := &captureMultiplexer{}
+	k := Remuda{
+		Git:         &fakeGit{},
+		Multiplexer: sm,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
+		// NewRemuda and cli.NewContext both install a MutableProvider.
+		Env: env.NewMutableProvider(env.StaticProvider{Values: map[string]string{
+			"GH_TOKEN": "test-token", // avoid invoking `gh auth token`
+		}}),
+	}
+
+	// First launch: claude yolo in a container, with a model and an override,
+	// so every per-launch value is set.
+	err := k.Vibe(context.Background(), VibeCommand{
+		Agent:             "claude",
+		Model:             "opus",
+		Yolo:              true,
+		Detached:          true,
+		ExistingWorkspace: t.TempDir(),
+		Container:         true,
+		ContainerName:     "ghcr.io/acme/vibe-dev:latest",
+		EnvOverrides:      map[string]string{"OPENAI_API_KEY": "first-launch-key"},
+	})
+	require.NoError(t, err)
+	firstLaunchEnv := map[string]string{
+		"IS_SANDBOX":     "1",
+		"REMUDA_MODEL":   "opus",
+		"OPENAI_API_KEY": "first-launch-key",
+	}
+	for key, want := range firstLaunchEnv {
+		value, ok := envValue(sm.startEnv, key)
+		require.True(t, ok, key)
+		require.Equal(t, want, value, key)
+	}
+
+	// None of them are set for a later plain launch in the same Remuda.
+	err = k.Vibe(context.Background(), VibeCommand{
+		Agent:             "bash",
+		Detached:          true,
+		ExistingWorkspace: t.TempDir(),
+	})
+	require.NoError(t, err)
+	for key := range firstLaunchEnv {
+		_, ok := envValue(sm.startEnv, key)
+		require.False(t, ok, "%s leaked from the first launch", key)
+	}
+}
+
 // namedCaptureMultiplexer captures starts under another backend's name.
 type namedCaptureMultiplexer struct {
 	*captureMultiplexer
