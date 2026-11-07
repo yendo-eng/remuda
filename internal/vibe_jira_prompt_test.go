@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/jira"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
 func TestVibeBuildsPromptWithJiraCodeBlocks(t *testing.T) {
@@ -49,7 +50,7 @@ func TestVibeBuildsPromptWithJiraCodeBlocks(t *testing.T) {
 	jiraContext, err := jira.BuildContext([]jira.Issue{issue})
 	require.NoError(t, err)
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -65,11 +66,11 @@ func TestVibeBuildsPromptWithJiraCodeBlocks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Contains(t, sm.start.Command, "RBL-3027: Preserve code blocks from Jira")
-	require.Contains(t, sm.start.Command, "Description:")
-	require.Contains(t, sm.start.Command, "```")
-	require.Contains(t, sm.start.Command, "CREATE TABLE payment_methods (")
-	require.Contains(t, sm.start.Command, "status TEXT NOT NULL DEFAULT")
-	require.Contains(t, sm.start.Command, "active")
-	require.Contains(t, sm.start.Command, "main prompt")
+	require.Contains(t, sm.LastStart.Command, "RBL-3027: Preserve code blocks from Jira")
+	require.Contains(t, sm.LastStart.Command, "Description:")
+	require.Contains(t, sm.LastStart.Command, "```")
+	require.Contains(t, sm.LastStart.Command, "CREATE TABLE payment_methods (")
+	require.Contains(t, sm.LastStart.Command, "status TEXT NOT NULL DEFAULT")
+	require.Contains(t, sm.LastStart.Command, "active")
+	require.Contains(t, sm.LastStart.Command, "main prompt")
 }
