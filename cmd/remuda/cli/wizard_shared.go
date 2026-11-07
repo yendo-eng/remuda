@@ -116,7 +116,7 @@ func wizardAgentFlow(initAgent, initModel, initCmd string, askYolo bool) (agent,
 	return
 }
 
-// wizardDetachedFlow prompts for detached mode (tmux/zellij).
+// wizardDetachedFlow prompts for detached mode.
 func wizardDetachedFlow(detached bool) (bool, error) {
 	detachedMode := detached
 	err := huh.NewConfirm().

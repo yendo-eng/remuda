@@ -358,7 +358,7 @@ type SessionLaunchOptions struct {
 func (o *SessionLaunchOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fs := cmd.Flags()
 	fs.BoolVar(&o.Detached, "detached", true, "Run the session in the background with your configured terminal multiplexer.")
-	fs.BoolVar(&o.NoTmux, "no-tmux", false, "Run without the configured session manager (detached tmux by default).")
+	fs.BoolVar(&o.NoTmux, "no-tmux", false, "Run without the configured session manager.")
 	fs.Lookup("no-tmux").Hidden = true
 	fs.BoolVar(&o.Attach, "attach", false, "Attach to the session immediately after launching (requires detached mode).")
 	fl.negatable("detached")
