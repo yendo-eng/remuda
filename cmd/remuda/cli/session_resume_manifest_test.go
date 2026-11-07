@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
 func writeTestManifest(t *testing.T, workspace string, manifest internal.SessionManifest) {
@@ -24,7 +25,7 @@ func runSessionResume(t *testing.T, workspace string, args ...string) string {
 	t.Helper()
 
 	base := filepath.Dir(filepath.Dir(filepath.Dir(workspace)))
-	mgr := &captureStartMultiplexer{}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: string(session.MultiplexerTmux)}
 	remuda := internal.NewRemuda(internal.Config{ReposBaseDir: base})
 	remuda.Git = noopGit{}
 
@@ -40,8 +41,8 @@ func runSessionResume(t *testing.T, workspace string, args ...string) string {
 
 	runArgs := append([]string{"session", "resume", workspace}, args...)
 	require.NoError(t, Run(ctx, runArgs))
-	require.NotEmpty(t, mgr.startCmd)
-	return mgr.startCmd
+	require.NotEmpty(t, mgr.LastStart.Command)
+	return mgr.LastStart.Command
 }
 
 func TestSessionResume_DefaultsFromManifestWhenExperimentEnabled(t *testing.T) {

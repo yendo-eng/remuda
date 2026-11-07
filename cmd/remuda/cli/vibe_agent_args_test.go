@@ -10,39 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
-
-type captureStartMultiplexer struct {
-	startCmd string
-}
-
-func (m *captureStartMultiplexer) Name() string { return string(session.MultiplexerTmux) }
-
-func (m *captureStartMultiplexer) Start(start session.AgentStart) error {
-	m.startCmd = start.Command
-	return nil
-}
-
-func (m *captureStartMultiplexer) List() ([]session.SessionInfo, error) {
-	return nil, nil
-}
-
-func (m *captureStartMultiplexer) Find(name string) (session.SessionInfo, error) {
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-
-func (m *captureStartMultiplexer) Attach(name string) error { return nil }
-
-func (m *captureStartMultiplexer) ReadBuffer(name string, lines int) (string, error) {
-	return "", nil
-}
-
-func (m *captureStartMultiplexer) Send(name string, payload string, appendNewline bool) error {
-	return nil
-}
-
-func (m *captureStartMultiplexer) Kill(name string) error { return nil }
 
 func runVibeWithConfig(t *testing.T, configYAML string, args ...string) string {
 	t.Helper()
@@ -54,7 +24,7 @@ func runVibeWithConfig(t *testing.T, configYAML string, args ...string) string {
 	workspace := filepath.Join(base, "owner", "repo", "wk")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-	mgr := &captureStartMultiplexer{}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: string(session.MultiplexerTmux)}
 	remuda := internal.NewRemuda(internal.Config{ReposBaseDir: base})
 	remuda.Git = noopGit{}
 
@@ -72,8 +42,8 @@ func runVibeWithConfig(t *testing.T, configYAML string, args ...string) string {
 	runArgs := []string{"vibe", "--in", workspace}
 	runArgs = append(runArgs, args...)
 	require.NoError(t, Run(ctx, runArgs))
-	require.NotEmpty(t, mgr.startCmd)
-	return mgr.startCmd
+	require.NotEmpty(t, mgr.LastStart.Command)
+	return mgr.LastStart.Command
 }
 
 func TestVibe_AgentArgsFromGlobalConfig(t *testing.T) {
