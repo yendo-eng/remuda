@@ -363,6 +363,32 @@ session:
 		require.Empty(t, sessions)
 	})
 
+	t.Run("container resume with --agent-cmd keeps the agent's container mounts", func(t *testing.T) {
+		baseDir, mgr, k := setup(t)
+		k.Docker = &docker.Mock{Running: true}
+		workspace := filepath.Join(baseDir, "org", "repo", "folder")
+		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+
+		home := t.TempDir()
+		containerEnv := cli.EnvMap(testutils.ProcessEnvMap())
+		containerEnv["GH_TOKEN"] = "test-token"
+		delete(containerEnv, "OPENAI_API_KEY")
+
+		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(containerEnv), cli.WithHomeDir(home))
+		err := cli.Run(ctx, []string{
+			"session", "resume",
+			"--container", "--container-name", "ghcr.io/acme/vibe-dev:latest",
+			"--agent-cmd", "codex resume --last",
+			workspace,
+		})
+		require.NoError(t, err)
+
+		sess := mgr.FindSession("org/repo/folder")
+		require.NotNil(t, sess)
+		require.Contains(t, sess.CommandRan, "codex resume --last")
+		require.Contains(t, sess.CommandRan, "'-v' '"+filepath.Join(home, ".codex", "sessions")+":/root/.codex/sessions:rw'")
+	})
+
 	t.Run("container resume uses configured image without --container-name", func(t *testing.T) {
 		baseDir, mgr, k := setup(t)
 		k.Docker = &docker.Mock{Running: true}
