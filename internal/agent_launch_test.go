@@ -11,6 +11,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
 func TestValidateMultiplexerLaunchRejectsUnsupportedHerdrTUIAgentCommand(t *testing.T) {
@@ -73,7 +74,7 @@ func TestLaunchAgentSessionDoesNotInferSharedBeadsDir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(beadsDir, 0o755))
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Multiplexer: sm,
 		IO:          DefaultIO(),
@@ -90,8 +91,8 @@ func TestLaunchAgentSessionDoesNotInferSharedBeadsDir(t *testing.T) {
 		Detached:    true,
 	})
 	require.NoError(t, err)
-	require.NotContains(t, sm.start.Command, "BEADS_DIR=")
-	_, ok := envValue(sm.start.Env, "BEADS_DIR")
+	require.NotContains(t, sm.LastStart.Command, "BEADS_DIR=")
+	_, ok := envValue(sm.LastStart.Env, "BEADS_DIR")
 	require.False(t, ok)
 }
 
@@ -104,7 +105,7 @@ func TestLaunchAgentSessionPreservesExplicitBeadsDir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(beadsDir, 0o755))
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Multiplexer: sm,
 		IO:          DefaultIO(),
@@ -122,7 +123,7 @@ func TestLaunchAgentSessionPreservesExplicitBeadsDir(t *testing.T) {
 		Detached:    true,
 	})
 	require.NoError(t, err)
-	value, ok := envValue(sm.start.Env, "BEADS_DIR")
+	value, ok := envValue(sm.LastStart.Env, "BEADS_DIR")
 	require.True(t, ok)
 	require.Equal(t, "/tmp/explicit-beads", value)
 }
@@ -143,7 +144,7 @@ func TestLaunchAgentSessionStartEnvPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			sm := &captureMultiplexer{}
+			sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 			k := Remuda{
 				Multiplexer: sm,
 				IO:          DefaultIO(),
@@ -157,7 +158,7 @@ func TestLaunchAgentSessionStartEnvPath(t *testing.T) {
 				Detached:    true,
 			})
 			require.NoError(t, err)
-			value, ok := envValue(sm.start.Env, "PATH")
+			value, ok := envValue(sm.LastStart.Env, "PATH")
 			require.True(t, ok)
 			require.Equal(t, tt.wantPath, value)
 		})
@@ -167,7 +168,7 @@ func TestLaunchAgentSessionStartEnvPath(t *testing.T) {
 func TestLaunchAgentSessionStartsContainer(t *testing.T) {
 	t.Parallel()
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Multiplexer: sm,
 		Docker:      &docker.Mock{Running: true},
@@ -190,11 +191,11 @@ func TestLaunchAgentSessionStartsContainer(t *testing.T) {
 		ContainerImage: "ghcr.io/acme/vibe-dev:latest",
 	})
 	require.NoError(t, err)
-	require.Equal(t, workspace, sm.start.Workspace)
-	require.Equal(t, "prompt", sm.start.Prompt)
-	require.True(t, sm.start.Container)
-	require.Equal(t, []string{"docker", "run"}, sm.start.CommandArgv[:2])
-	require.Contains(t, sm.start.Command, "'docker' 'run'")
+	require.Equal(t, workspace, sm.LastStart.Workspace)
+	require.Equal(t, "prompt", sm.LastStart.Prompt)
+	require.True(t, sm.LastStart.Container)
+	require.Equal(t, []string{"docker", "run"}, sm.LastStart.CommandArgv[:2])
+	require.Contains(t, sm.LastStart.Command, "'docker' 'run'")
 }
 
 func envValue(values []string, key string) (string, bool) {

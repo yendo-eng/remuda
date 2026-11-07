@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
 func TestCodexDockerVolumeMountOptions_IncludesPromptsMountWithAuthArtifacts(t *testing.T) {
@@ -121,18 +122,10 @@ func TestCodexDockerVolumeMountOptions_SkipsAgentsMountWhenFileMissing(t *testin
 	require.False(t, containsMountSuffix(opts, ":/root/.codex/AGENTS.md:ro"))
 }
 
-// namedCaptureMultiplexer captures starts under another backend's name.
-type namedCaptureMultiplexer struct {
-	*captureMultiplexer
-	name session.SupportedMultiplexer
-}
-
-func (m namedCaptureMultiplexer) Name() string { return string(m.name) }
-
 func TestVibe_DetachedHerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
 	t.Parallel()
 
-	sm := namedCaptureMultiplexer{captureMultiplexer: &captureMultiplexer{}, name: session.MultiplexerHerdrCore}
+	sm := &testutils.MockMultiplexer{MultiplexerName: string(session.MultiplexerHerdrCore)}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -148,7 +141,7 @@ func TestVibe_DetachedHerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
 		ExistingWorkspace: t.TempDir(),
 	})
 	require.NoError(t, err)
-	require.Contains(t, sm.start.Command, "'--search' '--no-daemon' -- 'fix it'")
+	require.Contains(t, sm.LastStart.Command, "'--search' '--no-daemon' -- 'fix it'")
 }
 
 func containsMountSuffix(opts []string, suffix string) bool {

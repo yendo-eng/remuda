@@ -7,34 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
-	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
-
-type captureMultiplexer struct {
-	start session.AgentStart
-}
-
-func (m *captureMultiplexer) Name() string { return string(session.MultiplexerTmux) }
-func (m *captureMultiplexer) Start(start session.AgentStart) error {
-	m.start = start
-	return nil
-}
-func (m *captureMultiplexer) List() ([]session.SessionInfo, error) { return nil, nil }
-func (m *captureMultiplexer) Find(name string) (session.SessionInfo, error) {
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-func (m *captureMultiplexer) Attach(name string) error                          { return nil }
-func (m *captureMultiplexer) ReadBuffer(name string, lines int) (string, error) { return "", nil }
-func (m *captureMultiplexer) Send(name string, payload string, appendNewline bool) error {
-	return nil
-}
-func (m *captureMultiplexer) Kill(name string) error { return nil }
 
 func TestVibe_DetachedExportsInheritedEnvVars(t *testing.T) {
 	t.Setenv("POSTMAN_API_KEY", "secret")
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -54,19 +34,19 @@ func TestVibe_DetachedExportsInheritedEnvVars(t *testing.T) {
 		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sm.start.Command)
-	require.Contains(t, sm.start.Command, "'-e' 'POSTMAN_API_KEY'")
-	require.NotContains(t, sm.start.Command, "export POSTMAN_API_KEY=")
-	value, ok := envValue(sm.start.Env, "POSTMAN_API_KEY")
+	require.NotEmpty(t, sm.LastStart.Command)
+	require.Contains(t, sm.LastStart.Command, "'-e' 'POSTMAN_API_KEY'")
+	require.NotContains(t, sm.LastStart.Command, "export POSTMAN_API_KEY=")
+	value, ok := envValue(sm.LastStart.Env, "POSTMAN_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "secret", value)
-	require.Contains(t, sm.start.ForwardEnv, "POSTMAN_API_KEY")
+	require.Contains(t, sm.LastStart.ForwardEnv, "POSTMAN_API_KEY")
 }
 
 func TestVibe_DetachedUnsetsMissingInheritedEnvVars(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -86,10 +66,10 @@ func TestVibe_DetachedUnsetsMissingInheritedEnvVars(t *testing.T) {
 		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sm.start.Command)
-	require.Contains(t, sm.start.Command, "'-e' 'POSTMAN_API_KEY'")
-	require.NotContains(t, sm.start.Command, "unset POSTMAN_API_KEY")
-	_, ok := envValue(sm.start.Env, "POSTMAN_API_KEY")
+	require.NotEmpty(t, sm.LastStart.Command)
+	require.Contains(t, sm.LastStart.Command, "'-e' 'POSTMAN_API_KEY'")
+	require.NotContains(t, sm.LastStart.Command, "unset POSTMAN_API_KEY")
+	_, ok := envValue(sm.LastStart.Env, "POSTMAN_API_KEY")
 	require.False(t, ok)
 }
 
@@ -97,7 +77,7 @@ func TestVibe_DetachedPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 	t.Setenv("POSTMAN_API_KEY", "  spaced \nvalue\t")
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -117,13 +97,13 @@ func TestVibe_DetachedPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T) {
 		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
-	require.NotContains(t, sm.start.Command, "export POSTMAN_API_KEY=")
-	value, ok := envValue(sm.start.Env, "POSTMAN_API_KEY")
+	require.NotContains(t, sm.LastStart.Command, "export POSTMAN_API_KEY=")
+	value, ok := envValue(sm.LastStart.Env, "POSTMAN_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "  spaced \nvalue\t", value)
 
 	t.Setenv("POSTMAN_API_KEY", "")
-	sm.start.Env = nil
+	sm.LastStart.Env = nil
 	err = k.Vibe(context.Background(), VibeCommand{
 		Agent:               "bash",
 		Prompt:              "ignored",
@@ -134,7 +114,7 @@ func TestVibe_DetachedPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T) {
 		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
-	value, ok = envValue(sm.start.Env, "POSTMAN_API_KEY")
+	value, ok = envValue(sm.LastStart.Env, "POSTMAN_API_KEY")
 	require.True(t, ok)
 	require.Empty(t, value)
 }
@@ -143,7 +123,7 @@ func TestVibe_DetachedExportsImplicitAnthropicForClaude(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "anthropic-secret")
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -162,10 +142,10 @@ func TestVibe_DetachedExportsImplicitAnthropicForClaude(t *testing.T) {
 		ContainerName:     "ghcr.io/acme/vibe-dev:latest",
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sm.start.Command)
-	require.Contains(t, sm.start.Command, "'-e' 'ANTHROPIC_API_KEY'")
-	require.NotContains(t, sm.start.Command, "export ANTHROPIC_API_KEY=")
-	value, ok := envValue(sm.start.Env, "ANTHROPIC_API_KEY")
+	require.NotEmpty(t, sm.LastStart.Command)
+	require.Contains(t, sm.LastStart.Command, "'-e' 'ANTHROPIC_API_KEY'")
+	require.NotContains(t, sm.LastStart.Command, "export ANTHROPIC_API_KEY=")
+	value, ok := envValue(sm.LastStart.Env, "ANTHROPIC_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "anthropic-secret", value)
 }
@@ -173,7 +153,7 @@ func TestVibe_DetachedExportsImplicitAnthropicForClaude(t *testing.T) {
 func TestVibe_DetachedUnsetsImplicitAnthropicWhenMissingForClaude(t *testing.T) {
 	t.Parallel()
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -195,17 +175,17 @@ func TestVibe_DetachedUnsetsImplicitAnthropicWhenMissingForClaude(t *testing.T) 
 		ContainerName:     "ghcr.io/acme/vibe-dev:latest",
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sm.start.Command)
-	require.Contains(t, sm.start.Command, "'-e' 'ANTHROPIC_API_KEY'")
-	require.NotContains(t, sm.start.Command, "unset ANTHROPIC_API_KEY")
-	_, ok := envValue(sm.start.Env, "ANTHROPIC_API_KEY")
+	require.NotEmpty(t, sm.LastStart.Command)
+	require.Contains(t, sm.LastStart.Command, "'-e' 'ANTHROPIC_API_KEY'")
+	require.NotContains(t, sm.LastStart.Command, "unset ANTHROPIC_API_KEY")
+	_, ok := envValue(sm.LastStart.Env, "ANTHROPIC_API_KEY")
 	require.False(t, ok)
 }
 
 func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 	t.Parallel()
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -227,21 +207,21 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.NotContains(t, sm.start.Command, "vibe-secret")
-	require.NotContains(t, sm.start.Command, "OPENAI_API_KEY=vibe-secret")
-	value, ok := envValue(sm.start.Env, "OPENAI_API_KEY")
+	require.NotContains(t, sm.LastStart.Command, "vibe-secret")
+	require.NotContains(t, sm.LastStart.Command, "OPENAI_API_KEY=vibe-secret")
+	value, ok := envValue(sm.LastStart.Env, "OPENAI_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "vibe-secret", value)
-	value, ok = envValue(sm.start.Env, "CUSTOM_OVERRIDE")
+	value, ok = envValue(sm.LastStart.Env, "CUSTOM_OVERRIDE")
 	require.True(t, ok)
 	require.Equal(t, "custom-secret", value)
-	require.Subset(t, sm.start.ForwardEnv, []string{"OPENAI_API_KEY", "CUSTOM_OVERRIDE"})
+	require.Subset(t, sm.LastStart.ForwardEnv, []string{"OPENAI_API_KEY", "CUSTOM_OVERRIDE"})
 }
 
 func TestVibe_DetachedLaunchEnvDoesNotLeakIntoLaterLaunches(t *testing.T) {
 	t.Parallel()
 
-	sm := &captureMultiplexer{}
+	sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Git:         &fakeGit{},
 		Multiplexer: sm,
@@ -272,7 +252,7 @@ func TestVibe_DetachedLaunchEnvDoesNotLeakIntoLaterLaunches(t *testing.T) {
 		"OPENAI_API_KEY": "first-launch-key",
 	}
 	for key, want := range firstLaunchEnv {
-		value, ok := envValue(sm.start.Env, key)
+		value, ok := envValue(sm.LastStart.Env, key)
 		require.True(t, ok, key)
 		require.Equal(t, want, value, key)
 	}
@@ -285,7 +265,7 @@ func TestVibe_DetachedLaunchEnvDoesNotLeakIntoLaterLaunches(t *testing.T) {
 	})
 	require.NoError(t, err)
 	for key := range firstLaunchEnv {
-		_, ok := envValue(sm.start.Env, key)
+		_, ok := envValue(sm.LastStart.Env, key)
 		require.False(t, ok, "%s leaked from the first launch", key)
 	}
 }
