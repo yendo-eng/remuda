@@ -712,9 +712,6 @@ func logLaunchingAgent(logger zerolog.Logger, ctx launchingAgentLogContext) {
 		Str("container_name", ctx.ContainerName).
 		Bool("yolo", ctx.Yolo).
 		Bool("detached", ctx.Detached)
-	if ctx.Model != "" {
-		event = event.Str("model", ctx.Model)
-	}
 	if ctx.Container && ctx.ContainerImage != "" {
 		event = event.Str("container_image", ctx.ContainerImage)
 	}
