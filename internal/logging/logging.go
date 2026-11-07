@@ -38,10 +38,6 @@ func NewConsoleLogger(out io.Writer, level zerolog.Level) zerolog.Logger {
 	return zerolog.New(writer).With().Timestamp().Logger().Level(level)
 }
 
-func NewDisabledLogger() zerolog.Logger {
-	return zerolog.New(io.Discard).Level(zerolog.Disabled)
-}
-
 type lockedWriter struct {
 	mu sync.Mutex
 	w  io.Writer
