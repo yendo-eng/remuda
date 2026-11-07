@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
@@ -97,106 +98,69 @@ func (c codexLauncher) SupportedModels() []string {
 
 func (c codexLauncher) ContainerEnv() map[string]string { return nil }
 
-// ContainerMounts prepares Docker volume mount options for the Codex CLI.
-// It forwards authentication artifacts (auth.json + config.toml) plus ~/.codex/prompts, ~/.codex/rules,
-// ~/.codex/skills, and ~/.codex/AGENTS.md whenever they are available so custom instructions and slash
-// command state work inside --container sessions.
-// If the OPENAI_API_KEY is not set or any file operations fail, it returns only the mounts that can be derived
-// (for example the prompts directory) and logs warnings for auth-related failures.
 func (c codexLauncher) ContainerMounts(logger zerolog.Logger, provider env.Provider) []string {
 	provider = env.OrDefault(provider)
-	var containerOpts []string
-	apiKeySet := strings.TrimSpace(provider.Getenv("OPENAI_API_KEY")) != ""
-	var accountAuthMount []string
-	if !apiKeySet {
-		accountAuthMount = codexAccountAuthMountOptions(provider)
+	home, err := provider.UserHomeDir()
+	if err != nil {
+		return nil
 	}
-	promptMount := codexPromptsMountOptions(provider)
-	rulesMount := codexRulesMountOptions(provider)
-	skillsMount := codexSkillsMountOptions(logger, provider)
-	agentsMount := codexAgentsMountOptions(provider)
-	stateMount := codexStateMountOptions(logger, provider)
-	promptsApplied := false
-	rulesApplied := false
-	skillsApplied := false
-	agentsApplied := false
-	stateApplied := false
-	if len(accountAuthMount) > 0 {
-		containerOpts = append(containerOpts, accountAuthMount...)
-		stateApplied = true
-		agentsApplied = true
-		skillsApplied = true
-		rulesApplied = true
-		promptsApplied = true
-	}
-	if key := provider.Getenv("OPENAI_API_KEY"); strings.TrimSpace(key) != "" {
-		if tmpDir, tmpErr := os.MkdirTemp("", "codex-auth-*"); tmpErr == nil {
-			_ = os.MkdirAll(tmpDir, 0o755)
-			authPath := filepath.Join(tmpDir, "auth.json")
-			payload := fmt.Sprintf("{\"OPENAI_API_KEY\":%q}\n", strings.TrimSpace(key))
-			if writeErr := os.WriteFile(authPath, []byte(payload), 0o600); writeErr == nil {
-				if home, herr := provider.UserHomeDir(); herr == nil {
-					cfgSrc := filepath.Join(home, ".codex", "config.toml")
-					if data, rerr := os.ReadFile(cfgSrc); rerr == nil {
-						cfgDst := filepath.Join(tmpDir, "config.toml")
-						//nolint:gosec // G703: cfgDst is a fixed temp path under tmpDir created in this function.
-						if werr := os.WriteFile(cfgDst, data, 0o644); werr != nil {
-							logger.Warn().Err(werr).Msg("failed copying ~/.codex/config.toml into container mount")
-						}
-					}
-				}
-				opts := []string{
-					"--tmpfs", "/root/.codex:rw,mode=0755",
-					"-v", authPath + ":/root/.codex/auth.json:ro",
-				}
-				if len(stateMount) > 0 {
-					opts = append(opts, stateMount...)
-					stateApplied = true
-				}
-				cfgDst := filepath.Join(tmpDir, "config.toml")
-				if _, statErr := os.Stat(cfgDst); statErr == nil {
-					opts = append(opts, "-v", cfgDst+":/root/.codex/config.toml:ro")
-				}
-				if len(promptMount) > 0 {
-					opts = append(opts, promptMount...)
-					promptsApplied = true
-				}
-				if len(rulesMount) > 0 {
-					opts = append(opts, rulesMount...)
-					rulesApplied = true
-				}
-				if len(skillsMount) > 0 {
-					opts = append(opts, skillsMount...)
-					skillsApplied = true
-				}
-				if len(agentsMount) > 0 {
-					opts = append(opts, agentsMount...)
-					agentsApplied = true
-				}
-				containerOpts = append(opts, containerOpts...)
-			} else {
-				logger.Warn().Err(writeErr).Msg("failed writing Codex auth.json; continuing without mount")
-			}
-		} else {
-			logger.Warn().Err(tmpErr).Msg("failed creating temp dir for Codex auth; continuing without mount")
+	codexDir := filepath.Join(home, ".codex")
+	apiKey := strings.TrimSpace(provider.Getenv("OPENAI_API_KEY"))
+	if apiKey == "" {
+		if info, err := os.Stat(filepath.Join(codexDir, "auth.json")); err == nil && info.Mode().IsRegular() {
+			// The whole directory is mounted, rather than just auth.json, because
+			// Codex access tokens are refreshed by atomically renaming a temp file
+			// over auth.json, which can't be done over a single-file bind mount.
+			// The directory mount also includes everything mounted individually
+			// below.
+			return []string{"-v", codexDir + ":/root/.codex:rw"}
 		}
 	}
-	if len(stateMount) > 0 && !stateApplied {
-		containerOpts = append(stateMount, containerOpts...)
+
+	customizationMounts := slices.Concat(
+		codexPromptsMountOptions(provider),
+		codexRulesMountOptions(provider),
+		codexSkillsMountOptions(logger, provider),
+		codexAgentsMountOptions(provider),
+	)
+	if apiKey != "" {
+		tmpDir, err := writeCodexAPIKeyAuth(logger, apiKey, codexDir)
+		if err == nil {
+			opts := []string{
+				"--tmpfs", "/root/.codex:rw,mode=0755",
+				"-v", filepath.Join(tmpDir, "auth.json") + ":/root/.codex/auth.json:ro",
+			}
+			opts = append(opts, codexStateMountOptions(logger, codexDir)...)
+			cfgDst := filepath.Join(tmpDir, "config.toml")
+			if _, err := os.Stat(cfgDst); err == nil {
+				opts = append(opts, "-v", cfgDst+":/root/.codex/config.toml:ro")
+			}
+			return append(opts, customizationMounts...)
+		}
+		logger.Warn().Err(err).Msg("failed preparing Codex auth.json; continuing without mount")
 	}
-	if len(agentsMount) > 0 && !agentsApplied {
-		containerOpts = append(agentsMount, containerOpts...)
+	return append(customizationMounts, codexStateMountOptions(logger, codexDir)...)
+}
+
+// writeCodexAPIKeyAuth writes an auth.json holding apiKey, plus a copy of the
+// host's config.toml when there is one, into a new temp dir and returns it.
+func writeCodexAPIKeyAuth(logger zerolog.Logger, apiKey, codexDir string) (string, error) {
+	tmpDir, err := os.MkdirTemp("", "codex-auth-*")
+	if err != nil {
+		return "", pkgerrors.Wrap(err, "creating temp dir for Codex auth")
 	}
-	if len(skillsMount) > 0 && !skillsApplied {
-		containerOpts = append(skillsMount, containerOpts...)
+	payload := fmt.Sprintf("{\"OPENAI_API_KEY\":%q}\n", apiKey)
+	if err := os.WriteFile(filepath.Join(tmpDir, "auth.json"), []byte(payload), 0o600); err != nil {
+		return "", pkgerrors.Wrap(err, "writing Codex auth.json")
 	}
-	if len(rulesMount) > 0 && !rulesApplied {
-		containerOpts = append(rulesMount, containerOpts...)
+	if data, err := os.ReadFile(filepath.Join(codexDir, "config.toml")); err == nil {
+		cfgDst := filepath.Join(tmpDir, "config.toml")
+		//nolint:gosec // G703: cfgDst is a fixed temp path under tmpDir created in this function.
+		if err := os.WriteFile(cfgDst, data, 0o644); err != nil {
+			logger.Warn().Err(err).Msg("failed copying ~/.codex/config.toml into container mount")
+		}
 	}
-	if len(promptMount) > 0 && !promptsApplied {
-		containerOpts = append(promptMount, containerOpts...)
-	}
-	return containerOpts
+	return tmpDir, nil
 }
 
 // codexPromptsMountOptions returns a read-only bind mount for ~/.codex/prompts when present.
@@ -268,36 +232,7 @@ func codexAgentsMountOptions(provider env.Provider) []string {
 	return []string{"-v", agentsPath + ":/root/.codex/AGENTS.md:ro"}
 }
 
-// codexAccountAuthMountOptions returns a bind mount for the whole host ~/.codex directory,
-// used only on the account-login path (OPENAI_API_KEY unset) when ~/.codex/auth.json exists.
-// The whole directory is mounted, rather than just auth.json, because Codex refreshes its
-// access token by writing a temp file and atomically renaming it over auth.json; a single-file
-// bind mount would not survive that rename. Mounting the whole directory also covers
-// history.jsonl, sessions, prompts, rules, skills, and AGENTS.md, so callers should skip those
-// individual sub-mounts when this one applies.
-func codexAccountAuthMountOptions(provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, herr := provider.UserHomeDir()
-	if herr != nil {
-		return nil
-	}
-	codexDir := filepath.Join(home, ".codex")
-	authPath := filepath.Join(codexDir, "auth.json")
-	info, err := os.Stat(authPath)
-	if err != nil || !info.Mode().IsRegular() {
-		return nil
-	}
-	return []string{"-v", codexDir + ":/root/.codex:rw"}
-}
-
-func codexStateMountOptions(logger zerolog.Logger, provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, herr := provider.UserHomeDir()
-	if herr != nil {
-		return nil
-	}
-
-	codexDir := filepath.Join(home, ".codex")
+func codexStateMountOptions(logger zerolog.Logger, codexDir string) []string {
 	if err := os.MkdirAll(codexDir, 0o700); err != nil {
 		logger.Warn().Err(err).Msg("failed ensuring ~/.codex exists; continuing without Codex state mounts")
 		return nil
