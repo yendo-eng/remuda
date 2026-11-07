@@ -108,9 +108,8 @@ func (c claudeLauncher) ContainerEnv() map[string]string {
 // ContainerMounts returns docker mount options that expose host Claude
 // OAuth/session state in the container, when available.
 func (c claudeLauncher) ContainerMounts(logger zerolog.Logger, provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, err := provider.UserHomeDir()
-	if err != nil || strings.TrimSpace(home) == "" {
+	home, ok := hostHome(provider)
+	if !ok {
 		return nil
 	}
 

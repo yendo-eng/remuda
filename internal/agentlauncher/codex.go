@@ -100,9 +100,8 @@ func (c codexLauncher) SupportedModels() []string {
 func (c codexLauncher) ContainerEnv() map[string]string { return nil }
 
 func (c codexLauncher) ContainerMounts(logger zerolog.Logger, provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, err := provider.UserHomeDir()
-	if err != nil {
+	home, ok := hostHome(provider)
+	if !ok {
 		return nil
 	}
 	codexDir := filepath.Join(home, ".codex")
