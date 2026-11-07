@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
 func TestWorkspaces_InactiveIgnorePatterns(t *testing.T) {
@@ -24,7 +25,7 @@ func TestWorkspaces_InactiveIgnorePatterns(t *testing.T) {
 
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
-		Multiplexer: &fakeMultiplexer{sessions: []session.SessionInfo{{Name: "org/repo/active"}}},
+		Multiplexer: &testutils.MockMultiplexer{Sessions: []testutils.Session{{SessionInfo: session.SessionInfo{Name: "org/repo/active"}}}},
 	}
 
 	inactive, err := k.Workspaces(WorkspaceActivityInactive, []string{"org/repo/ignore"})
