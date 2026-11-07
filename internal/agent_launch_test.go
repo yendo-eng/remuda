@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/agentlauncher"
+	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -83,7 +85,7 @@ func TestLaunchAgentSessionDoesNotInferSharedBeadsDir(t *testing.T) {
 	_, err := k.launchAgentSession(agentLaunchCommand{
 		Workspace:   workspace,
 		SessionName: "org/repo/folder",
-		AgentName:   "codex",
+		Agent:       agentlauncher.Codex("", false, ""),
 		Command:     "true",
 		Detached:    true,
 	})
@@ -115,7 +117,7 @@ func TestLaunchAgentSessionPreservesExplicitBeadsDir(t *testing.T) {
 	_, err := k.launchAgentSession(agentLaunchCommand{
 		Workspace:   workspace,
 		SessionName: "org/repo/folder",
-		AgentName:   "codex",
+		Agent:       agentlauncher.Codex("", false, ""),
 		Command:     "true",
 		Detached:    true,
 	})
@@ -123,4 +125,48 @@ func TestLaunchAgentSessionPreservesExplicitBeadsDir(t *testing.T) {
 	value, ok := envValue(sm.startEnv, "BEADS_DIR")
 	require.True(t, ok)
 	require.Equal(t, "/tmp/explicit-beads", value)
+}
+
+// containerEnvLauncher declares container env names that are not in
+// isolatedSessionEnvAllowlist.
+type containerEnvLauncher struct {
+	agentlauncher.AgentLauncher
+}
+
+func (containerEnvLauncher) ContainerEnv() map[string]string {
+	return map[string]string{"HOST_VALUE": "", "LAUNCH_VALUE": "set"}
+}
+
+func TestLaunchAgentSessionForwardsContainerEnvToIsolatedSessions(t *testing.T) {
+	t.Parallel()
+
+	sm := &captureMultiplexer{}
+	k := Remuda{
+		Multiplexer: sm,
+		Docker:      &docker.Mock{Running: true},
+		IO:          DefaultIO(),
+		Env: env.StaticProvider{Values: map[string]string{
+			"PATH":       "/usr/bin:/bin",
+			"GH_TOKEN":   "test-token", // avoid invoking `gh auth token`
+			"HOST_VALUE": "from-host",
+		}},
+	}
+
+	_, err := k.launchAgentSession(agentLaunchCommand{
+		Workspace:      t.TempDir(),
+		Agent:          containerEnvLauncher{agentlauncher.Custom("true")},
+		Command:        "true",
+		Detached:       true,
+		Container:      true,
+		ContainerImage: "img",
+	})
+	require.NoError(t, err)
+	require.Contains(t, sm.startCmd, "'-e' 'HOST_VALUE'")
+	require.Contains(t, sm.startCmd, "'-e' 'LAUNCH_VALUE'")
+	value, ok := envValue(sm.startEnv, "HOST_VALUE")
+	require.True(t, ok)
+	require.Equal(t, "from-host", value)
+	value, ok = envValue(sm.startEnv, "LAUNCH_VALUE")
+	require.True(t, ok)
+	require.Equal(t, "set", value)
 }
