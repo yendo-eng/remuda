@@ -126,7 +126,7 @@ func (r *rex) Start(start AgentStart) error {
 		return err
 	}
 
-	envFile, err := rexPaneEnv.writeEnvFile(start.Env)
+	envFile, err := rexPaneEnv.writeEnvFile(start.isolatedEnv())
 	if err != nil {
 		return err
 	}

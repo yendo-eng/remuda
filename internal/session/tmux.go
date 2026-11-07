@@ -31,7 +31,8 @@ func (m *tmux) Name() string {
 }
 
 func (m *tmux) Start(start AgentStart) error {
-	envFile, err := tmuxPaneEnv.writeEnvFile(start.Env)
+	env := start.isolatedEnv()
+	envFile, err := tmuxPaneEnv.writeEnvFile(env)
 	if err != nil {
 		return err
 	}
@@ -42,7 +43,7 @@ func (m *tmux) Start(start AgentStart) error {
 		command = tmuxPaneEnv.commandWithEnvFile(envFile, command)
 	}
 	args = append(args, "bash", "-lc", command)
-	if err := util.RunCmdWithEnv(m.logger, start.Env, "tmux", args...); err != nil {
+	if err := util.RunCmdWithEnv(m.logger, env, "tmux", args...); err != nil {
 		if envFile != "" {
 			_ = os.Remove(envFile)
 		}

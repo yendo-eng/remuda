@@ -10,6 +10,59 @@ import (
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
+var isolatedEnvAllowlist = []string{
+	"ANTHROPIC_API_KEY",
+	"BD_ACTOR",
+	"BEADS_DIR",
+	"DOCKER_CONFIG",
+	"DOCKER_CONTEXT",
+	"DOCKER_HOST",
+	"EDITOR",
+	"GH_TOKEN",
+	"GITHUB_TOKEN",
+	"GIT_HTTPS_USERNAME",
+	"GIT_SSH_COMMAND",
+	"GIT_TERMINAL_PROMPT",
+	"HOME",
+	"IS_SANDBOX",
+	"LANG",
+	"LC_ALL",
+	"OPENAI_API_KEY",
+	"PATH",
+	"REMUDA_AGENT",
+	"REMUDA_MODEL",
+	"SHELL",
+	"SSH_AUTH_SOCK",
+	"TMPDIR",
+	"VISUAL",
+}
+
+// isolatedEnv is the environment for sessions whose panes start from a
+// cleared environment and load it from an env file, so only allowlisted
+// values reach the agent.
+func (s AgentStart) isolatedEnv() []string {
+	allowed := make(map[string]struct{}, len(isolatedEnvAllowlist)+len(s.ForwardEnv))
+	for _, name := range isolatedEnvAllowlist {
+		allowed[name] = struct{}{}
+	}
+	for _, name := range s.ForwardEnv {
+		allowed[name] = struct{}{}
+	}
+
+	var forwarded []string
+	for _, kv := range s.Env {
+		name, _, ok := strings.Cut(kv, "=")
+		if !ok || !util.IsValidEnvVarName(name) {
+			continue
+		}
+		if _, ok := allowed[name]; !ok && !strings.HasPrefix(name, "REMUDA_") {
+			continue
+		}
+		forwarded = append(forwarded, kv)
+	}
+	return forwarded
+}
+
 // paneEnv names the variables a multiplexer sets in each of its panes, by
 // exact name or by prefix. An env file never overrides them, and
 // commandWithEnvFile keeps the pane's own values when it resets the

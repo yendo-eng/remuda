@@ -100,6 +100,10 @@ type AgentStart struct {
 	Args        []string
 	Prompt      string
 	Env         []string
+	// ForwardEnv names the variables in Env that are kept, besides
+	// isolatedEnvAllowlist and REMUDA_*, for sessions started from a cleared
+	// environment.
+	ForwardEnv []string
 }
 
 // SessionInfo is a minimal description of a multiplexer session.

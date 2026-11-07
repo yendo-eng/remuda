@@ -124,11 +124,6 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	for key := range cmd.EnvOverrides {
 		overrideEnvNames = append(overrideEnvNames, key)
 	}
-	envValues := launchEnvValues(envProvider)
-	switch session.SupportedMultiplexer(k.Multiplexer.Name()) {
-	case session.MultiplexerTmux, session.MultiplexerRex, session.MultiplexerHerdrCore:
-		envValues = isolatedSessionEnvValues(envProvider, cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames)
-	}
 	if err := k.Multiplexer.Start(session.AgentStart{
 		SessionName: sessionName,
 		Workspace:   workspaceAbs,
@@ -138,7 +133,8 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 		Agent:       cmd.AgentName,
 		Args:        cmd.Args,
 		Prompt:      cmd.Prompt,
-		Env:         envValues,
+		Env:         launchEnvValues(envProvider),
+		ForwardEnv:  isolatedSessionEnvNames(cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames),
 	}); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
