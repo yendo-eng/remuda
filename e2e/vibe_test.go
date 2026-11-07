@@ -912,6 +912,10 @@ func TestVibeClaudeContainerComposesHermeticDockerCommand(t *testing.T) {
 	require.Contains(t, recorded.CommandRan, "'-e' 'GH_TOKEN'")
 	require.Contains(t, recorded.CommandRan, "'-e' 'GITHUB_TOKEN'")
 	require.Contains(t, recorded.CommandRan, "'-e' 'ANTHROPIC_API_KEY'")
+	require.Contains(t, recorded.CommandRan, "'-e' 'IS_SANDBOX'")
+	value, ok = sessionEnvValue(recorded.StartEnv, "IS_SANDBOX")
+	require.True(t, ok)
+	require.Equal(t, "1", value)
 	require.Contains(t, recorded.CommandRan, "'-v' '"+claudeDir+":/root/.claude:rw'")
 	require.Contains(t, recorded.CommandRan, "'-v' '"+claudeJSON+":/root/.claude.json:rw'")
 	require.Contains(
