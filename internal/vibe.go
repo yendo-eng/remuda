@@ -134,7 +134,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	agent := agentlauncher.Custom(cmd.AgentCmd)
 	if cmd.AgentCmd == "" {
 		cmd.Model = agentlauncher.EffectiveModel(cmd.Agent, cmd.Model)
-		cmd.ReasoningLevel = resolveReasoningLevel(logger, cmd.Agent, cmd.Model, cmd.AgentCmd, cmd.ReasoningLevel)
+		cmd.ReasoningLevel = resolveReasoningLevel(logger, cmd.Agent, cmd.Model, cmd.ReasoningLevel)
 
 		parsed, resolvedModel, err := agentlauncher.ParseWithReasoning(cmd.Agent, cmd.Model, cmd.ReasoningLevel, cmd.Yolo)
 		if err != nil {
