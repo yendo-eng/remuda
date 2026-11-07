@@ -9,7 +9,7 @@ func startSessionWithEnv(manager session.Multiplexer, sessionName, workspace, co
 	envValues := launchEnvValues(provider)
 	switch session.SupportedMultiplexer(manager.Name()) {
 	case session.MultiplexerTmux, session.MultiplexerRex, session.MultiplexerHerdrCore:
-		envValues = isolatedSessionEnvValues(provider, agent, extraEnvNames, overrideEnvNames)
+		envValues = isolatedSessionEnvValues(provider, extraEnvNames, overrideEnvNames)
 	}
 	if starter, ok := manager.(session.AgentStarter); ok {
 		return starter.StartAgent(session.AgentStart{
