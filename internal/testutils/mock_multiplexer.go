@@ -23,6 +23,8 @@ type MockMultiplexer struct {
 	ReadBufs        map[string]string
 	LastStart       session.AgentStart
 	Starts          []session.AgentStart
+	Started         map[string]string
+	StartEnv        map[string][]string
 	Attached        []string
 	LastReadName    string
 	LastReadLines   int
@@ -61,12 +63,29 @@ func (f MockMultiplexer) Name() string {
 	return "mock"
 }
 
+func (f *MockMultiplexer) FindStart(sessionName string) (session.AgentStart, bool) {
+	for _, start := range f.Starts {
+		if start.SessionName == sessionName {
+			return start, true
+		}
+	}
+	return session.AgentStart{}, false
+}
+
 func (f *MockMultiplexer) Start(start session.AgentStart) error {
 	if f.StartErr != nil {
 		return f.StartErr
 	}
 	f.LastStart = start
 	f.Starts = append(f.Starts, start)
+	if f.Started == nil {
+		f.Started = make(map[string]string)
+	}
+	f.Started[start.SessionName] = start.Command
+	if f.StartEnv == nil {
+		f.StartEnv = make(map[string][]string)
+	}
+	f.StartEnv[start.SessionName] = append([]string(nil), start.Env...)
 	f.Sessions = append(f.Sessions, Session{
 		SessionInfo: f.sessionInfo(start.SessionName),
 		CommandRan:  start.Command,
