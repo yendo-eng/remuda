@@ -84,7 +84,7 @@ type Multiplexer interface {
 	Name() string
 	// Start starts a detached session that runs the given shell command.
 	Start(sessionName, command string) error
-	// List returns all sessions visible to tmux.
+	// List returns all sessions visible to the multiplexer.
 	List() ([]SessionInfo, error)
 	// Find returns a session by name.
 	Find(name string) (SessionInfo, error)

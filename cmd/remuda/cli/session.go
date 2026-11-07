@@ -5,7 +5,7 @@ import "github.com/spf13/cobra"
 func (a *app) sessionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "session",
-		Short: "Manage running sessions (tmux or zellij).",
+		Short: "Manage sessions running in terminal multiplexers.",
 	}
 	cmd.AddCommand(
 		a.sessionListCmd(),

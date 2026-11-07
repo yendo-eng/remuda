@@ -47,10 +47,8 @@ Requirements:
   - Go 1.24+ (any platform supported by the Go toolchain)
   - Git
 - Required or strongly recommended:
-  - A terminal multiplexer:
-    - `tmux` (the default backend for detached sessions)
-    - `zellij`
-    - `herdr` (Herdr TUI)
+  - A [supported terminal multiplexer](docs/session-management.md) (`tmux` is
+    the default backend for detached sessions)
   - An agent harness. Currently supported:
     - [Codex](https://github.com/openai/codex)
     - [OpenCode](https://github.com/anomalyco/opencode)
