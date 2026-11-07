@@ -9,58 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
-
-type fakeResumeMultiplexer struct {
-	name     string
-	sessions []session.SessionInfo
-
-	started  map[string]string
-	startEnv map[string][]string
-	attached []string
-	killed   []string
-}
-
-func (f *fakeResumeMultiplexer) Name() string { return f.name }
-
-func (f *fakeResumeMultiplexer) Start(start session.AgentStart) error {
-	if f.started == nil {
-		f.started = map[string]string{}
-	}
-	f.started[start.SessionName] = start.Command
-	if f.startEnv == nil {
-		f.startEnv = map[string][]string{}
-	}
-	f.startEnv[start.SessionName] = append([]string(nil), start.Env...)
-	return nil
-}
-
-func (f *fakeResumeMultiplexer) List() ([]session.SessionInfo, error) { return f.sessions, nil }
-
-func (f *fakeResumeMultiplexer) Find(name string) (session.SessionInfo, error) {
-	for _, s := range f.sessions {
-		if s.Name == name {
-			return s, nil
-		}
-	}
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-
-func (f *fakeResumeMultiplexer) Attach(name string) error {
-	f.attached = append(f.attached, name)
-	return nil
-}
-
-func (f *fakeResumeMultiplexer) ReadBuffer(name string, lines int) (string, error) { return "", nil }
-
-func (f *fakeResumeMultiplexer) Send(name string, payload string, appendNewline bool) error {
-	return nil
-}
-
-func (f *fakeResumeMultiplexer) Kill(name string) error {
-	f.killed = append(f.killed, name)
-	return nil
-}
 
 func TestSessionResume_BuildsCommandAndArgsFromLauncher(t *testing.T) {
 	t.Parallel()
@@ -103,7 +53,7 @@ func TestSessionResume_BuildsCommandAndArgsFromLauncher(t *testing.T) {
 			workspace := filepath.Join(base, "org", "repo", "folder")
 			require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-			capture := &captureMultiplexer{}
+			capture := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 			k := Remuda{
 				Config:      Config{ReposBaseDir: base},
 				Multiplexer: capture,
@@ -120,9 +70,9 @@ func TestSessionResume_BuildsCommandAndArgsFromLauncher(t *testing.T) {
 				Prompt:         "continue from checkpoint",
 			})
 			require.NoError(t, err)
-			require.Equal(t, tt.args, capture.start.Args)
-			require.Contains(t, capture.start.Command, tt.command)
-			require.Equal(t, "continue from checkpoint", capture.start.Prompt)
+			require.Equal(t, tt.args, capture.LastStart.Args)
+			require.Contains(t, capture.LastStart.Command, tt.command)
+			require.Equal(t, "continue from checkpoint", capture.LastStart.Prompt)
 		})
 	}
 }
@@ -135,7 +85,7 @@ func TestSessionResume_StartsCodexDetachedSession(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -148,17 +98,17 @@ func TestSessionResume_StartsCodexDetachedSession(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cmd, ok := mgr.started["org/repo/folder"]
+	cmd, ok := mgr.Started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "codex resume --last")
 	require.NotContains(t, cmd, "REMUDA_AGENT=")
 	require.NotContains(t, cmd, "export BD_ACTOR=")
 	require.NotContains(t, cmd, "export BEADS_DIR=")
 	require.Contains(t, cmd, "sleep 3600")
-	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_AGENT")
+	value, ok := envValue(mgr.StartEnv["org/repo/folder"], "REMUDA_AGENT")
 	require.True(t, ok)
 	require.Equal(t, "codex", value)
-	value, ok = envValue(mgr.startEnv["org/repo/folder"], "BD_ACTOR")
+	value, ok = envValue(mgr.StartEnv["org/repo/folder"], "BD_ACTOR")
 	require.True(t, ok)
 	require.Equal(t, "org/repo/folder", value)
 }
@@ -171,7 +121,7 @@ func TestSessionResume_ClaudeStartsDetachedSession(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -185,12 +135,12 @@ func TestSessionResume_ClaudeStartsDetachedSession(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cmd, ok := mgr.started["org/repo/folder"]
+	cmd, ok := mgr.Started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "claude --continue")
 	require.NotContains(t, cmd, "codex resume --last")
 	require.NotContains(t, cmd, "REMUDA_AGENT=")
-	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_AGENT")
+	value, ok := envValue(mgr.StartEnv["org/repo/folder"], "REMUDA_AGENT")
 	require.True(t, ok)
 	require.Equal(t, "claude", value)
 }
@@ -203,7 +153,7 @@ func TestSessionResume_ClaudeModelAndPromptFlags(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -219,14 +169,14 @@ func TestSessionResume_ClaudeModelAndPromptFlags(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cmd, ok := mgr.started["org/repo/folder"]
+	cmd, ok := mgr.Started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "claude --continue")
 	require.Contains(t, cmd, "--model 'claude-sonnet-4.6'")
 	require.Contains(t, cmd, "'continue with tests'")
 	require.NotContains(t, cmd, "REMUDA_MODEL")
 
-	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_MODEL")
+	value, ok := envValue(mgr.StartEnv["org/repo/folder"], "REMUDA_MODEL")
 	require.True(t, ok)
 	require.Equal(t, "claude-sonnet-4.6", value)
 }
@@ -241,7 +191,7 @@ func TestSessionResume_DetachedTmuxExportsImplicitAnthropicForClaudeContainer(t 
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -258,11 +208,11 @@ func TestSessionResume_DetachedTmuxExportsImplicitAnthropicForClaudeContainer(t 
 	})
 	require.NoError(t, err)
 
-	cmd, ok := mgr.started["org/repo/folder"]
+	cmd, ok := mgr.Started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "'-e' 'ANTHROPIC_API_KEY'")
 	require.NotContains(t, cmd, "export ANTHROPIC_API_KEY=")
-	value, ok := envValue(mgr.startEnv["org/repo/folder"], "ANTHROPIC_API_KEY")
+	value, ok := envValue(mgr.StartEnv["org/repo/folder"], "ANTHROPIC_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "anthropic-secret", value)
 }
@@ -275,7 +225,7 @@ func TestSessionResume_ContainerRequiresExplicitImage(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -290,7 +240,7 @@ func TestSessionResume_ContainerRequiresExplicitImage(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "container mode requires an explicit image")
-	require.Empty(t, mgr.started)
+	require.Empty(t, mgr.Started)
 }
 
 func TestSessionResume_UnsupportedAgentErrors(t *testing.T) {
@@ -301,7 +251,7 @@ func TestSessionResume_UnsupportedAgentErrors(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -315,7 +265,7 @@ func TestSessionResume_UnsupportedAgentErrors(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, `session resume unsupported for agent "opencode"`)
-	require.Empty(t, mgr.started)
+	require.Empty(t, mgr.Started)
 }
 
 func TestSessionResume_RefusesActiveWorkspace(t *testing.T) {
@@ -323,9 +273,9 @@ func TestSessionResume_RefusesActiveWorkspace(t *testing.T) {
 	workspace := filepath.Join(base, "org", "repo", "folder")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-	mgr := &fakeResumeMultiplexer{
-		name:     "tmux",
-		sessions: []session.SessionInfo{{Name: "org/repo/folder"}},
+	mgr := &testutils.MockMultiplexer{
+		MultiplexerName: "tmux",
+		Sessions:        []testutils.Session{{SessionInfo: session.SessionInfo{Name: "org/repo/folder"}}},
 	}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
@@ -340,7 +290,7 @@ func TestSessionResume_RefusesActiveWorkspace(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "active")
 	require.ErrorContains(t, err, "org/repo/folder")
-	require.Empty(t, mgr.started)
+	require.Empty(t, mgr.Started)
 }
 
 func TestSessionResume_ValidatesWorkspaceEligibility(t *testing.T) {
@@ -348,7 +298,7 @@ func TestSessionResume_ValidatesWorkspaceEligibility(t *testing.T) {
 	workspace := filepath.Join(base, "org", "repo")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -361,7 +311,7 @@ func TestSessionResume_ValidatesWorkspaceEligibility(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "depth 3")
-	require.Empty(t, mgr.started)
+	require.Empty(t, mgr.Started)
 }
 
 func TestSessionResume_HerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
@@ -372,7 +322,7 @@ func TestSessionResume_HerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: string(session.MultiplexerHerdrCore)}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: string(session.MultiplexerHerdrCore)}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -386,7 +336,7 @@ func TestSessionResume_HerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cmd, ok := mgr.started["org/repo/folder"]
+	cmd, ok := mgr.Started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "codex resume --last '--no-daemon' -- 'continue'")
 }
@@ -399,7 +349,7 @@ func TestSessionResume_CustomAgentCommandAppendsPrompt(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -415,12 +365,12 @@ func TestSessionResume_CustomAgentCommandAppendsPrompt(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cmd, ok := mgr.started["org/repo/folder"]
+	cmd, ok := mgr.Started["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, cmd, "my-resume 'pick this up'")
 	require.NotContains(t, cmd, "REMUDA_AGENT")
 
-	value, ok := envValue(mgr.startEnv["org/repo/folder"], "REMUDA_AGENT")
+	value, ok := envValue(mgr.StartEnv["org/repo/folder"], "REMUDA_AGENT")
 	require.True(t, ok)
 	require.Equal(t, "opencode", value)
 }
@@ -434,7 +384,7 @@ func TestSessionResume_OpenAIKeyOverridesEnvironment(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-	mgr := &fakeResumeMultiplexer{name: "tmux"}
+	mgr := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
 	k := Remuda{
 		Config:      Config{ReposBaseDir: base},
 		Multiplexer: mgr,
@@ -448,11 +398,11 @@ func TestSessionResume_OpenAIKeyOverridesEnvironment(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cmd, ok := mgr.started["org/repo/folder"]
+	cmd, ok := mgr.Started["org/repo/folder"]
 	require.True(t, ok)
 	require.NotContains(t, cmd, "OPENAI_API_KEY")
 
-	startEnv, ok := mgr.startEnv["org/repo/folder"]
+	startEnv, ok := mgr.StartEnv["org/repo/folder"]
 	require.True(t, ok)
 	require.Contains(t, startEnv, "OPENAI_API_KEY=override-key")
 }
