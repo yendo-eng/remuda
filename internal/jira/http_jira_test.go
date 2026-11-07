@@ -115,7 +115,7 @@ func TestHTTPJiraGetTicketWrapsClientInitializationErrors(t *testing.T) {
 		t.Parallel()
 
 		jira := &httpJira{
-			newClient: func(cfg AuthConfig) (Client, error) { return NewHTTPClient(cfg) },
+			newClient: NewHTTPClient,
 		}
 
 		_, err := jira.GetTicket("PROJ-13", AuthConfig{})

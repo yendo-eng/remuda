@@ -11,10 +11,8 @@ import (
 // NewHTTPJira builds a Jira implementation backed by Jira Cloud REST APIs.
 func NewHTTPJira(logger zerolog.Logger) Jira {
 	return &httpJira{
-		logger: logger,
-		newClient: func(cfg AuthConfig) (Client, error) {
-			return NewHTTPClient(cfg)
-		},
+		logger:    logger,
+		newClient: NewHTTPClient,
 	}
 }
 

@@ -30,18 +30,6 @@ const (
 	missingConfigKeysHint = "jira.endpoint, jira.user, jira.api_token"
 )
 
-// HTTPClientOption allows overriding HTTP client behavior.
-type HTTPClientOption func(*httpClient)
-
-// WithRequestTimeout overrides the per-request timeout.
-func WithRequestTimeout(timeout time.Duration) HTTPClientOption {
-	return func(c *httpClient) {
-		if timeout > 0 {
-			c.requestTimeout = timeout
-		}
-	}
-}
-
 type httpClient struct {
 	endpoint       *url.URL
 	user           string
@@ -51,7 +39,7 @@ type httpClient struct {
 }
 
 // NewHTTPClient builds a Jira Cloud REST API v3 client.
-func NewHTTPClient(cfg AuthConfig, opts ...HTTPClientOption) (Client, error) {
+func NewHTTPClient(cfg AuthConfig) (Client, error) {
 	cfg = normalizeAuthConfig(cfg)
 	missing := missingFields(cfg.Endpoint, cfg.User, cfg.Token)
 	if len(missing) > 0 {
@@ -63,21 +51,13 @@ func NewHTTPClient(cfg AuthConfig, opts ...HTTPClientOption) (Client, error) {
 		return nil, err
 	}
 
-	client := &httpClient{
+	return &httpClient{
 		endpoint:       endpoint,
 		user:           cfg.User,
 		token:          cfg.Token,
 		httpClient:     &http.Client{},
 		requestTimeout: defaultRequestTimeout,
-	}
-
-	for _, opt := range opts {
-		if opt != nil {
-			opt(client)
-		}
-	}
-
-	return client, nil
+	}, nil
 }
 
 func normalizeAuthConfig(cfg AuthConfig) AuthConfig {
