@@ -23,22 +23,15 @@ type fakeResumeMultiplexer struct {
 
 func (f *fakeResumeMultiplexer) Name() string { return f.name }
 
-func (f *fakeResumeMultiplexer) Start(sessionName, command string) error {
+func (f *fakeResumeMultiplexer) Start(start session.AgentStart) error {
 	if f.started == nil {
 		f.started = map[string]string{}
 	}
-	f.started[sessionName] = command
-	return nil
-}
-
-func (f *fakeResumeMultiplexer) StartWithEnv(sessionName, command string, envValues []string) error {
-	if err := f.Start(sessionName, command); err != nil {
-		return err
-	}
+	f.started[start.SessionName] = start.Command
 	if f.startEnv == nil {
 		f.startEnv = map[string][]string{}
 	}
-	f.startEnv[sessionName] = append([]string(nil), envValues...)
+	f.startEnv[start.SessionName] = append([]string(nil), start.Env...)
 	return nil
 }
 
@@ -110,7 +103,7 @@ func TestSessionResume_BuildsCommandAndArgsFromLauncher(t *testing.T) {
 			workspace := filepath.Join(base, "org", "repo", "folder")
 			require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-			capture := &captureEnvSession{}
+			capture := &captureMultiplexer{}
 			k := Remuda{
 				Config:      Config{ReposBaseDir: base},
 				Multiplexer: capture,
@@ -127,9 +120,9 @@ func TestSessionResume_BuildsCommandAndArgsFromLauncher(t *testing.T) {
 				Prompt:         "continue from checkpoint",
 			})
 			require.NoError(t, err)
-			require.Equal(t, tt.args, capture.agentStart.Args)
-			require.Contains(t, capture.agentStart.Command, tt.command)
-			require.Equal(t, "continue from checkpoint", capture.agentStart.Prompt)
+			require.Equal(t, tt.args, capture.start.Args)
+			require.Contains(t, capture.start.Command, tt.command)
+			require.Equal(t, "continue from checkpoint", capture.start.Prompt)
 		})
 	}
 }

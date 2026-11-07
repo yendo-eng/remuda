@@ -25,34 +25,11 @@ func (m *aggregateMultiplexer) Name() string {
 	return m.createTarget.Name()
 }
 
-func (m *aggregateMultiplexer) Start(name, command string) error {
-	if err := m.ensureSessionDoesNotExist(name); err != nil {
-		return err
-	}
-	return m.createTarget.Start(name, command)
-}
-
-func (m *aggregateMultiplexer) StartWithEnv(name, command string, env []string) error {
-	if err := m.ensureSessionDoesNotExist(name); err != nil {
-		return err
-	}
-	if starter, ok := m.createTarget.(EnvStarter); ok {
-		return starter.StartWithEnv(name, command, env)
-	}
-	return m.createTarget.Start(name, command)
-}
-
-func (m *aggregateMultiplexer) StartAgent(start AgentStart) error {
+func (m *aggregateMultiplexer) Start(start AgentStart) error {
 	if err := m.ensureSessionDoesNotExist(start.SessionName); err != nil {
 		return err
 	}
-	if starter, ok := m.createTarget.(AgentStarter); ok {
-		return starter.StartAgent(start)
-	}
-	if starter, ok := m.createTarget.(EnvStarter); ok {
-		return starter.StartWithEnv(start.SessionName, start.Command, start.Env)
-	}
-	return m.createTarget.Start(start.SessionName, start.Command)
+	return m.createTarget.Start(start)
 }
 
 func (m *aggregateMultiplexer) List() ([]SessionInfo, error) {

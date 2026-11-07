@@ -135,7 +135,7 @@ func TestTmuxListParsesMissingOrMalformedCreated(t *testing.T) {
 	require.True(t, got[1].CreatedAt.IsZero())
 }
 
-func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
+func TestTmuxStartSetsPaneEnvWithExistingServer(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires tmux")
 	}
@@ -184,14 +184,11 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	startEnv := append([]string{}, baseEnv...)
 	startEnv = append(startEnv, "REMUDA_TEST_PANE_ENV=tmux-secret value")
 
-	mgr := session.NewTmux(logging.DefaultLogger())
-	starter, ok := mgr.(session.EnvStarter)
-	require.True(t, ok)
-	err = starter.StartWithEnv(
-		"env-check",
-		"printf '%s|%s|%s|%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"${STALE_SECRET-unset}\" \"${TERM:+set}\" \"${TMUX:+set}\" \"${TMUX_PANE:+set}\" > "+shell.SingleQuote(outputPath),
-		startEnv,
-	)
+	err = session.NewTmux(logging.DefaultLogger()).Start(session.AgentStart{
+		SessionName: "env-check",
+		Command:     "printf '%s|%s|%s|%s|%s' \"$REMUDA_TEST_PANE_ENV\" \"${STALE_SECRET-unset}\" \"${TERM:+set}\" \"${TMUX:+set}\" \"${TMUX_PANE:+set}\" > " + shell.SingleQuote(outputPath),
+		Env:         startEnv,
+	})
 	require.NoError(t, err)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -201,7 +198,7 @@ func TestTmuxStartWithEnvSetsPaneEnvWithExistingServer(t *testing.T) {
 	}, 10*time.Second, 50*time.Millisecond)
 }
 
-func TestTmuxStartWithEnvSurfacesStderrOnDuplicateSession(t *testing.T) {
+func TestTmuxStartSurfacesStderrOnDuplicateSession(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires tmux")
 	}
@@ -235,19 +232,18 @@ func TestTmuxStartWithEnvSurfacesStderrOnDuplicateSession(t *testing.T) {
 	}()
 
 	mgr := session.NewTmux(logging.DefaultLogger())
-	starter, ok := mgr.(session.EnvStarter)
-	require.True(t, ok)
+	start := session.AgentStart{SessionName: "dup-session", Command: "sleep 30", Env: baseEnv}
 
-	require.NoError(t, starter.StartWithEnv("dup-session", "sleep 30", baseEnv))
+	require.NoError(t, mgr.Start(start))
 
-	err = starter.StartWithEnv("dup-session", "sleep 30", baseEnv)
+	err = mgr.Start(start)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "tmux")
 	require.ErrorContains(t, err, "dup-session")
 	require.ErrorContains(t, err, "duplicate session")
 }
 
-func TestTmuxStartWithEnvKeepsValuesOffArgv(t *testing.T) {
+func TestTmuxStartKeepsValuesOffArgv(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires shell script stub")
 	}
@@ -267,9 +263,7 @@ func TestTmuxStartWithEnvKeepsValuesOffArgv(t *testing.T) {
 		"OPENAI_API_KEY=" + secret,
 	}
 
-	starter, ok := session.NewTmux(logging.DefaultLogger()).(session.EnvStarter)
-	require.True(t, ok)
-	require.NoError(t, starter.StartWithEnv("argv-check", "true", env))
+	require.NoError(t, session.NewTmux(logging.DefaultLogger()).Start(session.AgentStart{SessionName: "argv-check", Command: "true", Env: env}))
 
 	args, err := os.ReadFile(argsPath)
 	require.NoError(t, err)
@@ -277,7 +271,7 @@ func TestTmuxStartWithEnvKeepsValuesOffArgv(t *testing.T) {
 	require.NotContains(t, string(args), "OPENAI_API_KEY="+secret)
 }
 
-func TestTmuxStartWithEnvBoundsArgvForLargeEnvironment(t *testing.T) {
+func TestTmuxStartBoundsArgvForLargeEnvironment(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires shell script stub")
 	}
@@ -298,9 +292,7 @@ func TestTmuxStartWithEnvBoundsArgvForLargeEnvironment(t *testing.T) {
 		env = append(env, fmt.Sprintf("SYNTHETIC_%03d=%s", i, strings.Repeat("x", 1024)))
 	}
 
-	starter, ok := session.NewTmux(logging.DefaultLogger()).(session.EnvStarter)
-	require.True(t, ok)
-	require.NoError(t, starter.StartWithEnv("large-env", "true", env))
+	require.NoError(t, session.NewTmux(logging.DefaultLogger()).Start(session.AgentStart{SessionName: "large-env", Command: "true", Env: env}))
 
 	args, err := os.ReadFile(argsPath)
 	require.NoError(t, err)

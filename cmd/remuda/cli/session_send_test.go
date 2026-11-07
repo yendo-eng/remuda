@@ -41,9 +41,9 @@ type sendCall struct {
 	appendNewline bool
 }
 
-func (c *captureSendMultiplexer) Name() string                            { return "capture" }
-func (c *captureSendMultiplexer) Start(sessionName, command string) error { return nil }
-func (c *captureSendMultiplexer) List() ([]session.SessionInfo, error)    { return nil, nil }
+func (c *captureSendMultiplexer) Name() string                         { return "capture" }
+func (c *captureSendMultiplexer) Start(start session.AgentStart) error { return nil }
+func (c *captureSendMultiplexer) List() ([]session.SessionInfo, error) { return nil, nil }
 func (c *captureSendMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }

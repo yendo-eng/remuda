@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
+	"github.com/yendo-eng/remuda/internal/session"
 )
 
 func TestSessionAttach_EmitsTerminalTitle(t *testing.T) {
@@ -15,7 +16,7 @@ func TestSessionAttach_EmitsTerminalTitle(t *testing.T) {
 
 	sessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 	require.True(t, ok)
-	require.NoError(t, sessionMgr.Start(sessionName, "echo hi"))
+	require.NoError(t, sessionMgr.Start(session.AgentStart{SessionName: sessionName, Command: "echo hi"}))
 
 	res := h.RunOK("session", "attach", "--name", sessionName)
 	require.Equal(t, "\x1b]2;"+sessionName+"\x07", res.Stderr)

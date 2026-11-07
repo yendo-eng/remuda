@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
+	"github.com/yendo-eng/remuda/internal/session"
 )
 
 func TestWorkspacesEdit(t *testing.T) {
@@ -53,7 +54,7 @@ func TestWorkspacesEdit(t *testing.T) {
 		require.NoError(t, os.MkdirAll(workspace, 0o755))
 		sessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 		require.True(t, ok)
-		require.NoError(t, sessionMgr.Start(sessionName, "echo"))
+		require.NoError(t, sessionMgr.Start(session.AgentStart{SessionName: sessionName, Command: "echo"}))
 		editorScript(t, h)
 
 		res := h.RunOK("workspaces", "edit", sessionName)

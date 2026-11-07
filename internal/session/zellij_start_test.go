@@ -30,7 +30,7 @@ exit 1
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	mgr := NewZellij(logging.DefaultLogger())
-	err := mgr.Start("org/repo/feature", "echo hi")
+	err := mgr.Start(AgentStart{SessionName: "org/repo/feature", Command: "echo hi"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "create-background")
 	require.Contains(t, err.Error(), "upgrade")
@@ -86,7 +86,7 @@ exit 1
 	t.Setenv("ZELLIJ_STUB_STATE_DIR", tmp)
 
 	mgr := NewZellij(logging.DefaultLogger())
-	err := mgr.Start("org/repo/feature", "echo hi")
+	err := mgr.Start(AgentStart{SessionName: "org/repo/feature", Command: "echo hi"})
 	require.NoError(t, err)
 
 	got, err := os.ReadFile(filepath.Join(tmp, "payload"))

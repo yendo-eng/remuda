@@ -138,11 +138,7 @@ func (h *herdrCore) Name() string {
 	return string(MultiplexerHerdrCore)
 }
 
-func (h *herdrCore) Start(_, _ string) error {
-	return pkgerrors.New("herdr-core requires a structured agent start")
-}
-
-func (h *herdrCore) StartAgent(start AgentStart) error {
+func (h *herdrCore) Start(start AgentStart) error {
 	client, err := h.dial()
 	if err != nil {
 		return err

@@ -92,11 +92,7 @@ func (h *herdrTUI) Name() string {
 	return string(MultiplexerHerdrTUI)
 }
 
-func (h *herdrTUI) Start(_, _ string) error {
-	return pkgerrors.New("herdr-tui requires a structured agent start")
-}
-
-func (h *herdrTUI) StartAgent(start AgentStart) error {
+func (h *herdrTUI) Start(start AgentStart) error {
 	if start.Agent == "custom" {
 		return UnsupportedAgentCommandError{}
 	}

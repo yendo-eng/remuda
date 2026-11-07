@@ -84,7 +84,7 @@ type stubNamedMultiplexer struct {
 }
 
 func (m stubNamedMultiplexer) Name() string { return m.name }
-func (m stubNamedMultiplexer) Start(sessionName, command string) error {
+func (m stubNamedMultiplexer) Start(start session.AgentStart) error {
 	return nil
 }
 func (m stubNamedMultiplexer) List() ([]session.SessionInfo, error) {

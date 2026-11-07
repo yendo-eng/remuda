@@ -30,26 +30,23 @@ func (m *tmux) Name() string {
 	return string(MultiplexerTmux)
 }
 
-func (m *tmux) Start(sessionName, command string) error {
-	return m.StartWithEnv(sessionName, command, nil)
-}
-
-func (m *tmux) StartWithEnv(sessionName, command string, env []string) error {
-	envFile, err := tmuxPaneEnv.writeEnvFile(env)
+func (m *tmux) Start(start AgentStart) error {
+	envFile, err := tmuxPaneEnv.writeEnvFile(start.Env)
 	if err != nil {
 		return err
 	}
 
-	args := []string{"new-session", "-d", "-s", sessionName}
+	args := []string{"new-session", "-d", "-s", start.SessionName}
+	command := start.Command
 	if envFile != "" {
 		command = tmuxPaneEnv.commandWithEnvFile(envFile, command)
 	}
 	args = append(args, "bash", "-lc", command)
-	if err := util.RunCmdWithEnv(m.logger, env, "tmux", args...); err != nil {
+	if err := util.RunCmdWithEnv(m.logger, start.Env, "tmux", args...); err != nil {
 		if envFile != "" {
 			_ = os.Remove(envFile)
 		}
-		return pkgerrors.Wrapf(err, "tmux new-session %s", sessionName)
+		return pkgerrors.Wrapf(err, "tmux new-session %s", start.SessionName)
 	}
 	return nil
 }

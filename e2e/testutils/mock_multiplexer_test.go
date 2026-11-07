@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/session"
 )
 
 func TestMockMultiplexer_FindSession_ReturnsPointerToBackingSession(t *testing.T) {
 	var m MockMultiplexer
-	require.NoError(t, m.Start("test-session", "initial-cmd"))
+	require.NoError(t, m.Start(session.AgentStart{SessionName: "test-session", Command: "initial-cmd"}))
 
 	sess := m.FindSession("test-session")
 	require.NotNil(t, sess)

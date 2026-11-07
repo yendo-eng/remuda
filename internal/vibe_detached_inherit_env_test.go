@@ -11,21 +11,12 @@ import (
 )
 
 type captureMultiplexer struct {
-	startName string
-	startCmd  string
-	startEnv  []string
+	start session.AgentStart
 }
 
 func (m *captureMultiplexer) Name() string { return string(session.MultiplexerTmux) }
-func (m *captureMultiplexer) Start(sessionName, command string) error {
-	m.startName = sessionName
-	m.startCmd = command
-	return nil
-}
-func (m *captureMultiplexer) StartWithEnv(sessionName, command string, envValues []string) error {
-	m.startName = sessionName
-	m.startCmd = command
-	m.startEnv = append([]string{}, envValues...)
+func (m *captureMultiplexer) Start(start session.AgentStart) error {
+	m.start = start
 	return nil
 }
 func (m *captureMultiplexer) List() ([]session.SessionInfo, error) { return nil, nil }
@@ -63,10 +54,10 @@ func TestVibe_Detached_TmuxExportsInheritedEnvVars(t *testing.T) {
 		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sm.startCmd)
-	require.Contains(t, sm.startCmd, "'-e' 'POSTMAN_API_KEY'")
-	require.NotContains(t, sm.startCmd, "export POSTMAN_API_KEY=")
-	value, ok := envValue(sm.startEnv, "POSTMAN_API_KEY")
+	require.NotEmpty(t, sm.start.Command)
+	require.Contains(t, sm.start.Command, "'-e' 'POSTMAN_API_KEY'")
+	require.NotContains(t, sm.start.Command, "export POSTMAN_API_KEY=")
+	value, ok := envValue(sm.start.Env, "POSTMAN_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "secret", value)
 }
@@ -94,10 +85,10 @@ func TestVibe_Detached_TmuxUnsetsMissingInheritedEnvVars(t *testing.T) {
 		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sm.startCmd)
-	require.Contains(t, sm.startCmd, "'-e' 'POSTMAN_API_KEY'")
-	require.NotContains(t, sm.startCmd, "unset POSTMAN_API_KEY")
-	_, ok := envValue(sm.startEnv, "POSTMAN_API_KEY")
+	require.NotEmpty(t, sm.start.Command)
+	require.Contains(t, sm.start.Command, "'-e' 'POSTMAN_API_KEY'")
+	require.NotContains(t, sm.start.Command, "unset POSTMAN_API_KEY")
+	_, ok := envValue(sm.start.Env, "POSTMAN_API_KEY")
 	require.False(t, ok)
 }
 
@@ -125,13 +116,13 @@ func TestVibe_Detached_TmuxPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T)
 		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
-	require.NotContains(t, sm.startCmd, "export POSTMAN_API_KEY=")
-	value, ok := envValue(sm.startEnv, "POSTMAN_API_KEY")
+	require.NotContains(t, sm.start.Command, "export POSTMAN_API_KEY=")
+	value, ok := envValue(sm.start.Env, "POSTMAN_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "  spaced \nvalue\t", value)
 
 	t.Setenv("POSTMAN_API_KEY", "")
-	sm.startEnv = nil
+	sm.start.Env = nil
 	err = k.Vibe(context.Background(), VibeCommand{
 		Agent:               "bash",
 		Prompt:              "ignored",
@@ -142,7 +133,7 @@ func TestVibe_Detached_TmuxPreservesInheritedEnvWhitespaceAndEmpty(t *testing.T)
 		ContainerInheritEnv: []string{"POSTMAN_API_KEY"},
 	})
 	require.NoError(t, err)
-	value, ok = envValue(sm.startEnv, "POSTMAN_API_KEY")
+	value, ok = envValue(sm.start.Env, "POSTMAN_API_KEY")
 	require.True(t, ok)
 	require.Empty(t, value)
 }
@@ -170,10 +161,10 @@ func TestVibe_Detached_TmuxExportsImplicitAnthropicForClaude(t *testing.T) {
 		ContainerName:     "ghcr.io/acme/vibe-dev:latest",
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sm.startCmd)
-	require.Contains(t, sm.startCmd, "'-e' 'ANTHROPIC_API_KEY'")
-	require.NotContains(t, sm.startCmd, "export ANTHROPIC_API_KEY=")
-	value, ok := envValue(sm.startEnv, "ANTHROPIC_API_KEY")
+	require.NotEmpty(t, sm.start.Command)
+	require.Contains(t, sm.start.Command, "'-e' 'ANTHROPIC_API_KEY'")
+	require.NotContains(t, sm.start.Command, "export ANTHROPIC_API_KEY=")
+	value, ok := envValue(sm.start.Env, "ANTHROPIC_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "anthropic-secret", value)
 }
@@ -203,10 +194,10 @@ func TestVibe_Detached_TmuxUnsetsImplicitAnthropicWhenMissingForClaude(t *testin
 		ContainerName:     "ghcr.io/acme/vibe-dev:latest",
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, sm.startCmd)
-	require.Contains(t, sm.startCmd, "'-e' 'ANTHROPIC_API_KEY'")
-	require.NotContains(t, sm.startCmd, "unset ANTHROPIC_API_KEY")
-	_, ok := envValue(sm.startEnv, "ANTHROPIC_API_KEY")
+	require.NotEmpty(t, sm.start.Command)
+	require.Contains(t, sm.start.Command, "'-e' 'ANTHROPIC_API_KEY'")
+	require.NotContains(t, sm.start.Command, "unset ANTHROPIC_API_KEY")
+	_, ok := envValue(sm.start.Env, "ANTHROPIC_API_KEY")
 	require.False(t, ok)
 }
 
@@ -235,12 +226,12 @@ func TestVibe_DetachedEnvOverrideUsesStartEnvOnly(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.NotContains(t, sm.startCmd, "vibe-secret")
-	require.NotContains(t, sm.startCmd, "OPENAI_API_KEY=vibe-secret")
-	value, ok := envValue(sm.startEnv, "OPENAI_API_KEY")
+	require.NotContains(t, sm.start.Command, "vibe-secret")
+	require.NotContains(t, sm.start.Command, "OPENAI_API_KEY=vibe-secret")
+	value, ok := envValue(sm.start.Env, "OPENAI_API_KEY")
 	require.True(t, ok)
 	require.Equal(t, "vibe-secret", value)
-	value, ok = envValue(sm.startEnv, "CUSTOM_OVERRIDE")
+	value, ok = envValue(sm.start.Env, "CUSTOM_OVERRIDE")
 	require.True(t, ok)
 	require.Equal(t, "custom-secret", value)
 }
@@ -279,7 +270,7 @@ func TestVibe_DetachedLaunchEnvDoesNotLeakIntoLaterLaunches(t *testing.T) {
 		"OPENAI_API_KEY": "first-launch-key",
 	}
 	for key, want := range firstLaunchEnv {
-		value, ok := envValue(sm.startEnv, key)
+		value, ok := envValue(sm.start.Env, key)
 		require.True(t, ok, key)
 		require.Equal(t, want, value, key)
 	}
@@ -292,7 +283,7 @@ func TestVibe_DetachedLaunchEnvDoesNotLeakIntoLaterLaunches(t *testing.T) {
 	})
 	require.NoError(t, err)
 	for key := range firstLaunchEnv {
-		_, ok := envValue(sm.startEnv, key)
+		_, ok := envValue(sm.start.Env, key)
 		require.False(t, ok, "%s leaked from the first launch", key)
 	}
 }
@@ -330,16 +321,16 @@ func TestVibe_DetachedIsolatedSessionsForwardAllowlistedEnvOnly(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			value, ok := envValue(sm.startEnv, "OPENAI_API_KEY")
+			value, ok := envValue(sm.start.Env, "OPENAI_API_KEY")
 			require.True(t, ok)
 			require.Equal(t, "openai-secret", value)
-			value, ok = envValue(sm.startEnv, "GH_TOKEN")
+			value, ok = envValue(sm.start.Env, "GH_TOKEN")
 			require.True(t, ok)
 			require.Equal(t, "github-token", value)
-			value, ok = envValue(sm.startEnv, "POSTMAN_API_KEY")
+			value, ok = envValue(sm.start.Env, "POSTMAN_API_KEY")
 			require.True(t, ok)
 			require.Equal(t, "passthrough-secret", value)
-			_, ok = envValue(sm.startEnv, "UNFORWARDED_SECRET")
+			_, ok = envValue(sm.start.Env, "UNFORWARDED_SECRET")
 			require.False(t, ok)
 		})
 	}

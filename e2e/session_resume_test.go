@@ -11,6 +11,7 @@ import (
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/jira"
+	"github.com/yendo-eng/remuda/internal/session"
 )
 
 func TestSessionResume(t *testing.T) {
@@ -153,7 +154,7 @@ func TestSessionResume(t *testing.T) {
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
 		require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-		require.NoError(t, mgr.Start("org/repo/folder", "echo active"))
+		require.NoError(t, mgr.Start(session.AgentStart{SessionName: "org/repo/folder", Command: "echo active"}))
 
 		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]))
 		err := cli.Run(ctx, []string{"session", "resume", workspace})

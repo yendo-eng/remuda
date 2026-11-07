@@ -17,7 +17,7 @@ type fakeMultiplexer struct {
 
 func (f *fakeMultiplexer) Name() string { return "fake" }
 
-func (f *fakeMultiplexer) Start(sessionName, command string) error { return nil }
+func (f *fakeMultiplexer) Start(start session.AgentStart) error { return nil }
 
 func (f *fakeMultiplexer) List() ([]session.SessionInfo, error) { return f.sessions, nil }
 

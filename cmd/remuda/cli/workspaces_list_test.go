@@ -236,9 +236,9 @@ type stubMultiplexer struct {
 	sessions []session.SessionInfo
 }
 
-func (m stubMultiplexer) Name() string                            { return "stub" }
-func (m stubMultiplexer) Start(sessionName, command string) error { return nil }
-func (m stubMultiplexer) List() ([]session.SessionInfo, error)    { return m.sessions, nil }
+func (m stubMultiplexer) Name() string                         { return "stub" }
+func (m stubMultiplexer) Start(start session.AgentStart) error { return nil }
+func (m stubMultiplexer) List() ([]session.SessionInfo, error) { return m.sessions, nil }
 func (m stubMultiplexer) Find(name string) (session.SessionInfo, error) {
 	return session.SessionInfo{}, session.ErrSessionNotFound
 }

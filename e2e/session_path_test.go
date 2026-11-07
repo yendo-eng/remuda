@@ -62,7 +62,7 @@ func TestSessionPathHandlesDotUnderscore(t *testing.T) {
 
 	sessionMgr, ok := h.Multiplexer.(*testutils.MockMultiplexer)
 	require.True(t, ok)
-	require.NoError(t, sessionMgr.Start(sessionName, "echo"))
+	require.NoError(t, sessionMgr.Start(session.AgentStart{SessionName: sessionName, Command: "echo"}))
 
 	res := h.RunOK("session", "path", "--name", sessionName)
 	require.Equal(t, realPath+"\n", res.Stdout)
