@@ -10,45 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
-
-type sendCall struct {
-	name          string
-	payload       string
-	appendNewline bool
-}
-
-type recordingMultiplexer struct {
-	calls  []sendCall
-	errFor map[string]error
-}
-
-func (m *recordingMultiplexer) Name() string { return "recording" }
-func (m *recordingMultiplexer) Start(start session.AgentStart) error {
-	return nil
-}
-func (m *recordingMultiplexer) List() ([]session.SessionInfo, error) { return nil, nil }
-func (m *recordingMultiplexer) Find(name string) (session.SessionInfo, error) {
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-func (m *recordingMultiplexer) Attach(name string) error { return nil }
-func (m *recordingMultiplexer) ReadBuffer(name string, lines int) (string, error) {
-	return "", nil
-}
-func (m *recordingMultiplexer) Send(name string, payload string, appendNewline bool) error {
-	if m.errFor != nil {
-		if err, ok := m.errFor[name]; ok {
-			return err
-		}
-	}
-	m.calls = append(m.calls, sendCall{name: name, payload: payload, appendNewline: appendNewline})
-	return nil
-}
-func (m *recordingMultiplexer) Kill(name string) error { return nil }
 
 func TestSendPromptToSessionsSendsToAll(t *testing.T) {
 	t.Parallel()
-	mgr := &recordingMultiplexer{}
+	mgr := &testutils.MockMultiplexer{}
+	mgr.AddSession(sessionInfo("org/repo/one"))
+	mgr.AddSession(sessionInfo("org/repo/two"))
 	ctx := NewContext(context.Background(), internal.Remuda{
 		Multiplexer: mgr,
 		IO:          internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard},
@@ -56,15 +25,17 @@ func TestSendPromptToSessionsSendsToAll(t *testing.T) {
 
 	err := sendPromptToSessions(ctx, []string{"org/repo/one", "org/repo/two"}, "hello", true)
 	require.NoError(t, err)
-	require.Equal(t, []sendCall{
-		{name: "org/repo/one", payload: "hello", appendNewline: true},
-		{name: "org/repo/two", payload: "hello", appendNewline: true},
-	}, mgr.calls)
+	require.Equal(t, []testutils.SendCall{
+		{Name: "org/repo/one", Payload: "hello", AppendNewline: true},
+		{Name: "org/repo/two", Payload: "hello", AppendNewline: true},
+	}, mgr.Sends)
 }
 
 func TestSendPromptToSessionsStopsOnError(t *testing.T) {
 	t.Parallel()
-	mgr := &recordingMultiplexer{errFor: map[string]error{"org/repo/two": errors.New("boom")}}
+	mgr := &testutils.MockMultiplexer{SendErrs: map[string]error{"org/repo/two": errors.New("boom")}}
+	mgr.AddSession(sessionInfo("org/repo/one"))
+	mgr.AddSession(sessionInfo("org/repo/two"))
 	ctx := NewContext(context.Background(), internal.Remuda{
 		Multiplexer: mgr,
 		IO:          internal.IO{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard},
@@ -74,7 +45,9 @@ func TestSendPromptToSessionsStopsOnError(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "send to session \"org/repo/two\"")
 	require.ErrorContains(t, err, "boom")
-	require.Equal(t, []sendCall{
-		{name: "org/repo/one", payload: "hello", appendNewline: true},
-	}, mgr.calls)
+	require.Equal(t, []testutils.SendCall{
+		{Name: "org/repo/one", Payload: "hello", AppendNewline: true},
+	}, mgr.Sends)
 }
+
+func sessionInfo(name string) session.SessionInfo { return session.SessionInfo{Name: name} }
