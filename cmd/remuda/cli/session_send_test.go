@@ -11,6 +11,7 @@ import (
 	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/git"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
 type sendStubGit struct{}
@@ -28,41 +29,10 @@ func (sendStubGit) Branch(dir string, args ...string) error                  { r
 
 var _ git.Git = sendStubGit{}
 
-type captureSendMultiplexer struct {
-	name          string
-	payload       string
-	appendNewline bool
-	calls         []sendCall
-}
-
-type sendCall struct {
-	name          string
-	payload       string
-	appendNewline bool
-}
-
-func (c *captureSendMultiplexer) Name() string                         { return "capture" }
-func (c *captureSendMultiplexer) Start(start session.AgentStart) error { return nil }
-func (c *captureSendMultiplexer) List() ([]session.SessionInfo, error) { return nil, nil }
-func (c *captureSendMultiplexer) Find(name string) (session.SessionInfo, error) {
-	return session.SessionInfo{}, session.ErrSessionNotFound
-}
-func (c *captureSendMultiplexer) Attach(name string) error { return nil }
-func (c *captureSendMultiplexer) ReadBuffer(name string, lines int) (string, error) {
-	return "", nil
-}
-func (c *captureSendMultiplexer) Send(name string, payload string, appendNewline bool) error {
-	c.name = name
-	c.payload = payload
-	c.appendNewline = appendNewline
-	c.calls = append(c.calls, sendCall{name: name, payload: payload, appendNewline: appendNewline})
-	return nil
-}
-func (c *captureSendMultiplexer) Kill(name string) error { return nil }
-
 func TestSessionSend_UsesPromptArg(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendMultiplexer{}
+	mgr := &testutils.MockMultiplexer{}
+	mgr.AddSession(session.SessionInfo{Name: "org/repo/feat"})
 	k := internal.NewRemuda(internal.Config{})
 	k.Git = sendStubGit{}
 	k.Multiplexer = mgr
@@ -74,14 +44,15 @@ func TestSessionSend_UsesPromptArg(t *testing.T) {
 		Prompt:                    "hello",
 	}
 	require.NoError(t, cmd.Run(ctx))
-	require.Equal(t, "org/repo/feat", mgr.name)
-	require.Equal(t, "hello", mgr.payload)
-	require.True(t, mgr.appendNewline)
+	require.Equal(t, "org/repo/feat", mgr.LastSendName)
+	require.Equal(t, "hello", mgr.LastSendInput)
+	require.True(t, mgr.LastSendEnter)
 }
 
 func TestSessionSend_UsesPromptFromStdin(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendMultiplexer{}
+	mgr := &testutils.MockMultiplexer{}
+	mgr.AddSession(session.SessionInfo{Name: "org/repo/feat"})
 	k := internal.NewRemuda(internal.Config{})
 	k.Git = sendStubGit{}
 	k.Multiplexer = mgr
@@ -93,13 +64,14 @@ func TestSessionSend_UsesPromptFromStdin(t *testing.T) {
 		Prompt:                    "-",
 	}
 	require.NoError(t, cmd.Run(ctx))
-	require.Equal(t, "from-stdin", mgr.payload)
-	require.True(t, mgr.appendNewline)
+	require.Equal(t, "from-stdin", mgr.LastSendInput)
+	require.True(t, mgr.LastSendEnter)
 }
 
 func TestSessionSend_NoNewline(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendMultiplexer{}
+	mgr := &testutils.MockMultiplexer{}
+	mgr.AddSession(session.SessionInfo{Name: "org/repo/feat"})
 	k := internal.NewRemuda(internal.Config{})
 	k.Git = sendStubGit{}
 	k.Multiplexer = mgr
@@ -112,12 +84,13 @@ func TestSessionSend_NoNewline(t *testing.T) {
 		NoNewline:                 true,
 	}
 	require.NoError(t, cmd.Run(ctx))
-	require.False(t, mgr.appendNewline)
+	require.False(t, mgr.LastSendEnter)
 }
 
 func TestSessionSend_RejectsEmptyPrompt(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendMultiplexer{}
+	mgr := &testutils.MockMultiplexer{}
+	mgr.AddSession(session.SessionInfo{Name: "org/repo/feat"})
 	k := internal.NewRemuda(internal.Config{})
 	k.Git = sendStubGit{}
 	k.Multiplexer = mgr
@@ -129,12 +102,14 @@ func TestSessionSend_RejectsEmptyPrompt(t *testing.T) {
 		Prompt:                    "   ",
 	}
 	require.Error(t, cmd.Run(ctx))
-	require.Empty(t, mgr.payload)
+	require.Empty(t, mgr.LastSendInput)
 }
 
 func TestSessionSend_MultipleNames(t *testing.T) {
 	t.Parallel()
-	mgr := &captureSendMultiplexer{}
+	mgr := &testutils.MockMultiplexer{}
+	mgr.AddSession(session.SessionInfo{Name: "org/repo/one"})
+	mgr.AddSession(session.SessionInfo{Name: "org/repo/two"})
 	k := internal.NewRemuda(internal.Config{})
 	k.Git = sendStubGit{}
 	k.Multiplexer = mgr
@@ -146,8 +121,8 @@ func TestSessionSend_MultipleNames(t *testing.T) {
 		Prompt:                    "hello",
 	}
 	require.NoError(t, cmd.Run(ctx))
-	require.Equal(t, []sendCall{
-		{name: "org/repo/one", payload: "hello", appendNewline: true},
-		{name: "org/repo/two", payload: "hello", appendNewline: true},
-	}, mgr.calls)
+	require.Equal(t, []testutils.SendCall{
+		{Name: "org/repo/one", Payload: "hello", AppendNewline: true},
+		{Name: "org/repo/two", Payload: "hello", AppendNewline: true},
+	}, mgr.Sends)
 }
