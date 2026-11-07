@@ -33,10 +33,10 @@ func runSessionResume(t *testing.T, workspace string, args ...string) string {
 		remuda,
 		WithHomeDir(t.TempDir()),
 		WithWorkingDir(t.TempDir()),
-		WithMultiplexerFactory(func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
-			return mgr
-		}),
 	)
+	ctx.MultiplexerFactory = func(name session.SupportedMultiplexer, _ zerolog.Logger) session.Multiplexer {
+		return mgr
+	}
 
 	runArgs := append([]string{"session", "resume", workspace}, args...)
 	require.NoError(t, Run(ctx, runArgs))

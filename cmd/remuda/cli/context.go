@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"io"
 
 	"github.com/knadh/koanf/v2"
 	"github.com/spf13/cobra"
@@ -92,29 +91,10 @@ func NewContext(
 	return cliCtx
 }
 
-func Stdout(w io.Writer) func(*Context) {
-	return func(ctx *Context) {
-		ctx.Remuda.IO.Out = w
-	}
-}
-
-func Stderr(w io.Writer) func(*Context) {
-	return func(ctx *Context) {
-		ctx.Remuda.IO.Err = w
-	}
-}
-
 // WithEnv injects an EnvProvider for this CLI invocation.
 func WithEnv(env EnvProvider) func(*Context) {
 	return func(ctx *Context) {
 		ctx.Env = env
-	}
-}
-
-// WithMultiplexerFactory overrides how multiplexers are constructed.
-func WithMultiplexerFactory(factory MultiplexerFactory) func(*Context) {
-	return func(ctx *Context) {
-		ctx.MultiplexerFactory = factory
 	}
 }
 

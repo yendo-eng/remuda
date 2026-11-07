@@ -250,13 +250,12 @@ func (h *Harness) Run(args ...string) CLIRunResult {
 		cli.WithEnv(h.Env),
 		cli.WithHomeDir(h.HomeDir),
 	}
-	if h.MultiplexerFactory != nil {
-		ctxOpts = append(ctxOpts, cli.WithMultiplexerFactory(h.MultiplexerFactory))
-	}
 	if h.WorkingDir != "" {
 		ctxOpts = append(ctxOpts, cli.WithWorkingDir(h.WorkingDir))
 	}
-	err := cli.Run(cli.NewContext(h.t.Context(), h.Remuda, ctxOpts...), runArgs)
+	cliCtx := cli.NewContext(h.t.Context(), h.Remuda, ctxOpts...)
+	cliCtx.MultiplexerFactory = h.MultiplexerFactory
+	err := cli.Run(cliCtx, runArgs)
 
 	return CLIRunResult{
 		Args:   runArgs,

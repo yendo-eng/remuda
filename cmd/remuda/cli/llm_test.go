@@ -16,7 +16,9 @@ func TestLLMSlugify_LocalFallback(t *testing.T) {
 	var out, errOut bytes.Buffer
 	env := cli.EnvMap{}
 	k := internal.NewRemuda(internal.Config{})
-	cliCtx := cli.NewContext(t.Context(), k, cli.Stdout(&out), cli.Stderr(&errOut), cli.WithEnv(env), cli.WithHomeDir(t.TempDir()))
+	k.IO.Out = &out
+	k.IO.Err = &errOut
+	cliCtx := cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(t.TempDir()))
 
 	require.NoError(t, cli.Run(cliCtx, []string{"llm", "slugify", "Fix: Allow --repo utils in vibe start"}))
 
