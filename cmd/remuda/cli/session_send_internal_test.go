@@ -24,7 +24,7 @@ type recordingMultiplexer struct {
 }
 
 func (m *recordingMultiplexer) Name() string { return "recording" }
-func (m *recordingMultiplexer) Start(sessionName, command string) error {
+func (m *recordingMultiplexer) Start(start session.AgentStart) error {
 	return nil
 }
 func (m *recordingMultiplexer) List() ([]session.SessionInfo, error) { return nil, nil }

@@ -119,25 +119,22 @@ func (r *rex) Name() string {
 	return string(MultiplexerRex)
 }
 
-func (r *rex) Start(sessionName, command string) error {
-	return r.StartWithEnv(sessionName, command, nil)
-}
-
-func (r *rex) StartWithEnv(sessionName, command string, env []string) error {
-	if _, err := r.Find(sessionName); err == nil {
-		return SessionAlreadyExistsError{Name: sessionName}
+func (r *rex) Start(start AgentStart) error {
+	if _, err := r.Find(start.SessionName); err == nil {
+		return SessionAlreadyExistsError{Name: start.SessionName}
 	} else if !errors.Is(err, ErrSessionNotFound) {
 		return err
 	}
 
-	envFile, err := rexPaneEnv.writeEnvFile(env)
+	envFile, err := rexPaneEnv.writeEnvFile(start.Env)
 	if err != nil {
 		return err
 	}
+	command := start.Command
 	if envFile != "" {
 		command = rexPaneEnv.commandWithEnvFile(envFile, command)
 	}
-	if err := r.create(sessionName, command); err != nil {
+	if err := r.create(start.SessionName, command); err != nil {
 		if envFile != "" {
 			_ = os.Remove(envFile)
 		}

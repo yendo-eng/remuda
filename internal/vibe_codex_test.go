@@ -140,7 +140,7 @@ func TestVibe_DetachedHerdrCoreCodexRunsWithoutDaemon(t *testing.T) {
 		ExistingWorkspace: t.TempDir(),
 	})
 	require.NoError(t, err)
-	require.Contains(t, sm.startCmd, "'--search' '--no-daemon' -- 'fix it'")
+	require.Contains(t, sm.start.Command, "'--search' '--no-daemon' -- 'fix it'")
 }
 
 func containsMountSuffix(opts []string, suffix string) bool {

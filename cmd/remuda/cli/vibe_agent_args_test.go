@@ -19,13 +19,8 @@ type captureStartMultiplexer struct {
 
 func (m *captureStartMultiplexer) Name() string { return string(session.MultiplexerTmux) }
 
-func (m *captureStartMultiplexer) Start(sessionName, command string) error {
-	m.startCmd = command
-	return nil
-}
-
-func (m *captureStartMultiplexer) StartWithEnv(sessionName, command string, env []string) error {
-	m.startCmd = command
+func (m *captureStartMultiplexer) Start(start session.AgentStart) error {
+	m.startCmd = start.Command
 	return nil
 }
 

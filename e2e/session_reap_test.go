@@ -115,7 +115,7 @@ func requireMockMultiplexer(t *testing.T, h *testutils.Harness) *testutils.MockM
 func addSession(t *testing.T, mgr *testutils.MockMultiplexer, name string, createdAt time.Time) {
 	t.Helper()
 
-	require.NoError(t, mgr.Start(name, "cmd"))
+	require.NoError(t, mgr.Start(session.AgentStart{SessionName: name, Command: "cmd"}))
 	setSessionCreatedAt(t, mgr, name, createdAt)
 }
 

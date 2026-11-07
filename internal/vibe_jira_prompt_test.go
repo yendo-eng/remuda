@@ -65,11 +65,11 @@ func TestVibeBuildsPromptWithJiraCodeBlocks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Contains(t, sm.startCmd, "RBL-3027: Preserve code blocks from Jira")
-	require.Contains(t, sm.startCmd, "Description:")
-	require.Contains(t, sm.startCmd, "```")
-	require.Contains(t, sm.startCmd, "CREATE TABLE payment_methods (")
-	require.Contains(t, sm.startCmd, "status TEXT NOT NULL DEFAULT")
-	require.Contains(t, sm.startCmd, "active")
-	require.Contains(t, sm.startCmd, "main prompt")
+	require.Contains(t, sm.start.Command, "RBL-3027: Preserve code blocks from Jira")
+	require.Contains(t, sm.start.Command, "Description:")
+	require.Contains(t, sm.start.Command, "```")
+	require.Contains(t, sm.start.Command, "CREATE TABLE payment_methods (")
+	require.Contains(t, sm.start.Command, "status TEXT NOT NULL DEFAULT")
+	require.Contains(t, sm.start.Command, "active")
+	require.Contains(t, sm.start.Command, "main prompt")
 }

@@ -28,13 +28,9 @@ func (z *zellij) Name() string {
 	return string(MultiplexerZellij)
 }
 
-func (z *zellij) Start(sessionName, command string) error {
-	return z.StartWithEnv(sessionName, command, nil)
-}
-
-func (z *zellij) StartWithEnv(sessionName, command string, env []string) error {
-	zellijName := encodeZellijSessionName(sessionName)
-	out, err := runZellijCmdCombinedOutput(z.logger, env, "attach", "--create-background", zellijName)
+func (z *zellij) Start(start AgentStart) error {
+	zellijName := encodeZellijSessionName(start.SessionName)
+	out, err := runZellijCmdCombinedOutput(z.logger, start.Env, "attach", "--create-background", zellijName)
 	if err != nil {
 		msg := strings.TrimSpace(out)
 		if strings.Contains(strings.ToLower(msg), "create-background") {
@@ -46,10 +42,10 @@ func (z *zellij) StartWithEnv(sessionName, command string, env []string) error {
 		return pkgerrors.Wrapf(err, "zellij attach --create-background: %s", msg)
 	}
 
-	payload := command + "\n"
+	payload := start.Command + "\n"
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		out, err := runZellijCmdCombinedOutput(z.logger, env, "--session", zellijName, "action", "write-chars", payload)
+		out, err := runZellijCmdCombinedOutput(z.logger, start.Env, "--session", zellijName, "action", "write-chars", payload)
 		if err == nil {
 			return nil
 		}

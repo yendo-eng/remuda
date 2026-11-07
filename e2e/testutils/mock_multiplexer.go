@@ -41,20 +41,11 @@ func (MockMultiplexer) Name() string {
 	return "mock"
 }
 
-func (f *MockMultiplexer) Start(sessionName, command string) error {
+func (f *MockMultiplexer) Start(start session.AgentStart) error {
 	f.sessions = append(f.sessions, Session{
-		SessionInfo: f.sessionInfo(sessionName),
-		CommandRan:  command,
-	})
-	f.sessions[len(f.sessions)-1].CreatedAt = time.Now()
-	return nil
-}
-
-func (f *MockMultiplexer) StartWithEnv(sessionName, command string, env []string) error {
-	f.sessions = append(f.sessions, Session{
-		SessionInfo: f.sessionInfo(sessionName),
-		CommandRan:  command,
-		StartEnv:    append([]string{}, env...),
+		SessionInfo: f.sessionInfo(start.SessionName),
+		CommandRan:  start.Command,
+		StartEnv:    append([]string{}, start.Env...),
 	})
 	f.sessions[len(f.sessions)-1].CreatedAt = time.Now()
 	return nil

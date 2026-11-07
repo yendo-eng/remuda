@@ -151,7 +151,7 @@ func TestHerdrCoreNotRunning(t *testing.T) {
 		run  func(*herdrCore) error
 	}{
 		{name: "start", run: func(h *herdrCore) error {
-			return h.StartAgent(AgentStart{SessionName: herdrCoreTestSession, Command: "codex"})
+			return h.Start(AgentStart{SessionName: herdrCoreTestSession, Command: "codex"})
 		}},
 		{name: "list", run: func(h *herdrCore) error { _, err := h.List(); return err }},
 		{name: "find", run: func(h *herdrCore) error { _, err := h.Find(herdrCoreTestSession); return err }},
@@ -376,7 +376,7 @@ func TestHerdrCoreStartChecksExistingSessions(t *testing.T) {
 			t.Parallel()
 
 			core := newFakeHerdrCore(t, tt.terminals...)
-			require.Equal(t, tt.wantErr, core.backend().StartAgent(AgentStart{SessionName: herdrCoreTestSession, Workspace: herdrCoreTestWorkspace, Command: "codex"}))
+			require.Equal(t, tt.wantErr, core.backend().Start(AgentStart{SessionName: herdrCoreTestSession, Workspace: herdrCoreTestWorkspace, Command: "codex"}))
 			if tt.wantErr != nil {
 				require.Empty(t, core.params("terminal.run"))
 				return
@@ -387,13 +387,13 @@ func TestHerdrCoreStartChecksExistingSessions(t *testing.T) {
 	}
 }
 
-func TestHerdrCoreStartAgent(t *testing.T) {
+func TestHerdrCoreStart(t *testing.T) {
 	t.Parallel()
 
 	core := newFakeHerdrCore(t)
 	dir := t.TempDir()
 	panePath := filepath.Join(dir, "pane")
-	require.NoError(t, core.backend().StartAgent(AgentStart{
+	require.NoError(t, core.backend().Start(AgentStart{
 		SessionName: herdrCoreTestSession,
 		Workspace:   herdrCoreTestWorkspace,
 		Command:     `printf '%s|%s|%s|%s' "$OPENAI_API_KEY" "$HC_TERMINAL_ID" "${HC_CALLER-unset}" "$TERM" > ` + shellutil.SingleQuote(panePath),

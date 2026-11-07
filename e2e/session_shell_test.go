@@ -77,7 +77,7 @@ func TestSessionShellExecsShellInContainerWorkingDirectory(t *testing.T) {
 		RunningContainers: map[string]bool{containerName: true},
 	}
 	multiplexer := &testutils.MockMultiplexer{}
-	require.NoError(t, multiplexer.Start(sessionName, ""))
+	require.NoError(t, multiplexer.Start(session.AgentStart{SessionName: sessionName, Command: ""}))
 
 	h := testutils.NewHarness(t,
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),

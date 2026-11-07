@@ -13,30 +13,19 @@ import (
 )
 
 type aggregateBackend struct {
-	name       string
-	sessions   []session.SessionInfo
-	listErr    error
-	started    []string
-	attached   []string
-	read       []string
-	sent       []string
-	killed     []string
-	agentStart []session.AgentStart
-	env        []string
+	name     string
+	sessions []session.SessionInfo
+	listErr  error
+	started  []session.AgentStart
+	attached []string
+	read     []string
+	sent     []string
+	killed   []string
 }
 
 func (b *aggregateBackend) Name() string { return b.name }
-func (b *aggregateBackend) Start(name, _ string) error {
-	b.started = append(b.started, name)
-	return nil
-}
-func (b *aggregateBackend) StartWithEnv(name, _ string, env []string) error {
-	b.started = append(b.started, name)
-	b.env = append([]string(nil), env...)
-	return nil
-}
-func (b *aggregateBackend) StartAgent(start session.AgentStart) error {
-	b.agentStart = append(b.agentStart, start)
+func (b *aggregateBackend) Start(start session.AgentStart) error {
+	b.started = append(b.started, start)
 	return nil
 }
 func (b *aggregateBackend) List() ([]session.SessionInfo, error) {
@@ -177,7 +166,9 @@ func TestAggregateMultiplexerReturnsBackendErrors(t *testing.T) {
 		{name: "read", run: func(m session.Multiplexer) error { _, err := m.ReadBuffer("org/repo/held", 20); return err }},
 		{name: "send", run: func(m session.Multiplexer) error { return m.Send("org/repo/held", "hello", true) }},
 		{name: "kill", run: func(m session.Multiplexer) error { return m.Kill("org/repo/held") }},
-		{name: "start", run: func(m session.Multiplexer) error { return m.Start("org/repo/held", "command") }},
+		{name: "start", run: func(m session.Multiplexer) error {
+			return m.Start(session.AgentStart{SessionName: "org/repo/held", Command: "command"})
+		}},
 	}
 
 	for _, tt := range tests {
@@ -207,29 +198,22 @@ func TestAggregateMultiplexerRoutesCreation(t *testing.T) {
 		owner := &aggregateBackend{name: "herdr-tui", sessions: []session.SessionInfo{{Name: "org/repo/existing"}}}
 		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget, owner)
 
-		err := mgr.Start("org/repo/existing", "command")
+		err := mgr.Start(session.AgentStart{SessionName: "org/repo/existing", Command: "command"})
 
 		var duplicate session.SessionAlreadyExistsError
 		require.ErrorAs(t, err, &duplicate)
 		require.Empty(t, createTarget.started)
 	})
 
-	t.Run("delegates name and start variants", func(t *testing.T) {
+	t.Run("delegates name and start", func(t *testing.T) {
 		t.Parallel()
 
 		createTarget := &aggregateBackend{name: "herdr-tui"}
 		mgr := session.NewAggregateMultiplexer(createTarget, logging.DefaultLogger(), createTarget)
-		envStarter, ok := mgr.(session.EnvStarter)
-		require.True(t, ok)
-		agentStarter, ok := mgr.(session.AgentStarter)
-		require.True(t, ok)
+		start := session.AgentStart{SessionName: "org/repo/agent", Command: "command", Env: []string{"KEY=value"}}
 
 		require.Equal(t, "herdr-tui", mgr.Name())
-		require.NoError(t, mgr.Start("org/repo/basic", "command"))
-		require.NoError(t, envStarter.StartWithEnv("org/repo/env", "command", []string{"KEY=value"}))
-		require.NoError(t, agentStarter.StartAgent(session.AgentStart{SessionName: "org/repo/agent"}))
-		require.Equal(t, []string{"org/repo/basic", "org/repo/env"}, createTarget.started)
-		require.Equal(t, []string{"KEY=value"}, createTarget.env)
-		require.Equal(t, "org/repo/agent", createTarget.agentStart[0].SessionName)
+		require.NoError(t, mgr.Start(start))
+		require.Equal(t, []session.AgentStart{start}, createTarget.started)
 	})
 }

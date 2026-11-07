@@ -334,7 +334,7 @@ func TestRexChecksAPIRevision(t *testing.T) {
 	}
 }
 
-func TestRexStartWithEnv(t *testing.T) {
+func TestRexStart(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -342,11 +342,11 @@ func TestRexStartWithEnv(t *testing.T) {
 	panePath := filepath.Join(dir, "pane")
 	r := newFakeRex(t, dir, rexSessionBranches()+`"api call session.create -") cat > `+shellutil.SingleQuote(specPath)+" ;;")
 
-	require.NoError(t, r.StartWithEnv(
-		rexTestSession,
-		`printf '%s|%s|%s|%s' "$OPENAI_API_KEY" "$REX_SESSION" "${REX_CALLER-unset}" "$TERM" > `+shellutil.SingleQuote(panePath),
-		[]string{"OPENAI_API_KEY=sk-test-secret", "REX_SESSION=session:caller", "REX_CALLER=caller", "HOME=" + dir, "PATH=/usr/bin:/bin"},
-	))
+	require.NoError(t, r.Start(AgentStart{
+		SessionName: rexTestSession,
+		Command:     `printf '%s|%s|%s|%s' "$OPENAI_API_KEY" "$REX_SESSION" "${REX_CALLER-unset}" "$TERM" > ` + shellutil.SingleQuote(panePath),
+		Env:         []string{"OPENAI_API_KEY=sk-test-secret", "REX_SESSION=session:caller", "REX_CALLER=caller", "HOME=" + dir, "PATH=/usr/bin:/bin"},
+	}))
 
 	// The secret stays out of argv and the create spec.
 	require.Equal(t, []string{
@@ -439,7 +439,7 @@ func TestRexStartChecksExistingSessions(t *testing.T) {
 			dir := t.TempDir()
 			r := newFakeRex(t, dir, rexSessionBranches(tt.sessions...))
 
-			require.Equal(t, tt.wantErr, r.Start(rexTestSession, "codex"))
+			require.Equal(t, tt.wantErr, r.Start(AgentStart{SessionName: rexTestSession, Command: "codex"}))
 			created := strings.Contains(strings.Join(rexCalls(t, dir), "\n"), "api call session.create -")
 			require.Equal(t, tt.wantErr == nil, created)
 		})

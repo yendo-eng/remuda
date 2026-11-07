@@ -70,8 +70,8 @@ func NewMultiplexer(name SupportedMultiplexer, logger zerolog.Logger) Multiplexe
 type Multiplexer interface {
 	// Name of the multiplexer.
 	Name() string
-	// Start starts a detached session that runs the given shell command.
-	Start(sessionName, command string) error
+	// Start starts a detached session that runs start's agent.
+	Start(start AgentStart) error
 	// List returns all sessions visible to the multiplexer.
 	List() ([]SessionInfo, error)
 	// Find returns a session by name.
@@ -88,11 +88,8 @@ type Multiplexer interface {
 	Kill(name string) error
 }
 
-// EnvStarter allows callers to supply an explicit environment when starting sessions.
-type EnvStarter interface {
-	StartWithEnv(sessionName, command string, env []string) error
-}
-
+// AgentStart is an agent launch as a whole, from which each backend starts a
+// session with the parts it needs.
 type AgentStart struct {
 	SessionName string
 	Workspace   string
@@ -103,12 +100,6 @@ type AgentStart struct {
 	Args        []string
 	Prompt      string
 	Env         []string
-}
-
-// AgentStarter starts a session from the whole agent launch, not only its
-// shell command.
-type AgentStarter interface {
-	StartAgent(start AgentStart) error
 }
 
 // SessionInfo is a minimal description of a multiplexer session.

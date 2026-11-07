@@ -14,8 +14,8 @@ import (
 func TestAggregateMultiplexerListAndCompletion(t *testing.T) {
 	t.Parallel()
 	h, backends := newAggregateMultiplexerHarness(t)
-	require.NoError(t, backends[session.MultiplexerTmux].Start("org/repo/tmux-session", "command"))
-	require.NoError(t, backends[session.MultiplexerHerdrTUI].Start("org/repo/herdr-tui-session", "command"))
+	require.NoError(t, backends[session.MultiplexerTmux].Start(session.AgentStart{SessionName: "org/repo/tmux-session", Command: "command"}))
+	require.NoError(t, backends[session.MultiplexerHerdrTUI].Start(session.AgentStart{SessionName: "org/repo/herdr-tui-session", Command: "command"}))
 
 	list := h.RunOK("session", "list")
 	require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-tui-session\n", list.Stdout)

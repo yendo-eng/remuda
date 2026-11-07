@@ -16,7 +16,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-func TestHerdrTUIStartAgent(t *testing.T) {
+func TestHerdrTUIStart(t *testing.T) {
 	tests := []struct {
 		name      string
 		agent     string
@@ -44,9 +44,7 @@ esac
 			t.Setenv("REMUDA_HERDR_CALLS", logPath)
 
 			var logs bytes.Buffer
-			starter, ok := session.NewHerdrTUI(zerolog.New(&logs).Level(zerolog.DebugLevel)).(session.AgentStarter)
-			require.True(t, ok)
-			err := starter.StartAgent(session.AgentStart{
+			err := session.NewHerdrTUI(zerolog.New(&logs).Level(zerolog.DebugLevel)).Start(session.AgentStart{
 				SessionName: "yendo/remuda/rm-ypr2",
 				Workspace:   "/workspaces/rm-ypr2",
 				Agent:       tt.agent,
@@ -85,7 +83,7 @@ esac
 	}
 }
 
-func TestHerdrTUIStartAgentRunsLongContainerArgvInPersistentPane(t *testing.T) {
+func TestHerdrTUIStartRunsLongContainerArgvInPersistentPane(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires a Unix shell stub")
 	}
@@ -120,9 +118,7 @@ esac
 	command = append(command, "remuda-agent:latest", "bash", "-lc", "exec codex")
 	require.Greater(t, len(strings.Join(command, " ")), 1500)
 
-	starter, ok := session.NewHerdrTUI(logging.DefaultLogger()).(session.AgentStarter)
-	require.True(t, ok)
-	require.NoError(t, starter.StartAgent(session.AgentStart{
+	require.NoError(t, session.NewHerdrTUI(logging.DefaultLogger()).Start(session.AgentStart{
 		SessionName: "yendo/remuda/rm-f20z",
 		Workspace:   "/workspaces/rm-f20z",
 		Agent:       "codex",
@@ -148,7 +144,7 @@ esac
 	require.Contains(t, string(script), "'exec codex'")
 }
 
-func TestHerdrTUIStartAgentRetriesWhilePaneShellInitializes(t *testing.T) {
+func TestHerdrTUIStartRetriesWhilePaneShellInitializes(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "calls")
 	busyMarker := filepath.Join(dir, "busy")
@@ -173,9 +169,7 @@ esac
 	t.Setenv("REMUDA_HERDR_CALLS", logPath)
 	t.Setenv("REMUDA_HERDR_BUSY_MARKER", busyMarker)
 
-	starter, ok := session.NewHerdrTUI(logging.DefaultLogger()).(session.AgentStarter)
-	require.True(t, ok)
-	require.NoError(t, starter.StartAgent(session.AgentStart{
+	require.NoError(t, session.NewHerdrTUI(logging.DefaultLogger()).Start(session.AgentStart{
 		SessionName: "yendo/remuda/rm-ypr2",
 		Workspace:   "/workspaces/rm-ypr2",
 		Agent:       "codex",
@@ -190,7 +184,7 @@ esac
 	require.Equal(t, 2, starts)
 }
 
-func TestHerdrTUIStartAgentSubmitsMultilinePromptAfterLaunch(t *testing.T) {
+func TestHerdrTUIStartSubmitsMultilinePromptAfterLaunch(t *testing.T) {
 	dir := t.TempDir()
 	promptPath := filepath.Join(dir, "prompt")
 	writeHerdrStub(t, dir, `
@@ -217,9 +211,7 @@ esac
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("REMUDA_HERDR_PROMPT", promptPath)
 
-	starter, ok := session.NewHerdrTUI(logging.DefaultLogger()).(session.AgentStarter)
-	require.True(t, ok)
-	require.NoError(t, starter.StartAgent(session.AgentStart{
+	require.NoError(t, session.NewHerdrTUI(logging.DefaultLogger()).Start(session.AgentStart{
 		SessionName: "yendo/remuda/rm-ypr2",
 		Workspace:   "/workspaces/rm-ypr2",
 		Agent:       "codex",
@@ -294,7 +286,7 @@ esac
 	}
 }
 
-func TestHerdrTUIStartAgentRejectsDuplicateSession(t *testing.T) {
+func TestHerdrTUIStartRejectsDuplicateSession(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "calls")
 	writeHerdrStub(t, dir, `
@@ -307,9 +299,7 @@ esac
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("REMUDA_HERDR_CALLS", logPath)
 
-	starter, ok := session.NewHerdrTUI(logging.DefaultLogger()).(session.AgentStarter)
-	require.True(t, ok)
-	err := starter.StartAgent(session.AgentStart{SessionName: "yendo/remuda/rm-ypr2", Agent: "codex"})
+	err := session.NewHerdrTUI(logging.DefaultLogger()).Start(session.AgentStart{SessionName: "yendo/remuda/rm-ypr2", Agent: "codex"})
 	require.Error(t, err)
 	var duplicate session.SessionAlreadyExistsError
 	require.True(t, errors.As(err, &duplicate))
@@ -317,7 +307,7 @@ esac
 	require.Equal(t, []string{"workspace list"}, readHerdrCalls(t, logPath))
 }
 
-func TestHerdrTUIStartAgentCleansUpPartialFailure(t *testing.T) {
+func TestHerdrTUIStartCleansUpPartialFailure(t *testing.T) {
 	tests := []struct {
 		name      string
 		failStage string
@@ -350,9 +340,7 @@ esac
 			t.Setenv("REMUDA_HERDR_CALLS", logPath)
 			t.Setenv("REMUDA_HERDR_FAIL_STAGE", tt.failStage)
 
-			starter, ok := session.NewHerdrTUI(logging.DefaultLogger()).(session.AgentStarter)
-			require.True(t, ok)
-			err := starter.StartAgent(session.AgentStart{
+			err := session.NewHerdrTUI(logging.DefaultLogger()).Start(session.AgentStart{
 				SessionName: "yendo/remuda/rm-ypr2",
 				Workspace:   "/workspaces/rm-ypr2",
 				Agent:       "codex",
@@ -403,9 +391,7 @@ esac
 }
 
 func TestHerdrTUIRejectsAgentCommand(t *testing.T) {
-	starter, ok := session.NewHerdrTUI(logging.DefaultLogger()).(session.AgentStarter)
-	require.True(t, ok)
-	err := starter.StartAgent(session.AgentStart{Agent: "custom"})
+	err := session.NewHerdrTUI(logging.DefaultLogger()).Start(session.AgentStart{Agent: "custom"})
 	require.Error(t, err)
 	var unsupported session.UnsupportedAgentCommandError
 	require.True(t, errors.As(err, &unsupported))
