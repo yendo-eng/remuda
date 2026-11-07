@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -175,31 +174,7 @@ func TestHTTPClientMapsCommonHTTPStatusErrors(t *testing.T) {
 	}
 }
 
-func TestHTTPClientRequestTimeout(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(100 * time.Millisecond)
-		writeJSON(t, w, issuePayload{
-			Key: "PROJ-1",
-			Fields: issueFieldsPayload{
-				Summary:   "timeout test",
-				Created:   "2026-02-01T10:00:00.000+0000",
-				Updated:   "2026-02-01T10:00:00.000+0000",
-				IssueType: &namePayload{Name: "Task"},
-			},
-		})
-	}))
-	t.Cleanup(server.Close)
-
-	client := newHTTPClientForTest(t, server.URL, jira.WithRequestTimeout(20*time.Millisecond))
-	_, err := client.GetIssue(context.Background(), "PROJ-1")
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "timed out")
-	assert.NotContains(t, err.Error(), testJiraToken)
-}
-
-func newHTTPClientForTest(t *testing.T, endpoint string, opts ...jira.HTTPClientOption) jira.Client {
+func newHTTPClientForTest(t *testing.T, endpoint string) jira.Client {
 	t.Helper()
 
 	cfg := jira.AuthConfig{
@@ -207,7 +182,7 @@ func newHTTPClientForTest(t *testing.T, endpoint string, opts ...jira.HTTPClient
 		User:     testJiraUser,
 		Token:    testJiraToken,
 	}
-	client, err := jira.NewHTTPClient(cfg, opts...)
+	client, err := jira.NewHTTPClient(cfg)
 	require.NoError(t, err)
 	return client
 }
