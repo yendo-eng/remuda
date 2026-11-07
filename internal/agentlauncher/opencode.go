@@ -164,9 +164,8 @@ func (o opencodeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, 
 func (o opencodeLauncher) ContainerEnv() map[string]string { return nil }
 
 func (o opencodeLauncher) ContainerMounts(logger zerolog.Logger, provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, err := provider.UserHomeDir()
-	if err != nil || strings.TrimSpace(home) == "" {
+	home, ok := hostHome(provider)
+	if !ok {
 		return nil
 	}
 
