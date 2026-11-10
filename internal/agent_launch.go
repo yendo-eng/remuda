@@ -134,7 +134,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 		Args:        cmd.Args,
 		Prompt:      cmd.Prompt,
 		Env:         launchEnvValues(envProvider),
-		ForwardEnv:  isolatedSessionEnvNames(cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames),
+		ForwardEnv:  isolatedSessionEnvNames(cmd.ContainerInheritEnv, overrideEnvNames),
 	}); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
