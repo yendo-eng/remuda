@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -203,84 +202,4 @@ func ContainerNameFromSession(session string) string {
 		name = name[:maxLen]
 	}
 	return name
-}
-
-func BuildOpenCodeStateMountOpts(logger zerolog.Logger, provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, err := provider.UserHomeDir()
-	if err != nil || strings.TrimSpace(home) == "" {
-		return nil
-	}
-
-	return buildOpenCodeStateMountOpts(logger, runtime.GOOS, home)
-}
-
-func buildOpenCodeStateMountOpts(logger zerolog.Logger, goos, home string) []string {
-	candidates := opencodeStateDirCandidates(goos, home)
-	for _, dir := range candidates {
-		if st, err := os.Stat(dir); err == nil && st.IsDir() {
-			return []string{"-v", dir + ":/root/.local/share/opencode:rw"}
-		}
-	}
-
-	// No existing state dir found; create the OS-preferred one so future sessions
-	// persist state.
-	if len(candidates) == 0 {
-		return nil
-	}
-	preferred := candidates[0]
-	if err := os.MkdirAll(preferred, 0o700); err != nil {
-		logger.Warn().Err(err).Str("path", preferred).Msg("failed ensuring OpenCode state directory exists; continuing without mount")
-		return nil
-	}
-	return []string{"-v", preferred + ":/root/.local/share/opencode:rw"}
-}
-
-func opencodeStateDirCandidates(goos, home string) []string {
-	macDir := filepath.Join(home, "Library", "Application Support", "opencode")
-	linuxDir := filepath.Join(home, ".local", "share", "opencode")
-
-	if strings.EqualFold(goos, "darwin") {
-		return []string{macDir, linuxDir}
-	}
-	return []string{linuxDir, macDir}
-}
-
-// BuildClaudeStateMountOpts returns docker mount options that expose host Claude
-// OAuth/session state in the container, when available.
-func BuildClaudeStateMountOpts(logger zerolog.Logger, provider env.Provider) []string {
-	provider = env.OrDefault(provider)
-	home, err := provider.UserHomeDir()
-	if err != nil || strings.TrimSpace(home) == "" {
-		return nil
-	}
-
-	return buildClaudeStateMountOpts(logger, home)
-}
-
-func buildClaudeStateMountOpts(logger zerolog.Logger, home string) []string {
-	claudeDir := filepath.Join(home, ".claude")
-	claudeJSON := filepath.Join(home, ".claude.json")
-
-	var opts []string
-	if st, err := os.Stat(claudeDir); err == nil {
-		if st.IsDir() {
-			opts = append(opts, "-v", claudeDir+":/root/.claude:rw")
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		logger.Warn().Err(err).Str("path", claudeDir).Msg("failed checking Claude state directory; skipping mount")
-	}
-
-	if st, err := os.Stat(claudeJSON); err == nil {
-		if !st.IsDir() {
-			opts = append(opts, "-v", claudeJSON+":/root/.claude.json:rw")
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		logger.Warn().Err(err).Str("path", claudeJSON).Msg("failed checking Claude state file; skipping mount")
-	}
-
-	if len(opts) == 0 {
-		return nil
-	}
-	return opts
 }

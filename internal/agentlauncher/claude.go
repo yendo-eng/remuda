@@ -1,6 +1,14 @@
 package agentlauncher
 
-import "strings"
+import (
+	"io/fs"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/rs/zerolog"
+	"github.com/yendo-eng/remuda/internal/env"
+)
 
 var claudeSupportedModels = []string{
 	"sonnet",
@@ -85,4 +93,28 @@ func (c claudeLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bo
 
 func (c claudeLauncher) SupportedModels() []string {
 	return append([]string(nil), claudeSupportedModels...)
+}
+
+func (c claudeLauncher) ContainerEnv() map[string]string {
+	containerEnv := map[string]string{"ANTHROPIC_API_KEY": ""}
+	if c.Yolo {
+		// --dangerously-skip-permissions is rejected for root, which
+		// containers run as, unless IS_SANDBOX is set.
+		containerEnv["IS_SANDBOX"] = "1"
+	}
+	return containerEnv
+}
+
+// ContainerMounts returns docker mount options that expose host Claude
+// OAuth/session state in the container, when available.
+func (c claudeLauncher) ContainerMounts(logger zerolog.Logger, provider env.Provider) []string {
+	home, ok := hostHome(provider)
+	if !ok {
+		return nil
+	}
+
+	return slices.Concat(
+		bindIfExists(logger, filepath.Join(home, ".claude"), "/root/.claude", "rw", fs.FileMode.IsDir),
+		bindIfExists(logger, filepath.Join(home, ".claude.json"), "/root/.claude.json", "rw", func(m fs.FileMode) bool { return !m.IsDir() }),
+	)
 }
