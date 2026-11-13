@@ -42,19 +42,10 @@ type SessionManifestContainer struct {
 	InheritEnv []string `json:"inherit_env,omitempty"`
 }
 
-// WriteSessionManifest writes the manifest to the workspace root and
-// registers it in the workspace's git exclude file so it never shows up in
-// `git status` or gets committed. It refuses to overwrite an existing
-// manifest: that file means the workspace was already provisioned by a prior
-// launch, and clobbering it would make a later resume reconstruct the wrong
-// command.
+// WriteSessionManifest writes the manifest if absent and registers it in the
+// workspace's git exclude file. Existing manifests are preserved.
 func WriteSessionManifest(g git.Git, workspace string, manifest SessionManifest) error {
 	path := filepath.Join(workspace, SessionManifestFileName)
-	if _, err := os.Stat(path); err == nil {
-		return pkgerrors.Errorf("%s already exists; refusing to overwrite an existing launch manifest", path)
-	} else if !os.IsNotExist(err) {
-		return pkgerrors.Wrapf(err, "failed to stat %s", path)
-	}
 
 	manifest.SchemaVersion = SessionManifestSchemaVersion
 	data, err := json.MarshalIndent(manifest, "", "  ")
@@ -63,8 +54,19 @@ func WriteSessionManifest(g git.Git, workspace string, manifest SessionManifest)
 	}
 	data = append(data, '\n')
 
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if os.IsExist(err) {
+			return excludeFromGit(g, workspace, SessionManifestFileName)
+		}
 		return pkgerrors.Wrapf(err, "failed to write %s", path)
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return pkgerrors.Wrapf(err, "failed to write %s", path)
+	}
+	if err := f.Close(); err != nil {
+		return pkgerrors.Wrapf(err, "failed to close %s", path)
 	}
 
 	return excludeFromGit(g, workspace, SessionManifestFileName)

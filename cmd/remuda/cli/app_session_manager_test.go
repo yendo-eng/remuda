@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -15,16 +16,21 @@ import (
 
 type noopGit struct{}
 
-func (noopGit) Clone(repoURL, dir string) error                          { return nil }
-func (noopGit) Pull(dir string) error                                    { return nil }
-func (noopGit) WorktreeAdd(dir, branch string, args ...string) error     { return nil }
-func (noopGit) WorktreeRemove(dir string, args ...string) error          { return nil }
-func (noopGit) WorktreeLock(dir, worktree, reason string) error          { return nil }
-func (noopGit) WorktreeUnlock(dir, worktree string) error                { return nil }
-func (noopGit) Checkout(dir string, args ...string) error                { return nil }
-func (noopGit) ShowRef(dir, ref string, opts ...string) error            { return nil }
-func (noopGit) RevParse(dir, rev string, opts ...string) (string, error) { return "", nil }
-func (noopGit) Branch(dir string, args ...string) error                  { return nil }
+func (noopGit) Clone(repoURL, dir string) error                      { return nil }
+func (noopGit) Pull(dir string) error                                { return nil }
+func (noopGit) WorktreeAdd(dir, branch string, args ...string) error { return nil }
+func (noopGit) WorktreeRemove(dir string, args ...string) error      { return nil }
+func (noopGit) WorktreeLock(dir, worktree, reason string) error      { return nil }
+func (noopGit) WorktreeUnlock(dir, worktree string) error            { return nil }
+func (noopGit) Checkout(dir string, args ...string) error            { return nil }
+func (noopGit) ShowRef(dir, ref string, opts ...string) error        { return nil }
+func (noopGit) RevParse(dir, rev string, opts ...string) (string, error) {
+	if rev == "info/exclude" {
+		return filepath.Join(dir, ".git", "info", "exclude"), nil
+	}
+	return "", nil
+}
+func (noopGit) Branch(dir string, args ...string) error { return nil }
 
 var _ git.Git = noopGit{}
 
