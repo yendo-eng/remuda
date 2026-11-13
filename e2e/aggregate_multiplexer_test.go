@@ -43,6 +43,24 @@ defaults:
 	require.Equal(t, "warning: experiment \"aggregate-multiplexer\" was mainlined and is now a no-op; remove it\n", list.Stderr)
 }
 
+func TestSessionManifestRetiredExperimentOnlyWarns(t *testing.T) {
+	t.Parallel()
+	h, backends := newAggregateMultiplexerHarness(t)
+	writeConfigFile(t, h, `
+version: 1
+defaults:
+  experiments:
+    - session-manifest
+`)
+	backends[session.MultiplexerTmux].AddSessionWithBuffer("org/repo/tmux-session", "")
+	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-tui-session", "")
+
+	list := h.RunOK("session", "list")
+
+	require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-tui-session\n", list.Stdout)
+	require.Equal(t, "warning: experiment \"session-manifest\" was mainlined and is now a no-op; remove it\n", list.Stderr)
+}
+
 func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
 	t.Parallel()
 	h, backends := newAggregateMultiplexerHarness(t)

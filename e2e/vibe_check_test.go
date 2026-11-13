@@ -74,6 +74,7 @@ func TestVibeCheck(t *testing.T) {
 		// The workspace should be created with the correct path and branch.
 		workspacePath := filepath.Join(baseRoot, expectedSessionName)
 		require.DirExists(t, workspacePath)
+		require.NoFileExists(t, filepath.Join(workspacePath, internal.SessionManifestFileName))
 		currentBranch := testutils.RunGit(t, workspacePath, "branch", "--show-current")
 		require.Equal(t, "branch-under-review\n", currentBranch)
 
