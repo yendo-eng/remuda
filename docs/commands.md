@@ -24,7 +24,7 @@ This document covers the main commands provided by Remuda.
 
 See [Session Management](session-management.md) for `list`, `attach`,
 `readbuf`, `send`, `path`, `kill`, `inactive`, `resume`, `reap`, and `shell`.
-That guide also covers resume defaults, the `session-manifest` experiment, and
+That guide also covers resume defaults, the workspace launch manifest, and
 session cleanup behavior.
 
 ## Clone

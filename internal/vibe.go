@@ -115,10 +115,7 @@ type VibeCommand struct {
 	// main prompt ("before" or "after"). Recorded in the session manifest.
 	UsePromptsPosition string
 
-	// When true (gated on the session-manifest experiment), write a
-	// .remuda.json launch manifest into the workspace so session resume can
-	// reconstruct these settings later.
-	SessionManifestEnabled bool
+	SkipSessionManifest bool
 }
 
 func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
@@ -176,7 +173,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		workspaceAbs = workspace
 	}
 
-	if cmd.SessionManifestEnabled {
+	if !cmd.SkipSessionManifest {
 		manifest := SessionManifest{
 			Agent:          agent.Name(),
 			Model:          cmd.Model,

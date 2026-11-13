@@ -16,7 +16,4 @@ List of current experiments:
   `--full-clone` workspaces with `clone`, `vibe`, or `vibe-check`. Supported
   filesystems use shared blocks; unsupported filesystems transparently fall
   back to a regular copy.
-- `session-manifest` – have `vibe` write a local, untracked `.remuda.json`
-  launch manifest into the workspace. When enabled, `session resume` reads the
-  manifest to determine what settings to use when launching the agent.
 

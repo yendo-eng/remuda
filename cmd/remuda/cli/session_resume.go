@@ -79,10 +79,8 @@ func (a *app) sessionResumeCmd() *cobra.Command {
 	return cmd
 }
 
-// defaultFromManifest fills in flags the user didn't pass explicitly from a
-// .remuda.json launch manifest, so resume faithfully reconstructs the
-// original vibe launch instead of falling back to agent/config defaults.
-// Explicit CLI flags always win.
+// defaultFromManifest fills in flags the user didn't type from a .remuda.json
+// launch manifest. It is skipped when the user supplies --profile.
 func (c *SessionResumeCmd) defaultFromManifest(ctx Context, manifest internal.SessionManifest) {
 	if !ctx.FlagExplicit("model") {
 		c.Model = manifest.Model
@@ -191,16 +189,12 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 		}
 	}
 
-	var manifest internal.SessionManifest
-	manifestLoaded := false
-	if ctx.ExperimentEnabled(expregistry.SessionManifest) {
-		var err error
-		manifest, manifestLoaded, err = internal.ReadSessionManifest(selectedAbs)
-		if err != nil {
-			return pkgerrors.Wrap(err, "session manifest")
-		}
+	manifest, manifestLoaded, err := internal.ReadSessionManifest(selectedAbs)
+	if err != nil {
+		return pkgerrors.Wrap(err, "session manifest")
 	}
-	if manifestLoaded {
+	useManifestDefaults := manifestLoaded && !ctx.FlagExplicit("profile")
+	if useManifestDefaults {
 		c.defaultFromManifest(ctx, manifest)
 	}
 
@@ -221,7 +215,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 
 	agentName := strings.TrimSpace(c.Agent)
 	if !ctx.FlagExplicit("agent") {
-		if manifestLoaded {
+		if useManifestDefaults {
 			agentName = manifest.Agent
 		} else {
 			agentName = resolveSessionResumeAgent(ctx.EffectiveConfig(), ctx.env())
