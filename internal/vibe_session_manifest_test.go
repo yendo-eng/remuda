@@ -10,7 +10,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
-func TestVibe_WritesSessionManifestWhenEnabled(t *testing.T) {
+func TestVibe_WritesSessionManifest(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
 	workspace := t.TempDir()
@@ -23,13 +23,12 @@ func TestVibe_WritesSessionManifestWhenEnabled(t *testing.T) {
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{
-		Agent:                  "bash",
-		Prompt:                 "ignored",
-		Detached:               true,
-		ExistingWorkspace:      workspace,
-		Yolo:                   true,
-		Model:                  "some-model",
-		SessionManifestEnabled: true,
+		Agent:             "bash",
+		Prompt:            "ignored",
+		Detached:          true,
+		ExistingWorkspace: workspace,
+		Yolo:              true,
+		Model:             "some-model",
 	})
 	require.NoError(t, err)
 
@@ -40,31 +39,7 @@ func TestVibe_WritesSessionManifestWhenEnabled(t *testing.T) {
 	require.True(t, manifest.Yolo)
 }
 
-func TestVibe_SkipsSessionManifestWhenDisabled(t *testing.T) {
-	t.Setenv("GH_TOKEN", "test-token")
-
-	workspace := t.TempDir()
-	k := Remuda{
-		Multiplexer: &testutils.MockMultiplexer{MultiplexerName: "tmux"},
-		Docker:      &docker.Mock{Running: true},
-		IO:          DefaultIO(),
-		Git:         &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")},
-	}
-
-	err := k.Vibe(context.Background(), VibeCommand{
-		Agent:             "bash",
-		Prompt:            "ignored",
-		Detached:          true,
-		ExistingWorkspace: workspace,
-	})
-	require.NoError(t, err)
-
-	_, ok, err := ReadSessionManifest(workspace)
-	require.NoError(t, err)
-	require.False(t, ok, "manifest should not be written when the experiment is disabled")
-}
-
-func TestVibe_RefusesToOverwriteExistingManifest(t *testing.T) {
+func TestVibe_DoesNotOverwriteExistingManifest(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token")
 
 	workspace := t.TempDir()
@@ -79,13 +54,12 @@ func TestVibe_RefusesToOverwriteExistingManifest(t *testing.T) {
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{
-		Agent:                  "bash",
-		Prompt:                 "ignored",
-		Detached:               true,
-		ExistingWorkspace:      workspace,
-		SessionManifestEnabled: true,
+		Agent:             "bash",
+		Prompt:            "ignored",
+		Detached:          true,
+		ExistingWorkspace: workspace,
 	})
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	manifest, ok, readErr := ReadSessionManifest(workspace)
 	require.NoError(t, readErr)

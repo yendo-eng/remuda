@@ -25,22 +25,39 @@ func TestAggregateMultiplexerListAndCompletion(t *testing.T) {
 	require.Contains(t, completion.Stdout, "org/repo/herdr-tui-session\n")
 }
 
-func TestAggregateMultiplexerRetiredExperimentOnlyWarns(t *testing.T) {
+func TestRetiredExperimentsOnlyWarn(t *testing.T) {
 	t.Parallel()
-	h, backends := newAggregateMultiplexerHarness(t)
-	writeConfigFile(t, h, `
+	for _, tc := range []struct {
+		name    string
+		warning string
+	}{
+		{
+			name:    "aggregate-multiplexer",
+			warning: "warning: experiment \"aggregate-multiplexer\" was mainlined and is now a no-op; remove it\n",
+		},
+		{
+			name:    "session-manifest",
+			warning: "warning: experiment \"session-manifest\" was mainlined and is now a no-op; remove it\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			h, backends := newAggregateMultiplexerHarness(t)
+			writeConfigFile(t, h, `
 version: 1
 defaults:
   experiments:
-    - aggregate-multiplexer
+    - `+tc.name+`
 `)
-	backends[session.MultiplexerTmux].AddSessionWithBuffer("org/repo/tmux-session", "")
-	backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-tui-session", "")
+			backends[session.MultiplexerTmux].AddSessionWithBuffer("org/repo/tmux-session", "")
+			backends[session.MultiplexerHerdrTUI].AddSessionWithBuffer("org/repo/herdr-tui-session", "")
 
-	list := h.RunOK("session", "list")
+			list := h.RunOK("session", "list")
 
-	require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-tui-session\n", list.Stdout)
-	require.Equal(t, "warning: experiment \"aggregate-multiplexer\" was mainlined and is now a no-op; remove it\n", list.Stderr)
+			require.Equal(t, "org/repo/tmux-session\norg/repo/herdr-tui-session\n", list.Stdout)
+			require.Equal(t, tc.warning, list.Stderr)
+		})
+	}
 }
 
 func TestAggregateMultiplexerListJSONIncludesBackend(t *testing.T) {
