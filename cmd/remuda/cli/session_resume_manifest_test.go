@@ -90,7 +90,7 @@ profiles:
     agent: codex
     model: gpt-5.6-luna
 `,
-			args: []string{"--experiments", "session-manifest", "--profile", "resume"},
+			args: []string{"--profile", "resume"},
 			wantContains: []string{
 				"codex resume --last",
 				"--model 'gpt-5.6-luna'",
