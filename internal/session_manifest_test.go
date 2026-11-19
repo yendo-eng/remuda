@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type fakeGit struct {
@@ -23,6 +25,9 @@ func (g *fakeGit) ShowRef(dir, ref string, opts ...string) error        { return
 func (g *fakeGit) Branch(dir string, args ...string) error              { return nil }
 func (g *fakeGit) RevParse(dir, rev string, opts ...string) (string, error) {
 	g.dirSeen = dir
+	if rev == "info/exclude" && g.excludePath == "" {
+		return filepath.Join(dir, ".git", "info", "exclude"), nil
+	}
 	return g.excludePath, nil
 }
 
@@ -72,27 +77,19 @@ func TestWriteSessionManifest(t *testing.T) {
 	}
 }
 
-func TestWriteSessionManifestRefusesExisting(t *testing.T) {
+func TestWriteSessionManifestPreservesExisting(t *testing.T) {
 	t.Parallel()
 
 	workspace := t.TempDir()
 	g := &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
 
-	if err := WriteSessionManifest(g, workspace, SessionManifest{Agent: "codex"}); err != nil {
-		t.Fatalf("first write: %v", err)
-	}
-	err := WriteSessionManifest(g, workspace, SessionManifest{Agent: "claude"})
-	if err == nil {
-		t.Fatal("expected an error writing over an existing manifest")
-	}
+	require.NoError(t, WriteSessionManifest(g, workspace, SessionManifest{Agent: "codex"}))
+	require.NoError(t, WriteSessionManifest(g, workspace, SessionManifest{Agent: "claude"}))
 
-	got, _, readErr := ReadSessionManifest(workspace)
-	if readErr != nil {
-		t.Fatalf("ReadSessionManifest: %v", readErr)
-	}
-	if got.Agent != "codex" {
-		t.Errorf("existing manifest was overwritten: %+v", got)
-	}
+	got, ok, err := ReadSessionManifest(workspace)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "codex", got.Agent)
 }
 
 func TestExcludeFromGitIdempotent(t *testing.T) {

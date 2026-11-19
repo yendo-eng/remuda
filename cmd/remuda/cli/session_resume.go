@@ -7,6 +7,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
+	"github.com/yendo-eng/remuda/internal/configfile"
 	expregistry "github.com/yendo-eng/remuda/internal/experiments"
 	"github.com/yendo-eng/remuda/internal/logging"
 )
@@ -79,39 +80,37 @@ func (a *app) sessionResumeCmd() *cobra.Command {
 	return cmd
 }
 
-// defaultFromManifest fills in flags the user didn't pass explicitly from a
-// .remuda.json launch manifest, so resume faithfully reconstructs the
-// original vibe launch instead of falling back to agent/config defaults.
-// Explicit CLI flags always win.
-func (c *SessionResumeCmd) defaultFromManifest(ctx Context, manifest internal.SessionManifest) {
-	if !ctx.FlagExplicit("model") {
+// defaultFromManifest fills settings not defined by typed flags or an explicit
+// profile from a .remuda.json launch manifest.
+func (c *SessionResumeCmd) defaultFromManifest(ctx Context, manifest internal.SessionManifest, profile configfile.DefaultsV1) {
+	if !ctx.FlagExplicit("model") && profile.Model == nil {
 		c.Model = manifest.Model
 	}
-	if !ctx.FlagExplicit("reasoning-level") {
+	if !ctx.FlagExplicit("reasoning-level") && profile.ReasoningLevel == nil {
 		c.ReasoningLevel = manifest.ReasoningLevel
 	}
-	if !ctx.FlagExplicit("agent-cmd") {
+	if !ctx.FlagExplicit("agent-cmd") && profile.AgentCmd == nil {
 		c.AgentCmd = manifest.AgentCmd
 	}
-	if !ctx.FlagExplicit("yolo") {
+	if !ctx.FlagExplicit("yolo") && profile.Yolo == nil {
 		c.Yolo = manifest.Yolo
 	}
-	if !ctx.FlagExplicit("container") {
+	if !ctx.FlagExplicit("container") && (profile.Container == nil || profile.Container.Enabled == nil) {
 		c.Container = manifest.Container.Enabled
 	}
-	if !ctx.FlagExplicit("container-name") {
+	if !ctx.FlagExplicit("container-name") && (profile.Container == nil || profile.Container.Image == nil) {
 		c.ContainerName = manifest.Container.Image
 	}
-	if !ctx.FlagExplicit("container-opt") {
+	if !ctx.FlagExplicit("container-opt") && (profile.Container == nil || profile.Container.Opts == nil) {
 		c.ContainerOpt = manifest.Container.Opts
 	}
-	if !ctx.FlagExplicit("container-inherit-env") {
+	if !ctx.FlagExplicit("container-inherit-env") && (profile.Container == nil || profile.Container.InheritEnv == nil) {
 		c.ContainerInheritEnv = manifest.Container.InheritEnv
 	}
-	if !ctx.FlagExplicit("use") {
+	if !ctx.FlagExplicit("use") && profile.UsePrompts == nil {
 		c.Use = manifest.UsePrompts
 	}
-	if !ctx.FlagExplicit("use-position") {
+	if !ctx.FlagExplicit("use-position") && profile.UsePromptsPosition == nil {
 		c.UsePromptsPosition = manifest.UsePosition
 	}
 }
@@ -191,17 +190,16 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 		}
 	}
 
-	var manifest internal.SessionManifest
-	manifestLoaded := false
-	if ctx.ExperimentEnabled(expregistry.SessionManifest) {
-		var err error
-		manifest, manifestLoaded, err = internal.ReadSessionManifest(selectedAbs)
-		if err != nil {
-			return pkgerrors.Wrap(err, "session manifest")
-		}
+	manifest, manifestLoaded, err := internal.ReadSessionManifest(selectedAbs)
+	if err != nil {
+		return pkgerrors.Wrap(err, "session manifest")
+	}
+	profileSettings := configfile.DefaultsV1{}
+	if ctx.FlagExplicit("profile") && ctx.ConfigFile != nil {
+		profileSettings = ctx.ConfigFile.Profiles[strings.TrimSpace(c.Profile)]
 	}
 	if manifestLoaded {
-		c.defaultFromManifest(ctx, manifest)
+		c.defaultFromManifest(ctx, manifest, profileSettings)
 	}
 
 	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
@@ -221,7 +219,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 
 	agentName := strings.TrimSpace(c.Agent)
 	if !ctx.FlagExplicit("agent") {
-		if manifestLoaded {
+		if manifestLoaded && profileSettings.Agent == nil {
 			agentName = manifest.Agent
 		} else {
 			agentName = resolveSessionResumeAgent(ctx.EffectiveConfig(), ctx.env())

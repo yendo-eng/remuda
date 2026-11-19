@@ -210,16 +210,17 @@ func (c VibeCheckCmd) run(ctx Context) error {
 	agentArgs := effectiveAgentArgsFromKoanf(ctx.EffectiveConfig(), c.Agent, c.AgentArg)
 
 	cmd := internal.VibeCommand{
-		Name:           c.Name,
-		Agent:          c.Agent,
-		Model:          c.Model,
-		ReasoningLevel: c.ReasoningLevel,
-		AgentCmd:       c.AgentCmd,
-		AgentArgs:      agentArgs,
-		Detached:       c.DetachedMode(),
-		Attach:         c.Attach,
-		UsePromptIDs:   usePromptIDs,
-		Prompt:         buildVibeCheckPrompt(headBranch, baseBranch, prMeta),
+		Name:                c.Name,
+		Agent:               c.Agent,
+		SkipSessionManifest: true,
+		Model:               c.Model,
+		ReasoningLevel:      c.ReasoningLevel,
+		AgentCmd:            c.AgentCmd,
+		AgentArgs:           agentArgs,
+		Detached:            c.DetachedMode(),
+		Attach:              c.Attach,
+		UsePromptIDs:        usePromptIDs,
+		Prompt:              buildVibeCheckPrompt(headBranch, baseBranch, prMeta),
 		Clone: internal.CloneCommand{
 			Name:           c.Name,
 			RepoURL:        c.RepoURL,
