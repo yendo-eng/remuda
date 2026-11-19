@@ -7,54 +7,29 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/git"
 )
 
 // SessionManifestSchemaVersion identifies the shape of SessionManifest. Bump
 // it whenever a field is added, removed, or reinterpreted.
-const SessionManifestSchemaVersion = 1
+const SessionManifestSchemaVersion = 2
 
 // SessionManifestFileName is the manifest written to the workspace root by
 // vibe and read back by session resume.
 const SessionManifestFileName = ".remuda.json"
 
-// SessionManifest holds just enough of a vibe launch's settings to
-// reconstruct the command on session resume. It is written once per
-// workspace and never contains secrets.
+// SessionManifest stores a vibe launch's config defaults for session resume.
+// It is written once per workspace and never contains secrets.
 type SessionManifest struct {
-	SchemaVersion  int                      `json:"schema_version"`
-	Agent          string                   `json:"agent,omitempty"`
-	Model          string                   `json:"model,omitempty"`
-	ReasoningLevel string                   `json:"reasoning_level,omitempty"`
-	Yolo           bool                     `json:"yolo,omitempty"`
-	AgentCmd       string                   `json:"agent_cmd,omitempty"`
-	AgentArgs      []string                 `json:"agent_args,omitempty"`
-	UsePrompts     []string                 `json:"use_prompts,omitempty"`
-	UsePosition    string                   `json:"use_position,omitempty"`
-	Container      SessionManifestContainer `json:"container"`
+	SchemaVersion int                   `json:"schema_version"`
+	Defaults      configfile.DefaultsV1 `json:"defaults"`
 }
 
-// SessionManifestContainer mirrors the container settings of a launch.
-type SessionManifestContainer struct {
-	Enabled    bool     `json:"enabled,omitempty"`
-	Image      string   `json:"image,omitempty"`
-	Opts       []string `json:"opts,omitempty"`
-	InheritEnv []string `json:"inherit_env,omitempty"`
-}
-
-// WriteSessionManifest writes the manifest to the workspace root and
-// registers it in the workspace's git exclude file so it never shows up in
-// `git status` or gets committed. It refuses to overwrite an existing
-// manifest: that file means the workspace was already provisioned by a prior
-// launch, and clobbering it would make a later resume reconstruct the wrong
-// command.
+// WriteSessionManifest writes the manifest if absent and registers it in the
+// workspace's git exclude file. Existing manifests are preserved.
 func WriteSessionManifest(g git.Git, workspace string, manifest SessionManifest) error {
 	path := filepath.Join(workspace, SessionManifestFileName)
-	if _, err := os.Stat(path); err == nil {
-		return pkgerrors.Errorf("%s already exists; refusing to overwrite an existing launch manifest", path)
-	} else if !os.IsNotExist(err) {
-		return pkgerrors.Wrapf(err, "failed to stat %s", path)
-	}
 
 	manifest.SchemaVersion = SessionManifestSchemaVersion
 	data, err := json.MarshalIndent(manifest, "", "  ")
@@ -63,8 +38,19 @@ func WriteSessionManifest(g git.Git, workspace string, manifest SessionManifest)
 	}
 	data = append(data, '\n')
 
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if os.IsExist(err) {
+			return excludeFromGit(g, workspace, SessionManifestFileName)
+		}
 		return pkgerrors.Wrapf(err, "failed to write %s", path)
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return pkgerrors.Wrapf(err, "failed to write %s", path)
+	}
+	if err := f.Close(); err != nil {
+		return pkgerrors.Wrapf(err, "failed to close %s", path)
 	}
 
 	return excludeFromGit(g, workspace, SessionManifestFileName)
@@ -84,6 +70,14 @@ func ReadSessionManifest(workspace string) (manifest SessionManifest, ok bool, e
 
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return SessionManifest{}, false, pkgerrors.Wrapf(err, "failed to parse %s", path)
+	}
+	if manifest.SchemaVersion != SessionManifestSchemaVersion {
+		return SessionManifest{}, false, pkgerrors.Errorf(
+			"%s has unsupported schema version %d; expected %d",
+			path,
+			manifest.SchemaVersion,
+			SessionManifestSchemaVersion,
+		)
 	}
 	return manifest, true, nil
 }

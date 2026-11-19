@@ -110,9 +110,20 @@ from config. `--active` and `--inactive` are mutually exclusive.
 - `--profile`, `--yolo`, `--[no-]detached`, `--attach`, and container flags
 - an optional trailing prompt argument
 
-Resume is intentionally stateless. Remuda does not persist or detect the agent
-that originally created a workspace session history, so you must resume with the
-correct agent yourself.
+The first `vibe` launch in a workspace writes its settings to a local
+`.remuda.json` manifest. It records the agent, model, reasoning level, yolo
+setting, custom agent command and arguments, saved prompt selection and
+position, and container settings. Inherited container environment variable
+names are recorded, but their values are not. The manifest is excluded through
+the workspace's local Git exclude file, so it does not appear in `git status`
+or get committed.
+
+Resume settings resolve in this order: typed flags, environment variables,
+the selected profile, the manifest, per-repo defaults, then base config.
+Profiles selected through `--profile`, `REMUDA_PROFILE`, or
+`per_repo.<slug>.profile` override manifest values field by field.
+
+Workspaces without a manifest use the defaults below.
 
 Default behavior:
 

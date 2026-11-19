@@ -7,6 +7,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/yendo-eng/remuda/internal"
+	"github.com/yendo-eng/remuda/internal/configfile"
 	expregistry "github.com/yendo-eng/remuda/internal/experiments"
 	"github.com/yendo-eng/remuda/internal/logging"
 )
@@ -79,43 +80,6 @@ func (a *app) sessionResumeCmd() *cobra.Command {
 	return cmd
 }
 
-// defaultFromManifest fills in flags the user didn't pass explicitly from a
-// .remuda.json launch manifest, so resume faithfully reconstructs the
-// original vibe launch instead of falling back to agent/config defaults.
-// Explicit CLI flags always win.
-func (c *SessionResumeCmd) defaultFromManifest(ctx Context, manifest internal.SessionManifest) {
-	if !ctx.FlagExplicit("model") {
-		c.Model = manifest.Model
-	}
-	if !ctx.FlagExplicit("reasoning-level") {
-		c.ReasoningLevel = manifest.ReasoningLevel
-	}
-	if !ctx.FlagExplicit("agent-cmd") {
-		c.AgentCmd = manifest.AgentCmd
-	}
-	if !ctx.FlagExplicit("yolo") {
-		c.Yolo = manifest.Yolo
-	}
-	if !ctx.FlagExplicit("container") {
-		c.Container = manifest.Container.Enabled
-	}
-	if !ctx.FlagExplicit("container-name") {
-		c.ContainerName = manifest.Container.Image
-	}
-	if !ctx.FlagExplicit("container-opt") {
-		c.ContainerOpt = manifest.Container.Opts
-	}
-	if !ctx.FlagExplicit("container-inherit-env") {
-		c.ContainerInheritEnv = manifest.Container.InheritEnv
-	}
-	if !ctx.FlagExplicit("use") {
-		c.Use = manifest.UsePrompts
-	}
-	if !ctx.FlagExplicit("use-position") {
-		c.UsePromptsPosition = manifest.UsePosition
-	}
-}
-
 func (c *SessionResumeCmd) validate() error {
 	if err := c.VibeContainerOptions.Validate(); err != nil {
 		return err
@@ -183,25 +147,18 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 	if err := internal.ValidateWorkspacePath(ctx.Remuda.Config.ReposBaseDir, selectedAbs); err != nil {
 		return pkgerrors.Wrapf(err, "invalid workspace %q", selectedAbs)
 	}
-	if c.Pick {
-		// The picked workspace determines the per_repo overlays.
-		slug := repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, selectedAbs)
-		if err := ctx.ApplyRepoOverlays(slug); err != nil {
-			return err
-		}
+	manifest, manifestLoaded, err := internal.ReadSessionManifest(selectedAbs)
+	if err != nil {
+		return pkgerrors.Wrap(err, "session manifest")
 	}
-
-	var manifest internal.SessionManifest
-	manifestLoaded := false
-	if ctx.ExperimentEnabled(expregistry.SessionManifest) {
-		var err error
-		manifest, manifestLoaded, err = internal.ReadSessionManifest(selectedAbs)
-		if err != nil {
-			return pkgerrors.Wrap(err, "session manifest")
-		}
-	}
+	var manifestLayer *configfile.DefaultsV1
 	if manifestLoaded {
-		c.defaultFromManifest(ctx, manifest)
+		manifestLayer = &manifest.Defaults
+	}
+	// The selected workspace determines its repo, profile, and manifest layers.
+	slug := repoSlugFromWorkspacePath(ctx, ctx.ConfigFile, selectedAbs)
+	if err := ctx.applyRepoOverlaysWithManifest(slug, manifestLayer); err != nil {
+		return err
 	}
 
 	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
@@ -221,11 +178,7 @@ func (c *SessionResumeCmd) Run(ctx Context) error {
 
 	agentName := strings.TrimSpace(c.Agent)
 	if !ctx.FlagExplicit("agent") {
-		if manifestLoaded {
-			agentName = manifest.Agent
-		} else {
-			agentName = resolveSessionResumeAgent(ctx.EffectiveConfig(), ctx.env())
-		}
+		agentName = resolveSessionResumeAgent(ctx.EffectiveConfig(), ctx.env())
 	}
 
 	prompt := c.Prompt

@@ -86,7 +86,7 @@ defaults:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			_, rs, vals := newResolutionFixture(t, tc.args...)
-			eff, err := newEffectiveConfig(cfg, "", profileRef{})
+			eff, err := newEffectiveConfig(cfg, "", profileRef{}, nil)
 			require.NoError(t, err)
 			require.NoError(t, rs.apply(envOrDefault(tc.env), eff))
 			require.NoError(t, rs.validateEnums())
@@ -119,7 +119,7 @@ defaults:
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			_, rs, vals := newResolutionFixture(t, test.args...)
-			eff, err := newEffectiveConfig(cfg, "", profileRef{})
+			eff, err := newEffectiveConfig(cfg, "", profileRef{}, nil)
 			require.NoError(t, err)
 			require.NoError(t, rs.apply(test.env, eff))
 			require.NoError(t, rs.validateEnums())
@@ -140,7 +140,7 @@ defaults:
 `)
 
 	_, rs, vals := newResolutionFixture(t)
-	eff, err := newEffectiveConfig(cfg, "", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "", profileRef{}, nil)
 	require.NoError(t, err)
 	require.NoError(t, rs.apply(EnvMap{}, eff))
 	require.Equal(t, []string{"small-commits", "make-pr"}, vals.Use)
@@ -166,7 +166,7 @@ per_repo:
 `)
 
 	_, rs, vals := newResolutionFixture(t)
-	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
 	require.NoError(t, rs.apply(EnvMap{}, eff))
 	require.Equal(t, []string{"-v /base:/base", "-v /repo:/repo", "--cpus=4"}, vals.ContainerOpt)
@@ -188,7 +188,7 @@ defaults:
 `)
 
 	_, rs, vals := newResolutionFixture(t, "--use", "custom")
-	eff, err := newEffectiveConfig(cfg, "", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "", profileRef{}, nil)
 	require.NoError(t, err)
 	require.NoError(t, rs.apply(EnvMap{}, eff))
 	require.Equal(t, []string{"small-commits", "custom"}, vals.Use)
@@ -203,7 +203,7 @@ defaults:
 `)
 
 	_, rs, vals := newResolutionFixture(t, "--use", "custom")
-	eff, err := newEffectiveConfig(cfg, "", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "", profileRef{}, nil)
 	require.NoError(t, err)
 	require.NoError(t, rs.apply(EnvMap{"REMUDA_USE_PROMPTS": "from-env"}, eff))
 	require.Equal(t, []string{"custom"}, vals.Use)
@@ -225,12 +225,12 @@ per_repo:
 
 	_, rs, vals := newResolutionFixture(t, "--use", "custom")
 
-	eff, err := newEffectiveConfig(base, "", profileRef{})
+	eff, err := newEffectiveConfig(base, "", profileRef{}, nil)
 	require.NoError(t, err)
 	require.NoError(t, rs.apply(EnvMap{}, eff))
 	require.Equal(t, []string{"base-prompt", "custom"}, vals.Use)
 
-	eff, err = newEffectiveConfig(base, "acme/utils", profileRef{})
+	eff, err = newEffectiveConfig(base, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
 	require.NoError(t, rs.apply(EnvMap{}, eff))
 	require.Equal(t, []string{"repo-prompt", "custom"}, vals.Use)

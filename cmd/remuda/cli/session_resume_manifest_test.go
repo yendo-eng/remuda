@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/internal"
+	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/testutils"
@@ -18,13 +19,60 @@ import (
 
 func writeTestManifest(t *testing.T, workspace string, manifest internal.SessionManifest) {
 	t.Helper()
+	manifest.SchemaVersion = internal.SessionManifestSchemaVersion
 	data, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(workspace, internal.SessionManifestFileName), data, 0o644))
 }
 
 func sessionManifest(agent, model string, yolo bool) *internal.SessionManifest {
-	return &internal.SessionManifest{Agent: agent, Model: model, Yolo: yolo}
+	reasoningLevel := ""
+	agentCmd := ""
+	usePrompts := []string{}
+	usePosition := ""
+	containerEnabled := false
+	containerImage := ""
+	containerOpts := []string{}
+	containerInheritEnv := []string{}
+	return &internal.SessionManifest{Defaults: configfile.DefaultsV1{
+		Agent:              &agent,
+		Model:              &model,
+		ReasoningLevel:     &reasoningLevel,
+		AgentCmd:           &agentCmd,
+		AgentArgs:          map[string][]string{},
+		UsePrompts:         &usePrompts,
+		UsePromptsPosition: &usePosition,
+		Yolo:               &yolo,
+		Container: &configfile.ContainerV1{
+			Enabled:    &containerEnabled,
+			Image:      &containerImage,
+			Opts:       &containerOpts,
+			InheritEnv: &containerInheritEnv,
+		},
+	}}
+}
+
+func sessionManifestWithAllSettings() *internal.SessionManifest {
+	manifest := sessionManifest("claude", "claude-opus-4-8", true)
+	reasoningLevel := "high"
+	agentCmd := ""
+	usePrompts := []string{"make-pr"}
+	usePosition := "after"
+	containerEnabled := true
+	containerImage := "manifest-image"
+	containerOpts := []string{"--cpus=2"}
+	containerInheritEnv := []string{"MANIFEST_TOKEN"}
+	manifest.Defaults.ReasoningLevel = &reasoningLevel
+	manifest.Defaults.AgentCmd = &agentCmd
+	manifest.Defaults.UsePrompts = &usePrompts
+	manifest.Defaults.UsePromptsPosition = &usePosition
+	manifest.Defaults.Container = &configfile.ContainerV1{
+		Enabled:    &containerEnabled,
+		Image:      &containerImage,
+		Opts:       &containerOpts,
+		InheritEnv: &containerInheritEnv,
+	}
+	return manifest
 }
 
 func runSessionResumeWithConfig(t *testing.T, workspace, configYAML string, env EnvMap, args ...string) session.AgentStart {
@@ -169,22 +217,8 @@ defaults:
 			wantNotContain: []string{"--model 'gpt-5.6-luna'"},
 		},
 		{
-			name: "manifest_defaults_reach_resume_command",
-			manifest: &internal.SessionManifest{
-				Agent:          "claude",
-				Model:          "claude-opus-4-8",
-				ReasoningLevel: "high",
-				AgentCmd:       "",
-				Yolo:           true,
-				UsePrompts:     []string{"make-pr"},
-				UsePosition:    "after",
-				Container: internal.SessionManifestContainer{
-					Enabled:    true,
-					Image:      "manifest-image",
-					Opts:       []string{"--cpus=2"},
-					InheritEnv: []string{"MANIFEST_TOKEN"},
-				},
-			},
+			name:     "manifest_defaults_reach_resume_command",
+			manifest: sessionManifestWithAllSettings(),
 			configYAML: `
 version: 1
 defaults:

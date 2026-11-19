@@ -136,7 +136,7 @@ func (c SessionKillCmd) configuredMergeFlagsForSession(ctx Context, sessionName 
 		}
 	}
 
-	eff, err := newEffectiveConfig(ctx.ConfigFile, slug, profileRef{})
+	eff, err := newEffectiveConfig(ctx.ConfigFile, slug, profileRef{}, nil)
 	if err == nil {
 		if flags, ok := effectiveStrings(eff, "defaults.merge.gh_flags"); ok && len(flags) > 0 {
 			return flags

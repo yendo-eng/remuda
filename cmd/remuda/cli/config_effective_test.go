@@ -19,7 +19,7 @@ per_repo:
       model: repo-model
 `)
 
-	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
 	require.Equal(t, "codex", eff.String("defaults.agent"))
 	require.Equal(t, "repo-model", eff.String("defaults.model"))
@@ -39,7 +39,7 @@ per_repo:
         opts: ["--repo"]
 `)
 
-	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
 	require.Equal(t, []string{"--base", "--repo"}, eff.Strings("defaults.container.opts"))
 }
@@ -55,7 +55,7 @@ per_repo:
         opts: ["--repo"]
 `)
 
-	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
 	require.Equal(t, []string{"--repo"}, eff.Strings("defaults.container.opts"))
 }
@@ -77,7 +77,7 @@ per_repo:
       no_use: [make-pr]
 `)
 
-	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{Name: "fast"})
+	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{Name: "fast"}, nil)
 	require.NoError(t, err)
 	require.Equal(t, "claude", eff.String("defaults.agent"))
 	require.Empty(t, eff.Strings("defaults.no_use"))
@@ -98,7 +98,7 @@ per_repo:
         codex: ["--repo"]
 `)
 
-	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
 	require.Equal(t, []string{"--repo"}, effectiveAgentArgsFromKoanf(eff, "codex", nil))
 	require.Equal(t, []string{"--keep"}, effectiveAgentArgsFromKoanf(eff, "claude", nil))
@@ -109,16 +109,16 @@ func TestNewEffectiveConfig_UnknownProfileErrors(t *testing.T) {
 	t.Parallel()
 	cfg := parseTestConfig(t, "version: 1\n")
 
-	_, err := newEffectiveConfig(cfg, "", profileRef{Name: "missing"})
+	_, err := newEffectiveConfig(cfg, "", profileRef{Name: "missing"}, nil)
 	require.ErrorContains(t, err, `unknown profile "missing"`)
 
-	_, err = newEffectiveConfig(cfg, "", profileRef{Name: "missing", PerRepoSlug: "acme/utils"})
+	_, err = newEffectiveConfig(cfg, "", profileRef{Name: "missing", PerRepoSlug: "acme/utils"}, nil)
 	require.ErrorContains(t, err, `per_repo["acme/utils"].profile references unknown profile "missing"`)
 }
 
 func TestNewEffectiveConfig_ProfileWithoutConfigErrors(t *testing.T) {
 	t.Parallel()
-	_, err := newEffectiveConfig(nil, "", profileRef{Name: "fast"})
+	_, err := newEffectiveConfig(nil, "", profileRef{Name: "fast"}, nil)
 	require.ErrorContains(t, err, `profile "fast" requested but no config file found`)
 }
 

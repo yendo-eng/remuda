@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/testutils"
 )
@@ -43,23 +44,33 @@ func TestVibe_WritesSessionManifest(t *testing.T) {
 	manifest, ok, err := ReadSessionManifest(workspace)
 	require.NoError(t, err)
 	require.True(t, ok, "expected a .remuda.json manifest to be written")
-	require.Equal(t, SessionManifest{
-		SchemaVersion:  SessionManifestSchemaVersion,
-		Agent:          "claude",
-		Model:          "claude-opus-4-8",
-		ReasoningLevel: "high",
-		Yolo:           true,
-		AgentCmd:       "",
-		AgentArgs:      []string{"--extra-arg"},
-		UsePrompts:     []string{"make-pr"},
-		UsePosition:    "after",
-		Container: SessionManifestContainer{
-			Enabled:    true,
-			Image:      "manifest-image",
-			Opts:       []string{"--cpus=2"},
-			InheritEnv: []string{"MANIFEST_TOKEN"},
+	agent := "claude"
+	model := "claude-opus-4-8"
+	reasoningLevel := "high"
+	agentCmd := ""
+	yolo := true
+	usePrompts := []string{"make-pr"}
+	usePromptsPosition := "after"
+	containerEnabled := true
+	containerImage := "manifest-image"
+	containerOpts := []string{"--cpus=2"}
+	containerInheritEnv := []string{"MANIFEST_TOKEN"}
+	require.Equal(t, configfile.DefaultsV1{
+		Agent:              &agent,
+		Model:              &model,
+		ReasoningLevel:     &reasoningLevel,
+		AgentCmd:           &agentCmd,
+		AgentArgs:          map[string][]string{"claude": {"--extra-arg"}},
+		UsePrompts:         &usePrompts,
+		UsePromptsPosition: &usePromptsPosition,
+		Yolo:               &yolo,
+		Container: &configfile.ContainerV1{
+			Enabled:    &containerEnabled,
+			Image:      &containerImage,
+			Opts:       &containerOpts,
+			InheritEnv: &containerInheritEnv,
 		},
-	}, manifest)
+	}, manifest.Defaults)
 }
 
 func TestVibe_DoesNotOverwriteExistingManifest(t *testing.T) {
@@ -67,7 +78,7 @@ func TestVibe_DoesNotOverwriteExistingManifest(t *testing.T) {
 
 	workspace := t.TempDir()
 	g := &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
-	require.NoError(t, WriteSessionManifest(g, workspace, SessionManifest{Agent: "codex"}))
+	require.NoError(t, WriteSessionManifest(g, workspace, sessionManifestWithAgent("codex")))
 
 	k := Remuda{
 		Multiplexer: &testutils.MockMultiplexer{MultiplexerName: "tmux"},
@@ -87,5 +98,6 @@ func TestVibe_DoesNotOverwriteExistingManifest(t *testing.T) {
 	manifest, ok, readErr := ReadSessionManifest(workspace)
 	require.NoError(t, readErr)
 	require.True(t, ok)
-	require.Equal(t, "codex", manifest.Agent, "existing manifest must not be clobbered")
+	require.NotNil(t, manifest.Defaults.Agent)
+	require.Equal(t, "codex", *manifest.Defaults.Agent, "existing manifest must not be clobbered")
 }

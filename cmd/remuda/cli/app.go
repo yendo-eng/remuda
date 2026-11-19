@@ -73,7 +73,7 @@ func (a *app) prepare(cmd *cobra.Command, opts prepareOpts) error {
 		profiled: opts.profiled,
 	}
 
-	base, err := newEffectiveConfig(a.cfg, "", profileRef{})
+	base, err := newEffectiveConfig(a.cfg, "", profileRef{}, nil)
 	if err != nil {
 		return err
 	}
@@ -131,6 +131,10 @@ func (a *app) warnRetiredExperiment(name string) {
 // applyRepoOverlays re-resolves flags with per_repo/profile overlays for the
 // given slug. Also invoked after interactive repo selection (FTUE, --pick).
 func (a *app) applyRepoOverlays(slug string) error {
+	return a.applyRepoOverlaysWithManifest(slug, nil)
+}
+
+func (a *app) applyRepoOverlaysWithManifest(slug string, manifest *configfile.DefaultsV1) error {
 	inv := a.cliCtx.inv
 	profile := profileRef{}
 	if inv.profiled {
@@ -141,7 +145,7 @@ func (a *app) applyRepoOverlays(slug string) error {
 		profile = selectProfile(flagValue, inv.rs.flagExplicit("profile"), inv.env, a.cfg, slug)
 	}
 
-	eff, err := newEffectiveConfig(a.cfg, slug, profile)
+	eff, err := newEffectiveConfig(a.cfg, slug, profile, manifest)
 	if err != nil {
 		return err
 	}

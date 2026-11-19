@@ -13,6 +13,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/yendo-eng/remuda/internal/agentlauncher"
+	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/github"
@@ -115,10 +116,7 @@ type VibeCommand struct {
 	// main prompt ("before" or "after"). Recorded in the session manifest.
 	UsePromptsPosition string
 
-	// When true (gated on the session-manifest experiment), write a
-	// .remuda.json launch manifest into the workspace so session resume can
-	// reconstruct these settings later.
-	SessionManifestEnabled bool
+	SkipSessionManifest bool
 }
 
 func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
@@ -176,21 +174,28 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		workspaceAbs = workspace
 	}
 
-	if cmd.SessionManifestEnabled {
+	if !cmd.SkipSessionManifest {
+		agentName := agent.Name()
+		usePrompts := append([]string{}, cmd.UsePromptIDs...)
+		agentArgs := append([]string{}, cmd.AgentArgs...)
+		containerOpts := append([]string{}, cmd.ContainerOpts...)
+		containerInheritEnv := append([]string{}, cmd.ContainerInheritEnv...)
 		manifest := SessionManifest{
-			Agent:          agent.Name(),
-			Model:          cmd.Model,
-			ReasoningLevel: cmd.ReasoningLevel,
-			Yolo:           cmd.Yolo,
-			AgentCmd:       cmd.AgentCmd,
-			AgentArgs:      cmd.AgentArgs,
-			UsePrompts:     cmd.UsePromptIDs,
-			UsePosition:    cmd.UsePromptsPosition,
-			Container: SessionManifestContainer{
-				Enabled:    cmd.Container,
-				Image:      cmd.ContainerName,
-				Opts:       cmd.ContainerOpts,
-				InheritEnv: cmd.ContainerInheritEnv,
+			Defaults: configfile.DefaultsV1{
+				Agent:              &agentName,
+				Model:              &cmd.Model,
+				ReasoningLevel:     &cmd.ReasoningLevel,
+				Yolo:               &cmd.Yolo,
+				AgentCmd:           &cmd.AgentCmd,
+				AgentArgs:          map[string][]string{agentName: agentArgs},
+				UsePrompts:         &usePrompts,
+				UsePromptsPosition: &cmd.UsePromptsPosition,
+				Container: &configfile.ContainerV1{
+					Enabled:    &cmd.Container,
+					Image:      &cmd.ContainerName,
+					Opts:       &containerOpts,
+					InheritEnv: &containerInheritEnv,
+				},
 			},
 		}
 		if err := WriteSessionManifest(k.Git, workspaceAbs, manifest); err != nil {
