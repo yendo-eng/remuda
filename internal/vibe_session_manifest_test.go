@@ -10,7 +10,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/testutils"
 )
 
-func TestVibe_WritesSessionManifestWhenEnabled(t *testing.T) {
+func TestVibe_WritesSessionManifest(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token") // avoid invoking `gh auth token`
 
 	workspace := t.TempDir()
@@ -23,48 +23,46 @@ func TestVibe_WritesSessionManifestWhenEnabled(t *testing.T) {
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{
-		Agent:                  "bash",
-		Prompt:                 "ignored",
-		Detached:               true,
-		ExistingWorkspace:      workspace,
-		Yolo:                   true,
-		Model:                  "some-model",
-		SessionManifestEnabled: true,
+		Agent:               "claude",
+		Prompt:              "ignored",
+		Detached:            true,
+		ExistingWorkspace:   workspace,
+		Yolo:                true,
+		Model:               "claude-opus-4-8",
+		ReasoningLevel:      "high",
+		AgentArgs:           []string{"--extra-arg"},
+		UsePromptIDs:        []string{"make-pr"},
+		UsePromptsPosition:  "after",
+		Container:           true,
+		ContainerName:       "manifest-image",
+		ContainerOpts:       []string{"--cpus=2"},
+		ContainerInheritEnv: []string{"MANIFEST_TOKEN"},
 	})
 	require.NoError(t, err)
 
 	manifest, ok, err := ReadSessionManifest(workspace)
 	require.NoError(t, err)
 	require.True(t, ok, "expected a .remuda.json manifest to be written")
-	require.Equal(t, "bash", manifest.Agent)
-	require.True(t, manifest.Yolo)
+	require.Equal(t, SessionManifest{
+		SchemaVersion:  SessionManifestSchemaVersion,
+		Agent:          "claude",
+		Model:          "claude-opus-4-8",
+		ReasoningLevel: "high",
+		Yolo:           true,
+		AgentCmd:       "",
+		AgentArgs:      []string{"--extra-arg"},
+		UsePrompts:     []string{"make-pr"},
+		UsePosition:    "after",
+		Container: SessionManifestContainer{
+			Enabled:    true,
+			Image:      "manifest-image",
+			Opts:       []string{"--cpus=2"},
+			InheritEnv: []string{"MANIFEST_TOKEN"},
+		},
+	}, manifest)
 }
 
-func TestVibe_SkipsSessionManifestWhenDisabled(t *testing.T) {
-	t.Setenv("GH_TOKEN", "test-token")
-
-	workspace := t.TempDir()
-	k := Remuda{
-		Multiplexer: &testutils.MockMultiplexer{MultiplexerName: "tmux"},
-		Docker:      &docker.Mock{Running: true},
-		IO:          DefaultIO(),
-		Git:         &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")},
-	}
-
-	err := k.Vibe(context.Background(), VibeCommand{
-		Agent:             "bash",
-		Prompt:            "ignored",
-		Detached:          true,
-		ExistingWorkspace: workspace,
-	})
-	require.NoError(t, err)
-
-	_, ok, err := ReadSessionManifest(workspace)
-	require.NoError(t, err)
-	require.False(t, ok, "manifest should not be written when the experiment is disabled")
-}
-
-func TestVibe_RefusesToOverwriteExistingManifest(t *testing.T) {
+func TestVibe_DoesNotOverwriteExistingManifest(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token")
 
 	workspace := t.TempDir()
@@ -79,13 +77,12 @@ func TestVibe_RefusesToOverwriteExistingManifest(t *testing.T) {
 	}
 
 	err := k.Vibe(context.Background(), VibeCommand{
-		Agent:                  "bash",
-		Prompt:                 "ignored",
-		Detached:               true,
-		ExistingWorkspace:      workspace,
-		SessionManifestEnabled: true,
+		Agent:             "bash",
+		Prompt:            "ignored",
+		Detached:          true,
+		ExistingWorkspace: workspace,
 	})
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	manifest, ok, readErr := ReadSessionManifest(workspace)
 	require.NoError(t, readErr)
