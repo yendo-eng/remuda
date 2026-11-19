@@ -44,48 +44,51 @@ func selectProfile(flagValue string, flagIsExplicit bool, env EnvProvider, cfg *
 	return profileRef{}
 }
 
-// newEffectiveConfig flattens the config file into a key-value view with
-// overlays applied, lowest precedence first: base config, then
-// per_repo.<slug>, then the selected profile. Later layers win key-by-key;
-// lists replace, except per_repo container.opts which append to the base
-// (historic behavior).
-func newEffectiveConfig(cfg *configfile.V1, slug string, profile profileRef) (*koanf.Koanf, error) {
+// newEffectiveConfig flattens config and manifest layers into a key-value view
+// in ascending precedence: base, per_repo.<slug>, manifest, then profile.
+// Per-repo container.opts append to base values as a historic exception.
+func newEffectiveConfig(cfg *configfile.V1, slug string, profile profileRef, manifest *configfile.DefaultsV1) (*koanf.Koanf, error) {
 	k := koanf.New(".")
-	if cfg == nil {
-		if profile.Name != "" {
-			return nil, pkgerrors.Errorf("profile %q requested but no config file found", profile.Name)
+	if cfg == nil && profile.Name != "" {
+		return nil, pkgerrors.Errorf("profile %q requested but no config file found", profile.Name)
+	}
+
+	if cfg != nil {
+		base := *cfg
+		base.PerRepo = nil
+		base.Profiles = nil
+		if err := loadIntoKoanf(k, base); err != nil {
+			return nil, err
 		}
-		return k, nil
-	}
 
-	base := *cfg
-	base.PerRepo = nil
-	base.Profiles = nil
-	if err := loadIntoKoanf(k, base); err != nil {
-		return nil, err
-	}
-
-	slug = normalizeRepoSlug(slug)
-	if slug != "" {
-		if overlay, ok := cfg.PerRepo[slug]; ok {
-			var appendedOpts []string
-			if overlay.Defaults != nil && overlay.Defaults.Container != nil && overlay.Defaults.Container.Opts != nil &&
-				len(*overlay.Defaults.Container.Opts) > 0 && k.Exists("defaults.container.opts") {
-				appendedOpts = append(append([]string{}, k.Strings("defaults.container.opts")...), (*overlay.Defaults.Container.Opts)...)
-			}
-			err := loadIntoKoanf(k, configfile.V1{
-				Repos:    overlay.Repos,
-				Session:  overlay.Session,
-				Defaults: overlay.Defaults,
-			})
-			if err != nil {
-				return nil, err
-			}
-			if appendedOpts != nil {
-				if err := k.Set("defaults.container.opts", appendedOpts); err != nil {
+		slug = normalizeRepoSlug(slug)
+		if slug != "" {
+			if overlay, ok := cfg.PerRepo[slug]; ok {
+				var appendedOpts []string
+				if overlay.Defaults != nil && overlay.Defaults.Container != nil && overlay.Defaults.Container.Opts != nil &&
+					len(*overlay.Defaults.Container.Opts) > 0 && k.Exists("defaults.container.opts") {
+					appendedOpts = append(append([]string{}, k.Strings("defaults.container.opts")...), (*overlay.Defaults.Container.Opts)...)
+				}
+				err := loadIntoKoanf(k, configfile.V1{
+					Repos:    overlay.Repos,
+					Session:  overlay.Session,
+					Defaults: overlay.Defaults,
+				})
+				if err != nil {
 					return nil, err
 				}
+				if appendedOpts != nil {
+					if err := k.Set("defaults.container.opts", appendedOpts); err != nil {
+						return nil, err
+					}
+				}
 			}
+		}
+	}
+
+	if manifest != nil {
+		if err := loadIntoKoanf(k, configfile.V1{Defaults: manifest}); err != nil {
+			return nil, err
 		}
 	}
 

@@ -7,11 +7,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/configfile"
 )
 
 type fakeGit struct {
 	excludePath string
 	dirSeen     string
+}
+
+func sessionManifestWithAgent(agent string) SessionManifest {
+	return SessionManifest{Defaults: configfile.DefaultsV1{Agent: &agent}}
 }
 
 func (g *fakeGit) Clone(repoURL, dir string) error                      { return nil }
@@ -38,18 +43,26 @@ func TestWriteSessionManifest(t *testing.T) {
 	excludePath := filepath.Join(workspace, ".git", "info", "exclude")
 	g := &fakeGit{excludePath: excludePath}
 
-	manifest := SessionManifest{
-		Agent:          "claude",
-		Model:          "claude-opus-4-8",
-		ReasoningLevel: "high",
-		Yolo:           true,
-		UsePrompts:     []string{"make-pr"},
-		UsePosition:    "before",
-		Container: SessionManifestContainer{
-			Enabled: true,
-			Image:   "ghcr.io/acme/vibe-dev:latest",
+	agent := "claude"
+	model := "claude-opus-4-8"
+	reasoningLevel := "high"
+	yolo := true
+	usePrompts := []string{"make-pr"}
+	usePromptsPosition := "before"
+	containerEnabled := true
+	containerImage := "ghcr.io/acme/vibe-dev:latest"
+	manifest := SessionManifest{Defaults: configfile.DefaultsV1{
+		Agent:              &agent,
+		Model:              &model,
+		ReasoningLevel:     &reasoningLevel,
+		Yolo:               &yolo,
+		UsePrompts:         &usePrompts,
+		UsePromptsPosition: &usePromptsPosition,
+		Container: &configfile.ContainerV1{
+			Enabled: &containerEnabled,
+			Image:   &containerImage,
 		},
-	}
+	}}
 	if err := WriteSessionManifest(g, workspace, manifest); err != nil {
 		t.Fatalf("WriteSessionManifest: %v", err)
 	}
@@ -64,7 +77,9 @@ func TestWriteSessionManifest(t *testing.T) {
 	if got.SchemaVersion != SessionManifestSchemaVersion {
 		t.Errorf("SchemaVersion = %d, want %d", got.SchemaVersion, SessionManifestSchemaVersion)
 	}
-	if got.Agent != "claude" || got.Model != "claude-opus-4-8" || !got.Yolo {
+	if got.Defaults.Agent == nil || *got.Defaults.Agent != "claude" ||
+		got.Defaults.Model == nil || *got.Defaults.Model != "claude-opus-4-8" ||
+		got.Defaults.Yolo == nil || !*got.Defaults.Yolo {
 		t.Errorf("unexpected manifest: %+v", got)
 	}
 
@@ -83,13 +98,14 @@ func TestWriteSessionManifestPreservesExisting(t *testing.T) {
 	workspace := t.TempDir()
 	g := &fakeGit{excludePath: filepath.Join(workspace, ".git", "info", "exclude")}
 
-	require.NoError(t, WriteSessionManifest(g, workspace, SessionManifest{Agent: "codex"}))
-	require.NoError(t, WriteSessionManifest(g, workspace, SessionManifest{Agent: "claude"}))
+	require.NoError(t, WriteSessionManifest(g, workspace, sessionManifestWithAgent("codex")))
+	require.NoError(t, WriteSessionManifest(g, workspace, sessionManifestWithAgent("claude")))
 
 	got, ok, err := ReadSessionManifest(workspace)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, "codex", got.Agent)
+	require.NotNil(t, got.Defaults.Agent)
+	require.Equal(t, "codex", *got.Defaults.Agent)
 }
 
 func TestExcludeFromGitIdempotent(t *testing.T) {

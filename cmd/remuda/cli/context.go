@@ -62,10 +62,14 @@ func (c Context) EffectiveConfig() *koanf.Koanf {
 // ApplyRepoOverlays re-resolves flags with the per_repo/profile overlays for
 // a repo slug discovered mid-run (interactive selection, --pick).
 func (c Context) ApplyRepoOverlays(slug string) error {
+	return c.applyRepoOverlaysWithManifest(slug, nil)
+}
+
+func (c Context) applyRepoOverlaysWithManifest(slug string, manifest *configfile.DefaultsV1) error {
 	if c.inv == nil {
 		return nil
 	}
-	return c.inv.app.applyRepoOverlays(slug)
+	return c.inv.app.applyRepoOverlaysWithManifest(slug, manifest)
 }
 
 func NewContext(
