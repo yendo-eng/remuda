@@ -96,20 +96,32 @@ func BuildRunArgv(
 	}
 	argv = append(argv, "-v", workspaceAbs+":"+containerWS)
 	argv = append(argv, "-w", containerWS)
-	// Forward common env vars required by agents and GitHub auth
-	argv = append(argv, "-e", "OPENAI_API_KEY")
-	// Forward Remuda agent metadata for downstream tooling.
-	argv = append(argv, "-e", "REMUDA_AGENT")
-	argv = append(argv, "-e", "REMUDA_MODEL")
-	argv = append(argv, "-e", "GH_TOKEN")
-	argv = append(argv, "-e", "GITHUB_TOKEN")
-	argv = append(argv, "-e", "GIT_HTTPS_USERNAME")
-	// Prevent interactive git prompts and auto-accept new host keys to avoid hangs
-	argv = append(argv, "-e", "GIT_TERMINAL_PROMPT=0")
-	argv = append(argv, "-e", "GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=accept-new")
+	argv = append(argv, BaseEnvOpts()...)
 	argv = append(argv, opts...)
 	argv = append(argv, image)
+	return append(argv, "bash", "-lc", BootstrapScript(agentCmd))
+}
 
+// BaseEnvOpts returns the -e options every container session gets.
+func BaseEnvOpts() []string {
+	return []string{
+		// Forward common env vars required by agents and GitHub auth
+		"-e", "OPENAI_API_KEY",
+		// Forward Remuda agent metadata for downstream tooling.
+		"-e", "REMUDA_AGENT",
+		"-e", "REMUDA_MODEL",
+		"-e", "GH_TOKEN",
+		"-e", "GITHUB_TOKEN",
+		"-e", "GIT_HTTPS_USERNAME",
+		// Prevent interactive git prompts and auto-accept new host keys to avoid hangs
+		"-e", "GIT_TERMINAL_PROMPT=0",
+		"-e", "GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=accept-new",
+	}
+}
+
+// BootstrapScript returns the in-container script that configures git
+// credentials and then runs agentCmd.
+func BootstrapScript(agentCmd string) string {
 	var inner strings.Builder
 	// Configure Git credentials non-interactively. Prefer explicit token if provided.
 	inner.WriteString("if [ -n \"$GITHUB_TOKEN\" ] || [ -n \"$GH_TOKEN\" ]; then ")
@@ -135,8 +147,7 @@ func BuildRunArgv(
 	// forwarded SSH agents inside the container.
 	inner.WriteString(`git config --global url."git@github.com:".insteadOf "https://github.com/" >/dev/null 2>&1 || true; `)
 	inner.WriteString(agentCmd)
-	argv = append(argv, "bash", "-lc", inner.String())
-	return argv
+	return inner.String()
 }
 
 func quoteArgv(argv []string) string {
