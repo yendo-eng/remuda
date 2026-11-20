@@ -5,15 +5,18 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/knadh/koanf/v2"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
+	"github.com/yendo-eng/remuda/internal/configfile"
 	"github.com/yendo-eng/remuda/internal/enums"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/slack"
+	"github.com/yendo-eng/remuda/internal/smolvm"
 	"github.com/yendo-eng/remuda/internal/util"
 	"github.com/yendo-eng/remuda/internal/util/shell"
 )
@@ -432,6 +435,7 @@ func (o *SlugifyOptions) register(cmd *cobra.Command, fl *flagSet) {
 
 type VibeContainerOptions struct {
 	Container           bool
+	ContainerRuntime    string
 	ContainerName       string
 	ContainerOpt        []string
 	ContainerInheritEnv []string
@@ -441,6 +445,7 @@ func (o *VibeContainerOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fs := cmd.Flags()
 	fs.BoolVar(&o.Container, "container", false, "Run session inside a Docker container.")
 	fs.StringVar(&o.ContainerName, "container-name", "", "Container image to use when --container is set.")
+	fs.StringVar(&o.ContainerRuntime, "container-runtime", configfile.ContainerRuntimeDocker, "Runtime for --container sessions (docker|smolvm).")
 	fs.StringSliceVar(
 		&o.ContainerOpt, "container-opt", nil,
 		"Append raw docker run argument (repeatable). Each value is split on whitespace into "+
@@ -451,6 +456,11 @@ func (o *VibeContainerOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fl.negatable("container")
 	fl.bind("container", bindEnvs("REMUDA_CONTAINER"), bindKey("defaults.container.enabled"))
 	fl.bind("container-name", bindKey("defaults.container.image"))
+	fl.bind("container-runtime",
+		bindEnvs("REMUDA_CONTAINER_RUNTIME"),
+		bindKey("defaults.container.runtime"),
+		bindEnum(configfile.ContainerRuntimeDocker, configfile.ContainerRuntimeSmolvm),
+	)
 	fl.bind("container-opt", bindEnvs("REMUDA_CONTAINER_OPTS"), bindKey("defaults.container.opts"))
 	fl.bind("container-inherit-env", bindEnvs("REMUDA_CONTAINER_INHERIT_ENVS"), bindKey("defaults.container.inherit_env"))
 }
@@ -462,6 +472,55 @@ func (o VibeContainerOptions) Validate() error {
 		}
 	}
 	return nil
+}
+
+// containerIsolation is the egress allowlist and credential bindings from the
+// effective config, which only the smolvm runtime can realize.
+type containerIsolation struct {
+	Egress      smolvm.Egress
+	Credentials []smolvm.Credential
+}
+
+func resolveContainerIsolation(k *koanf.Koanf, o VibeContainerOptions, smolvmInstalled bool) (containerIsolation, error) {
+	if !o.Container {
+		return containerIsolation{}, nil
+	}
+	var egress configfile.ContainerEgressV1
+	var creds []configfile.ContainerCredentialV1
+	conf := koanf.UnmarshalConf{Tag: "yaml"}
+	if err := k.UnmarshalWithConf("defaults.container.egress", &egress, conf); err != nil {
+		return containerIsolation{}, pkgerrors.Wrap(err, "defaults.container.egress")
+	}
+	if err := k.UnmarshalWithConf("defaults.container.credentials", &creds, conf); err != nil {
+		return containerIsolation{}, pkgerrors.Wrap(err, "defaults.container.credentials")
+	}
+
+	iso := containerIsolation{Egress: smolvm.Egress{
+		AllowHosts:        egress.AllowHosts,
+		AllowHostPatterns: egress.AllowHostPatterns,
+		AllowCIDRs:        egress.AllowCIDRs,
+		BlockPrivate:      egress.BlockPrivate,
+		AllowPrivate:      egress.AllowPrivate,
+	}}
+	for _, c := range creds {
+		iso.Credentials = append(iso.Credentials, smolvm.Credential{
+			Name: c.Name, Env: c.Env, Hosts: c.Hosts, Body: c.Body, SetHeader: c.SetHeader,
+		})
+	}
+
+	if o.ContainerRuntime != configfile.ContainerRuntimeSmolvm {
+		if !iso.Egress.Empty() || len(iso.Credentials) > 0 {
+			return containerIsolation{}, pkgerrors.Errorf(
+				"container egress and credentials are configured but container runtime is %q; they require runtime smolvm",
+				o.ContainerRuntime,
+			)
+		}
+		return iso, nil
+	}
+	if !smolvmInstalled {
+		return containerIsolation{}, pkgerrors.New("container runtime smolvm requires the smolvm CLI on PATH")
+	}
+	return iso, nil
 }
 
 func validateContainerImageSelection(containerEnabled bool, containerImage string) error {

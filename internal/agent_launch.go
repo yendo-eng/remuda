@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/smolvm"
 	"github.com/yendo-eng/remuda/internal/util"
 	"github.com/yendo-eng/remuda/internal/util/shell"
 )
@@ -31,11 +33,14 @@ type agentLaunchCommand struct {
 
 	ReplaceExisting bool
 
-	Container           bool
-	ContainerImage      string
-	ContainerOpts       []string
-	ContainerInheritEnv []string
-	Yolo                bool
+	Container            bool
+	ContainerRuntime     ContainerRuntime
+	ContainerEgress      smolvm.Egress
+	ContainerCredentials []smolvm.Credential
+	ContainerImage       string
+	ContainerOpts        []string
+	ContainerInheritEnv  []string
+	Yolo                 bool
 
 	EnvOverrides map[string]string
 }
@@ -67,12 +72,15 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	envProvider := k.launchEnvProvider(cmd, sessionName)
 	launch, err := k.composeLaunchCommand(
 		VibeCommand{
-			Agent:               cmd.AgentName,
-			Yolo:                cmd.Yolo,
-			Container:           cmd.Container,
-			ContainerName:       cmd.ContainerImage,
-			ContainerOpts:       cmd.ContainerOpts,
-			ContainerInheritEnv: cmd.ContainerInheritEnv,
+			Agent:                cmd.AgentName,
+			Yolo:                 cmd.Yolo,
+			Container:            cmd.Container,
+			ContainerRuntime:     cmd.ContainerRuntime,
+			ContainerEgress:      cmd.ContainerEgress,
+			ContainerCredentials: cmd.ContainerCredentials,
+			ContainerName:        cmd.ContainerImage,
+			ContainerOpts:        cmd.ContainerOpts,
+			ContainerInheritEnv:  cmd.ContainerInheritEnv,
 		},
 		workspaceAbs,
 		cmd.Command,
@@ -110,6 +118,9 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 			if err := k.Multiplexer.Kill(sessionName); err != nil {
 				return agentLaunchResult{}, pkgerrors.Wrapf(err, "killing existing session %q", sessionName)
 			}
+			if err := k.deleteSessionMachine(sessionName); err != nil {
+				return agentLaunchResult{}, err
+			}
 		} else if !errors.Is(err, session.ErrSessionNotFound) {
 			return agentLaunchResult{}, pkgerrors.Wrapf(err, "checking for existing session %q", sessionName)
 		}
@@ -134,7 +145,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 		Args:        cmd.Args,
 		Prompt:      cmd.Prompt,
 		Env:         launchEnvValues(envProvider),
-		ForwardEnv:  isolatedSessionEnvNames(cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames),
+		ForwardEnv:  isolatedSessionEnvNames(cmd.AgentName, slices.Concat(cmd.ContainerInheritEnv, credentialEnvNames(cmd.ContainerCredentials)), overrideEnvNames),
 	}); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
@@ -144,6 +155,16 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	}
 
 	return result, nil
+}
+
+// credentialEnvNames lists the host env vars smolvm reads at machine start,
+// which runs in the session pane.
+func credentialEnvNames(creds []smolvm.Credential) []string {
+	names := make([]string, 0, len(creds))
+	for _, c := range creds {
+		names = append(names, c.Env)
+	}
+	return names
 }
 
 func validateMultiplexerLaunch(manager session.Multiplexer, agentCmd string) error {

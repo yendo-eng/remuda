@@ -15,6 +15,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/slack"
+	"github.com/yendo-eng/remuda/internal/smolvm"
 )
 
 type Remuda struct {
@@ -23,6 +24,7 @@ type Remuda struct {
 	Multiplexer session.Multiplexer
 	Jira        jira.Jira
 	Docker      docker.Docker
+	Smolvm      smolvm.Client // nil when smolvm is not installed
 	GitHub      github.GitHub
 	Slack       slack.Slack
 	CloneHooks  *CloneHookRegistry

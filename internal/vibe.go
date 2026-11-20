@@ -18,6 +18,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/smolvm"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -94,6 +95,13 @@ type VibeCommand struct {
 
 	// Run the session inside a Docker container.
 	Container bool
+
+	// Runtime that realizes the container; the zero value is Docker.
+	ContainerRuntime ContainerRuntime
+
+	// Egress allowlist and credential bindings; smolvm runtime only.
+	ContainerEgress      smolvm.Egress
+	ContainerCredentials []smolvm.Credential
 
 	// Container image to use.
 	ContainerName string
@@ -251,22 +259,25 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 	}
 
 	_, err = k.launchAgentSession(agentLaunchCommand{
-		Workspace:           workspaceAbs,
-		SessionName:         sessionName,
-		AgentName:           agentName,
-		Model:               cmd.Model,
-		Command:             agentCommand,
-		Args:                agentArgs,
-		Prompt:              prompt,
-		Detached:            cmd.Detached,
-		Attach:              cmd.Attach,
-		ReplaceExisting:     cmd.Clone.Force,
-		Container:           cmd.Container,
-		ContainerImage:      cmd.ContainerName,
-		ContainerOpts:       cmd.ContainerOpts,
-		ContainerInheritEnv: cmd.ContainerInheritEnv,
-		Yolo:                cmd.Yolo,
-		EnvOverrides:        cmd.EnvOverrides,
+		Workspace:            workspaceAbs,
+		SessionName:          sessionName,
+		AgentName:            agentName,
+		Model:                cmd.Model,
+		Command:              agentCommand,
+		Args:                 agentArgs,
+		Prompt:               prompt,
+		Detached:             cmd.Detached,
+		Attach:               cmd.Attach,
+		ReplaceExisting:      cmd.Clone.Force,
+		Container:            cmd.Container,
+		ContainerRuntime:     cmd.ContainerRuntime,
+		ContainerEgress:      cmd.ContainerEgress,
+		ContainerCredentials: cmd.ContainerCredentials,
+		ContainerImage:       cmd.ContainerName,
+		ContainerOpts:        cmd.ContainerOpts,
+		ContainerInheritEnv:  cmd.ContainerInheritEnv,
+		Yolo:                 cmd.Yolo,
+		EnvOverrides:         cmd.EnvOverrides,
 	})
 	return err
 }
@@ -320,8 +331,11 @@ func (k Remuda) composeLaunchCommand(
 		)
 	}
 
-	if err := k.Docker.CheckRunning(); err != nil {
-		return composedLaunchCommand{}, err
+	onSmolvm := cmd.ContainerRuntime == ContainerRuntimeSmolvm
+	if !onSmolvm {
+		if err := k.Docker.CheckRunning(); err != nil {
+			return composedLaunchCommand{}, err
+		}
 	}
 
 	github.EnsureTokenInEnvWithProvider(envProvider)
@@ -365,7 +379,11 @@ func (k Remuda) composeLaunchCommand(
 		containerOpts = append(containerOpts, "-e", "IS_SANDBOX")
 	}
 
+	// smolvm forwards the SSH agent itself (--ssh-agent).
 	authOpts := docker.BuildContainerAuthOpts(envProvider)
+	if onSmolvm {
+		authOpts = docker.BuildGHConfigMountOpts(envProvider)
+	}
 	allOpts := append(append([]string{}, containerOpts...), authOpts...)
 	if strings.EqualFold(cmd.Agent, "opencode") || strings.EqualFold(cmd.Agent, "bash") {
 		allOpts = append(allOpts, docker.BuildOpenCodeStateMountOpts(logger, envProvider)...)
@@ -374,6 +392,9 @@ func (k Remuda) composeLaunchCommand(
 		allOpts = append(allOpts, docker.BuildClaudeStateMountOpts(logger, envProvider)...)
 	}
 	containerAgent := util.SSHRewriteSnippet() + "\n" + agentCmd
+	if onSmolvm {
+		return composeSmolvmLaunch(cmd, absWS, containerImage, containerName, allOpts, containerAgent, envProvider)
+	}
 	launchCmd := docker.BuildRunCommand(absWS, containerImage, allOpts, containerAgent, false, containerName)
 	launchArgv := docker.BuildRunArgv(absWS, containerImage, allOpts, containerAgent, false, containerName)
 	return composedLaunchCommand{
@@ -382,6 +403,44 @@ func (k Remuda) composeLaunchCommand(
 		image: containerImage,
 	}, nil
 }
+
+func composeSmolvmLaunch(
+	cmd VibeCommand,
+	absWS, image, machineName string,
+	opts []string,
+	containerAgent string,
+	envProvider env.Provider,
+) (composedLaunchCommand, error) {
+	machine := smolvm.Machine{
+		Name:           machineName,
+		Image:          image,
+		WorkspaceHost:  absWS,
+		WorkspaceGuest: docker.ContainerWorkspacePath(absWS),
+		Egress:         cmd.ContainerEgress,
+	}
+	if err := machine.AddDockerOpts(append(docker.BaseEnvOpts(), opts...), envProvider.LookupEnv); err != nil {
+		return composedLaunchCommand{}, err
+	}
+	if err := machine.BindCredentials(cmd.ContainerCredentials, envProvider.LookupEnv); err != nil {
+		return composedLaunchCommand{}, err
+	}
+	// smolvm shares keep host uids, so git as guest root sees every mounted
+	// repo as foreign and refuses it. The VM serves this one session, so
+	// trusting every path in it gives nothing away.
+	inner := "git config --global --add safe.directory '*' || exit 1; " + docker.BootstrapScript(containerAgent)
+	script := machine.LaunchScript(inner)
+	return composedLaunchCommand{
+		shell: script,
+		argv:  []string{"bash", "-c", script},
+		image: image,
+	}, nil
+}
+
+// ContainerRuntime selects what realizes a --container session. Every value
+// other than ContainerRuntimeSmolvm, the zero value included, is Docker.
+type ContainerRuntime string
+
+const ContainerRuntimeSmolvm ContainerRuntime = "smolvm"
 
 func containerOptsDefineEnv(opts []string, name string) bool {
 	var fields []string

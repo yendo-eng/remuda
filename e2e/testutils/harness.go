@@ -20,6 +20,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
 	"github.com/yendo-eng/remuda/internal/slack"
+	"github.com/yendo-eng/remuda/internal/smolvm"
 )
 
 type Harness struct {
@@ -41,6 +42,7 @@ type Harness struct {
 	MultiplexerFactory cli.MultiplexerFactory
 	Jira               jira.Jira
 	Docker             docker.Docker
+	Smolvm             smolvm.Client
 	GitHub             github.GitHub
 	Slack              slack.Slack
 
@@ -97,6 +99,12 @@ func WithMultiplexerFactory(factory cli.MultiplexerFactory) HarnessOption {
 func WithDocker(d docker.Docker) HarnessOption {
 	return func(h *Harness) {
 		h.Docker = d
+	}
+}
+
+func WithSmolvm(c smolvm.Client) HarnessOption {
+	return func(h *Harness) {
+		h.Smolvm = c
 	}
 }
 
@@ -167,6 +175,7 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 		Multiplexer: defaultMultiplexer,
 		Jira:        jira.Mock{},
 		Docker:      defaultDocker,
+		Smolvm:      &smolvm.Mock{},
 		GitHub:      defaultGitHub,
 		Slack:       defaultSlack,
 
@@ -184,6 +193,7 @@ func newHarness(t *testing.T, baseEnv map[string]string, opts ...HarnessOption) 
 	h.Remuda.Multiplexer = h.Multiplexer
 	h.Remuda.Jira = h.Jira
 	h.Remuda.Docker = h.Docker
+	h.Remuda.Smolvm = h.Smolvm
 	h.Remuda.GitHub = h.GitHub
 	h.Remuda.Slack = h.Slack
 	h.Remuda.IO = internal.IO{

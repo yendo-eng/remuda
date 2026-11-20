@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	pathpkg "path"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -77,9 +78,64 @@ type MergeV1 struct {
 
 type ContainerV1 struct {
 	Enabled    *bool     `yaml:"enabled,omitempty"`
+	Runtime    *string   `yaml:"runtime,omitempty"`
 	Image      *string   `yaml:"image,omitempty"`
 	Opts       *[]string `yaml:"opts,omitempty"`
 	InheritEnv *[]string `yaml:"inherit_env,omitempty"`
+	// Egress and Credentials are realized only by the smolvm runtime.
+	Egress      *ContainerEgressV1       `yaml:"egress,omitempty"`
+	Credentials *[]ContainerCredentialV1 `yaml:"credentials,omitempty"`
+}
+
+// ContainerEgressV1 mirrors smolvm's egress allowlist flags.
+type ContainerEgressV1 struct {
+	AllowHosts        []string `yaml:"allow_hosts,omitempty"`
+	AllowHostPatterns []string `yaml:"allow_host_patterns,omitempty"`
+	AllowCIDRs        []string `yaml:"allow_cidrs,omitempty"`
+	BlockPrivate      bool     `yaml:"block_private,omitempty"`
+	AllowPrivate      []string `yaml:"allow_private,omitempty"`
+}
+
+// UnmarshalYAML rejects unknown keys: a misspelled allowlist key would
+// otherwise leave egress open without a word.
+func (e *ContainerEgressV1) UnmarshalYAML(value *yaml.Node) error {
+	if err := validateMappingKeys(value, "container.egress",
+		"allow_hosts", "allow_host_patterns", "allow_cidrs", "block_private", "allow_private"); err != nil {
+		return err
+	}
+	type plain ContainerEgressV1
+	return value.Decode((*plain)(e))
+}
+
+// UnmarshalYAML rejects unknown keys, as for ContainerEgressV1.
+func (c *ContainerCredentialV1) UnmarshalYAML(value *yaml.Node) error {
+	if err := validateMappingKeys(value, "container.credentials[]", "name", "env", "hosts", "body", "set_header"); err != nil {
+		return err
+	}
+	type plain ContainerCredentialV1
+	return value.Decode((*plain)(c))
+}
+
+func validateMappingKeys(node *yaml.Node, path string, allowed ...string) error {
+	if node.Kind != yaml.MappingNode {
+		return pkgerrors.Errorf("%s: expected mapping", path)
+	}
+	for i := 0; i < len(node.Content)-1; i += 2 {
+		if key := node.Content[i].Value; !slices.Contains(allowed, key) {
+			return pkgerrors.Errorf("%s.%s: unknown field", path, key)
+		}
+	}
+	return nil
+}
+
+// ContainerCredentialV1 mirrors one smolvm --credential binding. The value is
+// read from the host env var Env at machine start and never enters the guest.
+type ContainerCredentialV1 struct {
+	Name      string   `yaml:"name"`
+	Env       string   `yaml:"env"`
+	Hosts     []string `yaml:"hosts"`
+	Body      bool     `yaml:"body,omitempty"`
+	SetHeader string   `yaml:"set_header,omitempty"`
 }
 
 func (c *ContainerV1) UnmarshalYAML(value *yaml.Node) error {
@@ -125,7 +181,7 @@ func validateContainerMappingKeys(node *yaml.Node) error {
 	for i := 0; i < len(node.Content)-1; i += 2 {
 		key := node.Content[i].Value
 		switch key {
-		case "enabled", "image", "opts", "inherit_env":
+		case "enabled", "runtime", "image", "opts", "inherit_env", "egress", "credentials":
 			continue
 		default:
 			return pkgerrors.Errorf("container.%s: unknown field", key)
@@ -434,14 +490,83 @@ func (m MergeV1) validate(path string) error {
 }
 
 func (c ContainerV1) validate(path string) error {
-	if c.InheritEnv == nil {
-		return nil
+	if c.Runtime != nil {
+		switch *c.Runtime {
+		case ContainerRuntimeDocker, ContainerRuntimeSmolvm:
+		default:
+			return pkgerrors.Errorf("%s.runtime: must be %q or %q", path, ContainerRuntimeDocker, ContainerRuntimeSmolvm)
+		}
 	}
-	for i, env := range *c.InheritEnv {
-		envPath := fmt.Sprintf("%s.inherit_env[%d]", path, i)
-		if err := validateEnvVarName(envPath, env); err != nil {
+	if c.InheritEnv != nil {
+		for i, env := range *c.InheritEnv {
+			envPath := fmt.Sprintf("%s.inherit_env[%d]", path, i)
+			if err := validateEnvVarName(envPath, env); err != nil {
+				return err
+			}
+		}
+	}
+	if c.Egress != nil {
+		if err := c.Egress.validate(path + ".egress"); err != nil {
 			return err
 		}
+	}
+	if c.Credentials != nil {
+		names := map[string]bool{}
+		for i, cred := range *c.Credentials {
+			credPath := fmt.Sprintf("%s.credentials[%d]", path, i)
+			if err := cred.validate(credPath); err != nil {
+				return err
+			}
+			if names[cred.Name] {
+				return pkgerrors.Errorf("%s.name: duplicate credential name %q", credPath, cred.Name)
+			}
+			names[cred.Name] = true
+		}
+	}
+	return nil
+}
+
+var credentialNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
+
+// Container runtimes accepted by container.runtime.
+const (
+	ContainerRuntimeDocker = "docker"
+	ContainerRuntimeSmolvm = "smolvm"
+)
+
+func (e ContainerEgressV1) validate(path string) error {
+	for field, values := range map[string][]string{
+		"allow_hosts":         e.AllowHosts,
+		"allow_host_patterns": e.AllowHostPatterns,
+		"allow_cidrs":         e.AllowCIDRs,
+		"allow_private":       e.AllowPrivate,
+	} {
+		for i, v := range values {
+			if strings.TrimSpace(v) == "" || strings.ContainsAny(v, " \t,") {
+				return pkgerrors.Errorf("%s.%s[%d]: %q must be a single non-empty value", path, field, i, v)
+			}
+		}
+	}
+	return nil
+}
+
+func (c ContainerCredentialV1) validate(path string) error {
+	if !credentialNamePattern.MatchString(c.Name) {
+		return pkgerrors.Errorf("%s.name: %q must match %s", path, c.Name, credentialNamePattern)
+	}
+	if err := validateEnvVarName(path+".env", c.Env); err != nil {
+		return err
+	}
+	if len(c.Hosts) == 0 {
+		return pkgerrors.Errorf("%s.hosts: at least one host is required", path)
+	}
+	for i, h := range c.Hosts {
+		if strings.TrimSpace(h) == "" || strings.ContainsAny(h, " \t,:@") {
+			return pkgerrors.Errorf("%s.hosts[%d]: %q must be a bare host name", path, i, h)
+		}
+	}
+	if strings.ContainsAny(c.SetHeader, " \t,:@=") {
+		return pkgerrors.Errorf("%s.set_header: %q must be a bare header name", path, c.SetHeader)
 	}
 	return nil
 }

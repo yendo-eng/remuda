@@ -19,6 +19,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/logging"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/smolvm"
 )
 
 type MultiplexerFactory func(session.SupportedMultiplexer, zerolog.Logger) session.Multiplexer
@@ -215,6 +216,11 @@ func (a *app) finishSetup() {
 	}
 	if cliCtx.Remuda.Docker == nil {
 		cliCtx.Remuda.Docker = docker.NewShellDocker(logger)
+	}
+	if cliCtx.Remuda.Smolvm == nil {
+		if client, ok := smolvm.NewShellClient(logger); ok {
+			cliCtx.Remuda.Smolvm = client
+		}
 	}
 	if cliCtx.Remuda.GitHub == nil {
 		cliCtx.Remuda.GitHub = github.NewGhCLI(cliCtx.Remuda.Env, logger)

@@ -32,6 +32,7 @@ var isolatedEnvAllowlist = []string{
 	"REMUDA_AGENT",
 	"REMUDA_MODEL",
 	"SHELL",
+	"SMOLVM_DATA_DIR",
 	"SSH_AUTH_SOCK",
 	"TMPDIR",
 	"VISUAL",

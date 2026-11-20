@@ -11,6 +11,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
+	"github.com/yendo-eng/remuda/internal/smolvm"
 )
 
 func (k Remuda) SessionShell(sessionName string) error {
@@ -33,6 +34,20 @@ func (k Remuda) SessionShell(sessionName string) error {
 	containerName := docker.ContainerNameFromSession(name)
 	if strings.TrimSpace(containerName) == "" {
 		return pkgerrors.Errorf("unable to derive container name from session %q", name)
+	}
+
+	if k.Smolvm != nil {
+		running, err := k.Smolvm.MachineRunning(containerName)
+		switch {
+		case errors.Is(err, smolvm.ErrMachineNotFound):
+			// Not a smolvm session; fall through to Docker.
+		case err != nil:
+			return pkgerrors.Wrapf(err, "checking smolvm machine %q state", containerName)
+		case !running:
+			return pkgerrors.Errorf("smolvm machine %q is not running (use --host to open a host shell in the workspace)", containerName)
+		default:
+			return pkgerrors.Wrapf(k.Smolvm.Exec(containerName, "exec ${SHELL:-/bin/bash}"), "smolvm exec %q failed", containerName)
+		}
 	}
 
 	if k.Docker == nil {

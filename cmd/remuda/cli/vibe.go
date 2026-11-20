@@ -177,25 +177,32 @@ func (c *VibeCmd) Run(ctx Context) error {
 	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
 		return err
 	}
+	isolation, err := resolveContainerIsolation(ctx.EffectiveConfig(), c.VibeContainerOptions, ctx.Remuda.Smolvm != nil)
+	if err != nil {
+		return err
+	}
 	agentArgs := effectiveAgentArgsFromKoanf(ctx.EffectiveConfig(), c.Agent, c.AgentArg)
 
 	cmd := internal.VibeCommand{
-		Name:                c.Name,
-		Agent:               c.Agent,
-		Model:               c.Model,
-		ReasoningLevel:      c.ReasoningLevel,
-		AgentCmd:            c.AgentCmd,
-		AgentArgs:           agentArgs,
-		Prompt:              c.Prompt,
-		Detached:            c.DetachedMode(),
-		Attach:              c.Attach,
-		Yolo:                c.Yolo,
-		Container:           c.Container,
-		ContainerName:       c.ContainerName,
-		ContainerOpts:       c.ContainerOpt,
-		ContainerInheritEnv: c.ContainerInheritEnv,
-		RemoteControl:       c.Remote,
-		UsePromptsPosition:  c.effectiveUsePromptsPosition(),
+		Name:                 c.Name,
+		Agent:                c.Agent,
+		Model:                c.Model,
+		ReasoningLevel:       c.ReasoningLevel,
+		AgentCmd:             c.AgentCmd,
+		AgentArgs:            agentArgs,
+		Prompt:               c.Prompt,
+		Detached:             c.DetachedMode(),
+		Attach:               c.Attach,
+		Yolo:                 c.Yolo,
+		Container:            c.Container,
+		ContainerRuntime:     internal.ContainerRuntime(c.ContainerRuntime),
+		ContainerEgress:      isolation.Egress,
+		ContainerCredentials: isolation.Credentials,
+		ContainerName:        c.ContainerName,
+		ContainerOpts:        c.ContainerOpt,
+		ContainerInheritEnv:  c.ContainerInheritEnv,
+		RemoteControl:        c.Remote,
+		UsePromptsPosition:   c.effectiveUsePromptsPosition(),
 	}
 	cmd.SessionManifestEnabled = ctx.ExperimentEnabled(expregistry.SessionManifest)
 	if ctx.FlagExplicit("openai-api-key") || strings.TrimSpace(c.OpenAIAPIKey) != "" {

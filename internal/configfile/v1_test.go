@@ -693,3 +693,46 @@ defaults:
 	require.Contains(t, err.Error(), "defaults.container.inherit_env[0]")
 	require.Contains(t, err.Error(), "invalid env var name")
 }
+
+func TestParseV1_ContainerIsolationValidation(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		container string
+		wantErr   string
+	}{
+		{
+			name: "valid smolvm isolation",
+			container: `
+    runtime: smolvm
+    egress: {allow_hosts: [github.com], block_private: true}
+    credentials:
+      - {name: gh, env: GH_TOKEN, hosts: [api.github.com], set_header: authorization}`,
+		},
+		{name: "unknown runtime", container: "\n    runtime: podman", wantErr: `defaults.container.runtime: must be "docker" or "smolvm"`},
+		{name: "unknown egress key", container: "\n    egress: {allow_all: true}", wantErr: "allow_all"},
+		{name: "blank egress host", container: `
+    egress: {allow_hosts: [""]}`, wantErr: "defaults.container.egress.allow_hosts[0]"},
+		{name: "credential without hosts", container: `
+    credentials: [{name: gh, env: GH_TOKEN}]`, wantErr: "defaults.container.credentials[0].hosts: at least one host"},
+		{name: "credential host with port", container: `
+    credentials: [{name: gh, env: GH_TOKEN, hosts: ["api.github.com:443"]}]`, wantErr: "must be a bare host name"},
+		{name: "duplicate credential name", container: `
+    credentials:
+      - {name: gh, env: GH_TOKEN, hosts: [api.github.com]}
+      - {name: gh, env: GITHUB_TOKEN, hosts: [api.github.com]}`, wantErr: `duplicate credential name "gh"`},
+		{name: "invalid credential env", container: `
+    credentials: [{name: gh, env: "GH-TOKEN", hosts: [api.github.com]}]`, wantErr: "defaults.container.credentials[0].env"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := ParseV1([]byte("version: 1\ndefaults:\n  container:" + tt.container + "\n"))
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}

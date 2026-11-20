@@ -1,12 +1,15 @@
 package internal
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/session"
+	"github.com/yendo-eng/remuda/internal/smolvm"
 	"github.com/yendo-eng/remuda/internal/util"
 )
 
@@ -57,6 +60,9 @@ func (k Remuda) SessionKill(cmd SessionKillCommand) error {
 	if err := k.Multiplexer.Kill(cmd.Name); err != nil {
 		return err
 	}
+	if err := k.deleteSessionMachine(cmd.Name); err != nil {
+		return err
+	}
 
 	if cmd.ClosePRComment != nil {
 		res, err := k.GitHub.ClosePullRequest(workspacePath, *cmd.ClosePRComment)
@@ -79,6 +85,20 @@ func (k Remuda) SessionKill(cmd SessionKillCommand) error {
 		}
 	}
 
+	return nil
+}
+
+// deleteSessionMachine deletes the session's smolvm machine, if it has one.
+// The pane's script also deletes it on SIGHUP; this covers a script killed
+// before its trap could run.
+func (k Remuda) deleteSessionMachine(sessionName string) error {
+	if k.Smolvm == nil {
+		return nil
+	}
+	machine := docker.ContainerNameFromSession(sessionName)
+	if err := k.Smolvm.Delete(machine); err != nil && !errors.Is(err, smolvm.ErrMachineNotFound) {
+		return pkgerrors.Wrapf(err, "deleting smolvm machine %q", machine)
+	}
 	return nil
 }
 
