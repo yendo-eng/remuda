@@ -1,10 +1,14 @@
 package agentlauncher
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/env"
 )
 
 func TestClaudeLauncher_Command_IncludesPromptWhenNonEmpty(t *testing.T) {
@@ -103,4 +107,52 @@ func TestClaudeLauncher_Arguments(t *testing.T) {
 		"--foo",
 		"fix it",
 	}, l.Arguments("fix it", "--foo"))
+}
+
+func TestClaudeLauncher_ContainerMounts_Permutations(t *testing.T) {
+	t.Parallel()
+
+	tcs := []struct {
+		name      string
+		withDir   bool
+		withFile  bool
+		expectNil bool
+	}{
+		{name: "both", withDir: true, withFile: true},
+		{name: "dir only", withDir: true},
+		{name: "file only", withFile: true},
+		{name: "missing", expectNil: true},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmp := t.TempDir()
+			claudeDir := filepath.Join(tmp, ".claude")
+			claudeJSON := filepath.Join(tmp, ".claude.json")
+
+			if tc.withDir {
+				require.NoError(t, os.MkdirAll(claudeDir, 0o700))
+			}
+			if tc.withFile {
+				require.NoError(t, os.WriteFile(claudeJSON, []byte(`{"token":"redacted"}`), 0o600))
+			}
+
+			opts := claudeLauncher{}.ContainerMounts(zerolog.Nop(), env.StaticProvider{HomeDir: tmp})
+			if tc.expectNil {
+				require.Nil(t, opts)
+				return
+			}
+
+			var want []string
+			if tc.withDir {
+				want = append(want, "-v", claudeDir+":/root/.claude:rw")
+			}
+			if tc.withFile {
+				want = append(want, "-v", claudeJSON+":/root/.claude.json:rw")
+			}
+			require.Equal(t, want, opts)
+		})
+	}
 }

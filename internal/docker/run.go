@@ -68,10 +68,9 @@ func BuildRunCommand(
 	workspaceAbs, image string,
 	opts []string,
 	agentCmd string,
-	allocateTTY bool,
 	containerName string,
 ) string {
-	return quoteArgv(BuildRunArgv(workspaceAbs, image, opts, agentCmd, allocateTTY, containerName))
+	return quoteArgv(BuildRunArgv(workspaceAbs, image, opts, agentCmd, containerName))
 }
 
 // BuildRunArgv composes the docker run argv for containerized sessions.
@@ -82,7 +81,6 @@ func BuildRunArgv(
 	workspaceAbs, image string,
 	opts []string,
 	agentCmd string,
-	allocateTTY bool,
 	containerName string,
 ) []string {
 	containerWS := ContainerWorkspacePath(workspaceAbs)
@@ -90,9 +88,6 @@ func BuildRunArgv(
 	argv := []string{"docker", "run", "--rm", "-it"}
 	if strings.TrimSpace(containerName) != "" {
 		argv = append(argv, "--name", containerName)
-	}
-	if allocateTTY {
-		argv = append(argv, "-t")
 	}
 	argv = append(argv, "-v", workspaceAbs+":"+containerWS)
 	argv = append(argv, "-w", containerWS)

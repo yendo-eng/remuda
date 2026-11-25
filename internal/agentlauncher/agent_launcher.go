@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/yendo-eng/remuda/internal/env"
 )
 
 // AgentLauncher builds the concrete shell command for the coding agent.
@@ -23,6 +25,16 @@ type AgentLauncher interface {
 
 	// List of models supported by this agent. If nil, all models are supported.
 	SupportedModels() []string
+
+	// ContainerEnv returns the environment the agent needs inside a container,
+	// keyed by name. Every name is forwarded with docker -e. A non-empty value
+	// is set for the launch first; for an empty one, the host's value is
+	// forwarded.
+	ContainerEnv() map[string]string
+
+	// ContainerMounts returns docker options for mounting the agent's host auth
+	// and state into a container.
+	ContainerMounts(logger zerolog.Logger, provider env.Provider) []string
 }
 
 type SupportedAgent string

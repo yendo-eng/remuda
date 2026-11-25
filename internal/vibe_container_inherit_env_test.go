@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/docker"
 )
 
@@ -27,13 +28,15 @@ func TestComposeLaunchCommand_ForwardsContainerInheritEnv(t *testing.T) {
 		Docker: &docker.Mock{Running: true},
 	}
 
-	cmd := VibeCommand{
+	cmd := agentLaunchCommand{
+		Agent:               agentlauncher.Custom("echo hi"),
+		Command:             "echo hi",
 		Container:           true,
-		ContainerName:       "vibe-dev",
+		ContainerImage:      "vibe-dev",
 		ContainerInheritEnv: []string{"AWS_REGION", "FOO_BAR", "GOPRIVATE"},
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launch.shell, "'-e' 'AWS_REGION'")
 	require.Contains(t, launch.shell, "'-e' 'FOO_BAR'")
@@ -62,13 +65,15 @@ func TestComposeLaunchCommand_SplitsMultiTokenContainerOpt(t *testing.T) {
 		Docker: &docker.Mock{Running: true},
 	}
 
-	cmd := VibeCommand{
-		Container:     true,
-		ContainerName: "vibe-dev",
-		ContainerOpts: []string{"-v /a:/b"},
+	cmd := agentLaunchCommand{
+		Agent:          agentlauncher.Custom("echo hi"),
+		Command:        "echo hi",
+		Container:      true,
+		ContainerImage: "vibe-dev",
+		ContainerOpts:  []string{"-v /a:/b"},
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
 
 	binDir := t.TempDir()
@@ -107,13 +112,15 @@ func TestComposeLaunchCommand_InvalidContainerInheritEnvFails(t *testing.T) {
 		Docker: &docker.Mock{Running: true},
 	}
 
-	cmd := VibeCommand{
+	cmd := agentLaunchCommand{
+		Agent:               agentlauncher.Custom("echo hi"),
+		Command:             "echo hi",
 		Container:           true,
-		ContainerName:       "vibe-dev",
+		ContainerImage:      "vibe-dev",
 		ContainerInheritEnv: []string{"BAD=NOPE"},
 	}
 
-	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "sess", "cont", k.envProvider())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "invalid env var name")
 }
@@ -123,11 +130,13 @@ func TestComposeLaunchCommand_ContainerRequiresExplicitImage(t *testing.T) {
 		Docker: &docker.Mock{Running: true},
 	}
 
-	cmd := VibeCommand{
+	cmd := agentLaunchCommand{
+		Agent:     agentlauncher.Custom("echo hi"),
+		Command:   "echo hi",
 		Container: true,
 	}
 
-	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "sess", "cont", k.envProvider())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "container mode requires an explicit image")
 }
@@ -152,13 +161,14 @@ func TestComposeLaunchCommand_BashAgentIncludesCodexStateMounts(t *testing.T) {
 		Docker: &docker.Mock{Running: true},
 	}
 
-	cmd := VibeCommand{
-		Agent:         "bash",
-		Container:     true,
-		ContainerName: "vibe-dev",
+	cmd := agentLaunchCommand{
+		Agent:          agentlauncher.Bash(),
+		Command:        "echo hi",
+		Container:      true,
+		ContainerImage: "vibe-dev",
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
 	require.Contains(t, launch.shell, ":/root/.codex/history.jsonl:rw")
@@ -188,13 +198,14 @@ func TestComposeLaunchCommand_ClaudeAgentIncludesClaudeStateMountsAndEnv(t *test
 		Docker: &docker.Mock{Running: true},
 	}
 
-	cmd := VibeCommand{
-		Agent:         "claude",
-		Container:     true,
-		ContainerName: "vibe-dev",
+	cmd := agentLaunchCommand{
+		Agent:          agentlauncher.Claude("", false, ""),
+		Command:        "echo hi",
+		Container:      true,
+		ContainerImage: "vibe-dev",
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
 	require.NotContains(t, launch.shell, "IS_SANDBOX")
@@ -222,14 +233,14 @@ func TestComposeLaunchCommand_ClaudeYoloSetsSandboxEnv(t *testing.T) {
 		Docker: &docker.Mock{Running: true},
 	}
 
-	cmd := VibeCommand{
-		Agent:         "claude",
-		Yolo:          true,
-		Container:     true,
-		ContainerName: "vibe-dev",
+	cmd := agentLaunchCommand{
+		Agent:          agentlauncher.Claude("", true, ""),
+		Command:        "echo hi",
+		Container:      true,
+		ContainerImage: "vibe-dev",
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
 	require.Contains(t, launch.shell, "'-e' 'IS_SANDBOX'")
@@ -255,13 +266,14 @@ func TestComposeLaunchCommand_CodexAgentOmitsClaudeStateMountsAndEnv(t *testing.
 		Docker: &docker.Mock{Running: true},
 	}
 
-	cmd := VibeCommand{
-		Agent:         "codex",
-		Container:     true,
-		ContainerName: "vibe-dev",
+	cmd := agentLaunchCommand{
+		Agent:          agentlauncher.Codex("", false, ""),
+		Command:        "echo hi",
+		Container:      true,
+		ContainerImage: "vibe-dev",
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "sess", "cont", k.envProvider())
 	require.NoError(t, err)
 	require.NotContains(t, launch.shell, "ANTHROPIC_API_KEY")
 	require.NotContains(t, launch.shell, "/root/.claude")

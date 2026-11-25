@@ -44,7 +44,7 @@ func TestBuildRunCommand_ComposesExpectedArgv(t *testing.T) {
 	agent := "codex 'Do the thing'"
 	containerName := "session-container"
 
-	cmd := docker.BuildRunCommand(ws, img, opts, agent, false, containerName)
+	cmd := docker.BuildRunCommand(ws, img, opts, agent, containerName)
 	containerWS := docker.ContainerWorkspacePath(ws)
 
 	argv := runBuiltCommand(t, cmd)
@@ -83,7 +83,7 @@ func TestBuildRunCommand_OmitsUnsetContainerName(t *testing.T) {
 	opts := []string{"--network", "host"}
 	agent := "codex"
 
-	cmd := docker.BuildRunCommand(ws, img, opts, agent, false, "")
+	cmd := docker.BuildRunCommand(ws, img, opts, agent, "")
 	argv := runBuiltCommand(t, cmd)
 
 	require.NotContains(t, argv, "--name")
@@ -97,7 +97,7 @@ func TestBuildRunCommand_BackticksAreNotExecutedByOuterShell(t *testing.T) {
 	img := "vibe-dev"
 	agent := "echo 'Migration:\n\n```\ncreate table payment_methods(\n  status text not null default '\\''active'\\''\n);\n```'"
 
-	cmd := docker.BuildRunCommand(ws, img, nil, agent, false, "")
+	cmd := docker.BuildRunCommand(ws, img, nil, agent, "")
 
 	binDir := t.TempDir()
 	capturePath := filepath.Join(binDir, "docker-args.txt")

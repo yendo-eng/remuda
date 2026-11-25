@@ -3,6 +3,8 @@ package agentlauncher
 import (
 	"strings"
 
+	"github.com/rs/zerolog"
+	"github.com/yendo-eng/remuda/internal/env"
 	shellutil "github.com/yendo-eng/remuda/internal/util/shell"
 )
 
@@ -39,3 +41,7 @@ func (c customLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bo
 }
 
 func (c customLauncher) SupportedModels() []string { return nil }
+
+func (c customLauncher) ContainerEnv() map[string]string { return nil }
+
+func (c customLauncher) ContainerMounts(_ zerolog.Logger, _ env.Provider) []string { return nil }
