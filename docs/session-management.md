@@ -107,16 +107,19 @@ from config. `--active` and `--inactive` are mutually exclusive.
 - `--agent`, `--model`, `--reasoning-level`, `--agent-cmd`
 - `--use`, `--no-use`, `--use-position`, `--jira`, `--github-issue` (alias: `--gh-issue`)
 - `--openai-api-key`
-- `--profile`, `--yolo`, `--[no-]detached`, `--attach`, and container flags
+- `--profile`, `--yolo`, `--[no-]detached`, `--attach`, and isolation flags
 - an optional trailing prompt argument
 
 The first `vibe` launch in a workspace writes its settings to a local
 `.remuda.json` manifest. It records the agent, model, reasoning level, yolo
 setting, custom agent command and arguments, saved prompt selection and
-position, and container settings. Inherited container environment variable
-names are recorded, but their values are not. The manifest is excluded through
-the workspace's local Git exclude file, so it does not appear in `git status`
-or get committed.
+position, and isolation settings, including the runtime. Inherited isolation
+environment variable names are recorded, but their values are not. The
+manifest is excluded through the workspace's local Git exclude file, so it
+does not appear in `git status` or get committed.
+
+Manifests written with an older schema version cannot be resumed. Delete
+`.remuda.json` to resume with config defaults.
 
 Resume settings resolve in this order: typed flags, environment variables,
 the selected profile, the manifest, per-repo defaults, then base config.

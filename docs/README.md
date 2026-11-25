@@ -8,7 +8,7 @@ Documentation for Remuda.
 - [Configuration](configuration.md) – Environment variables, YAML config file,
   profiles, per-repo settings, and migration guide
 - [Session Management](session-management.md) – Managing detached sessions
-- [Container Mode](container-mode.md) – Running AI agents inside Docker containers
+- [Isolation](isolation.md) – Running AI agents in an isolated environment
 - [Experiments](experiments.md) – Opt-in experimental features
 
 ## Design Documents

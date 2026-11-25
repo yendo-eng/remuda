@@ -5,7 +5,7 @@ workflows easier:
 
 - create disposable working copies of Git repositories
 - launch agents in them
-- containerize your agents for safer unattended workflows
+- isolate agents for safer unattended workflows
 - reuse prompt snippets and inject context from tools like Jira and Slack
 - broadcast messages to swarms of agents
 
@@ -78,13 +78,13 @@ the root via the `REMUDA_REPOS_BASE_DIR` environment variable.
 Here's the most generally useful workflow for feature development:
 
 ```bash
-# Use a published image for container sessions
+# Use a published image for isolated sessions
 IMAGE=ghcr.io/acme/vibe-dev:latest
 
 remuda vibe \
   --name '<your-session-name-goes-here>' \
-  --container \
-  --container-name "$IMAGE" \
+  --isolation \
+  --isolation-image "$IMAGE" \
   --yolo \
   --use make-pr \
   --use small-commits \
@@ -99,7 +99,7 @@ For detailed usage information, see:
 
 - [Commands](docs/commands.md) – all Remuda commands
 - [Session Management](docs/session-management.md) – managing detached sessions
-- [Container Mode](docs/container-mode.md) – running agents in Docker
+- [Isolation](docs/isolation.md) – running agents in an isolated environment
 - [Configuration](docs/configuration.md) – environment variables and config file
 - [Experiments](docs/experiments.md) – opt-in experimental features
 
