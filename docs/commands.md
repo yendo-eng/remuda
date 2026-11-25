@@ -151,9 +151,11 @@ Run `remuda vibe --help` for more options. Common flags:
 - `--[no-]detached` – run the agent in the current terminal instead of using the configured session manager.
 - `--session-manager <name>` – override the session manager the session is created in (tmux remains the default). See [Session Management](session-management.md) for the supported session managers.
 - `REMUDA_SESSION_MANAGER=<name>` – environment override for the session manager new sessions are created in (falls back to `tmux`).
-- Containerized Claude runs forward `ANTHROPIC_API_KEY` and mount `~/.claude`
-  plus `~/.claude.json` when present so Claude auth/session state is reused.
-- Containerized Codex runs persist ChatGPT account logins (not API-key auth):
+- Claude sessions using the Docker isolation runtime forward
+  `ANTHROPIC_API_KEY` and mount `~/.claude` plus `~/.claude.json` when present
+  so Claude auth/session state is reused.
+- Codex sessions using the Docker isolation runtime persist ChatGPT account
+  logins (not API-key auth):
   when `OPENAI_API_KEY` is unset and `~/.codex/auth.json` exists, the whole
   `~/.codex` directory is mounted read-write so the account login (and its
   token refreshes) carry over across sessions. When `OPENAI_API_KEY` is set,
@@ -274,7 +276,7 @@ Many `vibe` session flags still apply (including `--agent-arg`). For detailed fl
 `remuda vibe-check --help`.
 
 Profile defaults are supported here as well: `--profile <name>` (or
-`REMUDA_PROFILE`) applies a named profile from `config.yaml` for agent/container
+`REMUDA_PROFILE`) applies a named profile from `config.yaml` for agent/isolation
 defaults. If neither is set, `per_repo.<slug>.profile` can auto-select one for
 the resolved repo.
 

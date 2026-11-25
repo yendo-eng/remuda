@@ -8,13 +8,13 @@ Remuda inspects a handful of environment variables
 to reduce setup friction. Where possible it will fall back to sensible defaults
 or populate values automatically, but you can configure them explicitly:
 
-- `OPENAI_API_KEY` – forwarded to agents and container sessions. If unset,
+- `OPENAI_API_KEY` – forwarded to agents and isolated sessions. If unset,
   no API key is inferred; pass it explicitly with `--openai-api-key`.
-- `ANTHROPIC_API_KEY` – forwarded for Claude container sessions (`--agent claude`)
-  so the Claude CLI can authenticate inside Docker.
+- `ANTHROPIC_API_KEY` – forwarded for isolated Claude sessions (`--agent claude`)
+  so the Claude CLI can authenticate inside the Docker runtime.
 - `GH_TOKEN` / `GITHUB_TOKEN` – used for GitHub API access (eg. PR review,
   pushing branches, `gh` helpers). When neither variable is present Remuda runs
-  `gh auth token` and exports the result so that container sessions inherit the
+  `gh auth token` and exports the result so that isolated sessions inherit the
   credential. Pre-setting either variable skips that lookup.
 - `REMUDA_AGENT` – overrides the default agent used by `vibe`/`vibe-check` when
   you omit `--agent`. Accepts the same values as the flag (`codex`,
@@ -49,16 +49,20 @@ or populate values automatically, but you can configure them explicitly:
 - `REMUDA_USE_PROMPTS_POSITION` – place saved prompts `before` or `after` the
   main prompt (default: `before`). Equivalent to `--use-position`; CLI flags
   override environment values, which override config-file values.
-- `REMUDA_CONTAINER` – set to `true` to run `vibe` sessions inside a Docker container
-  by default. Equivalent to passing `--container`.
-- `REMUDA_CONTAINER_OPTS` – comma-separated list of extra `docker run` arguments to
-  append when container mode is enabled. Equivalent to repeating `--container-opt`.
+- `REMUDA_ISOLATION` – set to `true` to run `vibe` sessions in isolation by
+  default. Equivalent to passing `--isolation`.
+- `REMUDA_ISOLATION_RUNTIME` – isolation runtime to use (valid value and
+  default: `docker`). Equivalent to `--isolation-runtime`.
+- `REMUDA_ISOLATION_OPTS` – comma-separated list of extra `docker run`
+  arguments to append when the Docker runtime is enabled. Equivalent to
+  repeating `--isolation-opt`.
   Each value is split on whitespace into separate docker CLI tokens (eg.
   `"-v /a:/b"` becomes `-v` and `/a:/b`); there is no shell quoting, `$VAR`
   expansion, or `~` expansion, so a value containing meaningful whitespace
   (eg. a host path with a space) cannot be passed this way.
-- `REMUDA_CONTAINER_INHERIT_ENVS` – comma-separated list of environment variable names
-  to forward into container sessions. Equivalent to repeating `--container-inherit-env`.
+- `REMUDA_ISOLATION_INHERIT_ENVS` – comma-separated list of environment
+  variable names to forward into isolated sessions. Equivalent to repeating
+  `--isolation-inherit-env`.
 - `REMUDA_YOLO` – set to `true` to enable yolo mode (ignore sandboxing/approvals for
   supported agents) by default. Equivalent to passing `--yolo` (`codex` maps to
   `--dangerously-bypass-approvals-and-sandbox` plus
@@ -149,8 +153,9 @@ defaults:
   no_use: ["make-pr"]
   merge:
     gh_flags: ["--rebase"]
-  container:      # or: container: true|false (shorthand for container.enabled)
+  isolation:      # or: isolation: true|false (shorthand for isolation.enabled)
     enabled: false
+    runtime: docker
     image: ghcr.io/acme/remuda-agent:latest
     opts: ["--network=host"]
     inherit_env: ["AWS_REGION"]
@@ -165,7 +170,7 @@ profiles:
     agent: codex
     model: gpt-5
     yolo: true
-    container:
+    isolation:
       enabled: true
 
 repos:
@@ -179,7 +184,7 @@ per_repo:
   "acme-org/example-repo":
     profile: "fast_codex"
     defaults:
-      container:
+      isolation:
         enabled: true
     clone_hooks:
       - name: "bootstrap"
@@ -188,7 +193,14 @@ per_repo:
         argv: ["bash", "-lc", "./scripts/secrets pull"]
 ```
 
-Note: `container` can also be set to a boolean (`true`/`false`) as shorthand for `container.enabled`.
+Note: `isolation` can also be set to a boolean (`true`/`false`) as shorthand
+for `isolation.enabled`.
+
+This is a hard rename from `container` settings. Config files must use
+`isolation`; old keys are rejected with the exact path and replacement. The
+old flags are unknown. `REMUDA_CONTAINER`, `REMUDA_CONTAINER_OPTS`, and
+`REMUDA_CONTAINER_INHERIT_ENVS` fail with their replacement environment
+variable named in the error.
 
 ### Jira Context Auth (`--jira`)
 
@@ -236,8 +248,9 @@ profiles:
     yolo: bool
     merge:
       gh_flags: [string]
-    container:
+    isolation:
       enabled: bool
+      runtime: string  # docker
       image: string
       opts: [string]
       inherit_env: [string]
@@ -316,7 +329,9 @@ workspaces:
 
 - `per_repo` overlays only apply when Remuda can resolve a repo slug (eg. from `--repo-url` or a PR URL). If slug inference fails, `per_repo` is ignored for that run.
 - `per_repo.<slug>.profile` can pick a profile by repo for `vibe`, `vibe-check`, and `session resume`; explicit `--profile` and `REMUDA_PROFILE` override it.
-- When `per_repo.defaults.container.opts` is set, its values are appended to `defaults.container.opts`. Use an explicit empty list (`opts: []`) to clear inherited container opts for a repo.
+- When `per_repo.<slug>.defaults.isolation.opts` is set, its values are
+  appended to `defaults.isolation.opts`. Use an explicit empty list (`opts: []`)
+  to clear inherited isolation opts for a repo.
 - `defaults.agent_args.<agent>` configures additional args for built-in launchers. Per-repo entries replace global args for that agent; `--agent-arg` appends for a single run. These args are ignored when `--agent-cmd` is set.
 - `per_repo.<slug>.clone_hooks` validates that `argv` is non-empty and `argv[0]` is non-blank at parse time; runtime exec/exit errors still surface when hooks run.
 - `session.prune.ignore` (used by `session resume --pick`) applies globally (not per-repo).
