@@ -99,7 +99,9 @@ type VibeCommand struct {
 	// Runtime that realizes the container; the zero value is Docker.
 	ContainerRuntime ContainerRuntime
 
-	// Egress allowlist and credential bindings; smolvm runtime only.
+	// Raw machine create flags, egress allowlist and credential bindings;
+	// smolvm runtime only.
+	ContainerSmolvmOpts  []string
 	ContainerEgress      smolvm.Egress
 	ContainerCredentials []smolvm.Credential
 
@@ -271,6 +273,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		ReplaceExisting:      cmd.Clone.Force,
 		Container:            cmd.Container,
 		ContainerRuntime:     cmd.ContainerRuntime,
+		ContainerSmolvmOpts:  cmd.ContainerSmolvmOpts,
 		ContainerEgress:      cmd.ContainerEgress,
 		ContainerCredentials: cmd.ContainerCredentials,
 		ContainerImage:       cmd.ContainerName,
@@ -417,6 +420,7 @@ func composeSmolvmLaunch(
 		WorkspaceHost:  absWS,
 		WorkspaceGuest: docker.ContainerWorkspacePath(absWS),
 		Egress:         cmd.ContainerEgress,
+		CreateOpts:     cmd.ContainerSmolvmOpts,
 	}
 	if err := machine.AddDockerOpts(append(docker.BaseEnvOpts(), opts...), envProvider.LookupEnv); err != nil {
 		return composedLaunchCommand{}, err

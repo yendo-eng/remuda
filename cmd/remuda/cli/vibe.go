@@ -177,7 +177,7 @@ func (c *VibeCmd) Run(ctx Context) error {
 	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
 		return err
 	}
-	isolation, err := resolveContainerIsolation(ctx.EffectiveConfig(), c.VibeContainerOptions, ctx.Remuda.Smolvm != nil)
+	vmSettings, err := resolveSmolvmSettings(ctx.EffectiveConfig(), c.VibeContainerOptions, ctx.Remuda.Smolvm != nil)
 	if err != nil {
 		return err
 	}
@@ -196,8 +196,9 @@ func (c *VibeCmd) Run(ctx Context) error {
 		Yolo:                 c.Yolo,
 		Container:            c.Container,
 		ContainerRuntime:     internal.ContainerRuntime(c.ContainerRuntime),
-		ContainerEgress:      isolation.Egress,
-		ContainerCredentials: isolation.Credentials,
+		ContainerSmolvmOpts:  vmSettings.CreateOpts,
+		ContainerEgress:      vmSettings.Egress,
+		ContainerCredentials: vmSettings.Credentials,
 		ContainerName:        c.ContainerName,
 		ContainerOpts:        c.ContainerOpt,
 		ContainerInheritEnv:  c.ContainerInheritEnv,

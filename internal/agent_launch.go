@@ -35,6 +35,7 @@ type agentLaunchCommand struct {
 
 	Container            bool
 	ContainerRuntime     ContainerRuntime
+	ContainerSmolvmOpts  []string
 	ContainerEgress      smolvm.Egress
 	ContainerCredentials []smolvm.Credential
 	ContainerImage       string
@@ -76,6 +77,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 			Yolo:                 cmd.Yolo,
 			Container:            cmd.Container,
 			ContainerRuntime:     cmd.ContainerRuntime,
+			ContainerSmolvmOpts:  cmd.ContainerSmolvmOpts,
 			ContainerEgress:      cmd.ContainerEgress,
 			ContainerCredentials: cmd.ContainerCredentials,
 			ContainerName:        cmd.ContainerImage,

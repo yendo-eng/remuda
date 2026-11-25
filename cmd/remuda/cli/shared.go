@@ -474,28 +474,30 @@ func (o VibeContainerOptions) Validate() error {
 	return nil
 }
 
-// containerIsolation is the egress allowlist and credential bindings from the
-// effective config, which only the smolvm runtime can realize.
-type containerIsolation struct {
+// smolvmSettings are the container settings only the smolvm runtime can
+// realize: raw machine create flags, the egress allowlist and credential
+// bindings.
+type smolvmSettings struct {
+	CreateOpts  []string
 	Egress      smolvm.Egress
 	Credentials []smolvm.Credential
 }
 
-func resolveContainerIsolation(k *koanf.Koanf, o VibeContainerOptions, smolvmInstalled bool) (containerIsolation, error) {
+func resolveSmolvmSettings(k *koanf.Koanf, o VibeContainerOptions, smolvmInstalled bool) (smolvmSettings, error) {
 	if !o.Container {
-		return containerIsolation{}, nil
+		return smolvmSettings{}, nil
 	}
 	var egress configfile.ContainerEgressV1
 	var creds []configfile.ContainerCredentialV1
 	conf := koanf.UnmarshalConf{Tag: "yaml"}
 	if err := k.UnmarshalWithConf("defaults.container.egress", &egress, conf); err != nil {
-		return containerIsolation{}, pkgerrors.Wrap(err, "defaults.container.egress")
+		return smolvmSettings{}, pkgerrors.Wrap(err, "defaults.container.egress")
 	}
 	if err := k.UnmarshalWithConf("defaults.container.credentials", &creds, conf); err != nil {
-		return containerIsolation{}, pkgerrors.Wrap(err, "defaults.container.credentials")
+		return smolvmSettings{}, pkgerrors.Wrap(err, "defaults.container.credentials")
 	}
 
-	iso := containerIsolation{Egress: smolvm.Egress{
+	settings := smolvmSettings{Egress: smolvm.Egress{
 		AllowHosts:        egress.AllowHosts,
 		AllowHostPatterns: egress.AllowHostPatterns,
 		AllowCIDRs:        egress.AllowCIDRs,
@@ -503,24 +505,35 @@ func resolveContainerIsolation(k *koanf.Koanf, o VibeContainerOptions, smolvmIns
 		AllowPrivate:      egress.AllowPrivate,
 	}}
 	for _, c := range creds {
-		iso.Credentials = append(iso.Credentials, smolvm.Credential{
+		settings.Credentials = append(settings.Credentials, smolvm.Credential{
 			Name: c.Name, Env: c.Env, Hosts: c.Hosts, Body: c.Body, SetHeader: c.SetHeader,
 		})
 	}
+	// Each entry is whitespace-split, as container.opts entries are.
+	for _, raw := range k.Strings("defaults.container.smolvm_opts") {
+		settings.CreateOpts = append(settings.CreateOpts, strings.Fields(raw)...)
+	}
 
 	if o.ContainerRuntime != configfile.ContainerRuntimeSmolvm {
-		if !iso.Egress.Empty() || len(iso.Credentials) > 0 {
-			return containerIsolation{}, pkgerrors.Errorf(
-				"container egress and credentials are configured but container runtime is %q; they require runtime smolvm",
+		if len(settings.CreateOpts) > 0 || !settings.Egress.Empty() || len(settings.Credentials) > 0 {
+			return smolvmSettings{}, pkgerrors.Errorf(
+				"container smolvm_opts, egress and credentials are configured but container runtime is %q; they require runtime smolvm",
 				o.ContainerRuntime,
 			)
 		}
-		return iso, nil
+		return settings, nil
+	}
+	if len(o.ContainerOpt) > 0 {
+		return smolvmSettings{}, pkgerrors.Errorf(
+			"container opts %q are docker run options, which the smolvm runtime does not take; "+
+				"put smolvm machine create flags in container.smolvm_opts and clear opts for this profile with `opts: []`",
+			o.ContainerOpt,
+		)
 	}
 	if !smolvmInstalled {
-		return containerIsolation{}, pkgerrors.New("container runtime smolvm requires the smolvm CLI on PATH")
+		return smolvmSettings{}, pkgerrors.New("container runtime smolvm requires the smolvm CLI on PATH")
 	}
-	return iso, nil
+	return settings, nil
 }
 
 func validateContainerImageSelection(containerEnabled bool, containerImage string) error {

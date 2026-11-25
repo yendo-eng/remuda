@@ -68,10 +68,20 @@ func newEffectiveConfig(cfg *configfile.V1, slug string, profile profileRef) (*k
 	slug = normalizeRepoSlug(slug)
 	if slug != "" {
 		if overlay, ok := cfg.PerRepo[slug]; ok {
-			var appendedOpts []string
-			if overlay.Defaults != nil && overlay.Defaults.Container != nil && overlay.Defaults.Container.Opts != nil &&
-				len(*overlay.Defaults.Container.Opts) > 0 && k.Exists("defaults.container.opts") {
-				appendedOpts = append(append([]string{}, k.Strings("defaults.container.opts")...), (*overlay.Defaults.Container.Opts)...)
+			var container *configfile.ContainerV1
+			if overlay.Defaults != nil {
+				container = overlay.Defaults.Container
+			}
+			appended := map[string][]string{}
+			if container != nil {
+				for key, opts := range map[string]*[]string{
+					"defaults.container.opts":        container.Opts,
+					"defaults.container.smolvm_opts": container.SmolvmOpts,
+				} {
+					if opts != nil && len(*opts) > 0 && k.Exists(key) {
+						appended[key] = append(append([]string{}, k.Strings(key)...), (*opts)...)
+					}
+				}
 			}
 			err := loadIntoKoanf(k, configfile.V1{
 				Repos:    overlay.Repos,
@@ -81,8 +91,8 @@ func newEffectiveConfig(cfg *configfile.V1, slug string, profile profileRef) (*k
 			if err != nil {
 				return nil, err
 			}
-			if appendedOpts != nil {
-				if err := k.Set("defaults.container.opts", appendedOpts); err != nil {
+			for key, opts := range appended {
+				if err := k.Set(key, opts); err != nil {
 					return nil, err
 				}
 			}

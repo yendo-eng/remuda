@@ -82,7 +82,9 @@ type ContainerV1 struct {
 	Image      *string   `yaml:"image,omitempty"`
 	Opts       *[]string `yaml:"opts,omitempty"`
 	InheritEnv *[]string `yaml:"inherit_env,omitempty"`
-	// Egress and Credentials are realized only by the smolvm runtime.
+	// SmolvmOpts, Egress and Credentials are realized only by the smolvm
+	// runtime; SmolvmOpts are raw `smolvm machine create` flags.
+	SmolvmOpts  *[]string                `yaml:"smolvm_opts,omitempty"`
 	Egress      *ContainerEgressV1       `yaml:"egress,omitempty"`
 	Credentials *[]ContainerCredentialV1 `yaml:"credentials,omitempty"`
 }
@@ -181,7 +183,7 @@ func validateContainerMappingKeys(node *yaml.Node) error {
 	for i := 0; i < len(node.Content)-1; i += 2 {
 		key := node.Content[i].Value
 		switch key {
-		case "enabled", "runtime", "image", "opts", "inherit_env", "egress", "credentials":
+		case "enabled", "runtime", "image", "opts", "inherit_env", "smolvm_opts", "egress", "credentials":
 			continue
 		default:
 			return pkgerrors.Errorf("container.%s: unknown field", key)

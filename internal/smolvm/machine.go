@@ -5,11 +5,9 @@ package smolvm
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path"
 	"slices"
-	"strconv"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"
@@ -94,18 +92,16 @@ type Machine struct {
 	SecretEnv   []string
 	Egress      Egress
 	Credentials []Credential
-	// CPUs is the vCPU count; zero keeps smolvm's default.
-	CPUs int
-	// MemoryMiB caps guest memory; zero keeps smolvm's default.
-	MemoryMiB int
+	// CreateOpts are user-supplied `smolvm machine create` flags, appended
+	// verbatim after Remuda's own.
+	CreateOpts []string
 }
 
 // LookupEnvFunc reports a host env var's value, as os.LookupEnv does.
 type LookupEnvFunc func(name string) (string, bool)
 
-// AddDockerOpts realizes docker run options (-v, --tmpfs, -e, --cpus,
-// --memory) on m. Any other option fails, because smolvm has no equivalent
-// Remuda can map it to.
+// AddDockerOpts realizes the docker run options Remuda's mount and env
+// builders emit (-v, --tmpfs, -e) on m. Any other option fails.
 func (m *Machine) AddDockerOpts(opts []string, lookupEnv LookupEnvFunc) error {
 	for i := 0; i < len(opts); i++ {
 		opt := opts[i]
@@ -126,13 +122,6 @@ func (m *Machine) AddDockerOpts(opts []string, lookupEnv LookupEnvFunc) error {
 			m.GuestDirs = append(m.GuestDirs, guest)
 		case "-e", "--env":
 			m.addEnv(value, lookupEnv)
-		case "--cpus":
-			m.CPUs, err = strconv.Atoi(value)
-			if err != nil || m.CPUs < 1 {
-				err = pkgerrors.Errorf("container option --cpus=%s: smolvm runtime needs a whole number of CPUs", value)
-			}
-		case "-m", "--memory":
-			m.MemoryMiB, err = parseMemoryMiB(value)
 		default:
 			err = pkgerrors.Errorf("container option %q is not supported by the smolvm runtime", opt)
 		}
@@ -141,30 +130,6 @@ func (m *Machine) AddDockerOpts(opts []string, lookupEnv LookupEnvFunc) error {
 		}
 	}
 	return nil
-}
-
-// parseMemoryMiB converts a docker --memory value (bytes, or a b/k/m/g
-// suffix) to smolvm's --mem MiB.
-func parseMemoryMiB(value string) (int, error) {
-	num, unit := value, int64(1)
-	if n := len(value); n > 0 {
-		switch value[n-1] | 0x20 {
-		case 'b':
-			num = value[:n-1]
-		case 'k':
-			num, unit = value[:n-1], 1<<10
-		case 'm':
-			num, unit = value[:n-1], 1<<20
-		case 'g':
-			num, unit = value[:n-1], 1<<30
-		}
-	}
-	const mib = 1 << 20
-	amount, err := strconv.ParseInt(num, 10, 64)
-	if err != nil || amount < 1 || amount > math.MaxInt64/unit || amount*unit%mib != 0 {
-		return 0, pkgerrors.Errorf("container option --memory=%s: smolvm runtime needs a whole number of MiB, e.g. 4096m or 4g", value)
-	}
-	return int(amount * unit / mib), nil
 }
 
 func (m *Machine) addMount(spec string) error {
@@ -261,12 +226,6 @@ func (m Machine) createArgv() []string {
 		}
 		argv = append(argv, "-v", spec)
 	}
-	if m.CPUs > 0 {
-		argv = append(argv, "--cpus", strconv.Itoa(m.CPUs))
-	}
-	if m.MemoryMiB > 0 {
-		argv = append(argv, "--mem", strconv.Itoa(m.MemoryMiB))
-	}
 	argv = append(argv, "--ssh-agent", "--net")
 	for _, h := range m.Egress.AllowHosts {
 		argv = append(argv, "--allow-host", h)
@@ -289,7 +248,7 @@ func (m Machine) createArgv() []string {
 	for _, e := range m.Env {
 		argv = append(argv, "-e", e.Name+"="+e.Value)
 	}
-	return argv
+	return append(argv, m.CreateOpts...)
 }
 
 // LaunchScript returns the bash script that runs the session in its pane:

@@ -58,13 +58,6 @@ func TestAddDockerOpts(t *testing.T) {
 				SecretEnv: []string{"GH_TOKEN"},
 			},
 		},
-		{name: "whole cpus map", opts: []string{"--cpus=4"}, want: smolvm.Machine{CPUs: 4}},
-		{name: "fractional cpus fail", opts: []string{"--cpus=1.5"}, wantErr: "whole number"},
-		{name: "memory in gigabytes maps to MiB", opts: []string{"--memory=4g"}, want: smolvm.Machine{MemoryMiB: 4096}},
-		{name: "short memory flag in MiB", opts: []string{"-m", "1536M"}, want: smolvm.Machine{MemoryMiB: 1536}},
-		{name: "memory in bytes", opts: []string{"--memory", "2147483648"}, want: smolvm.Machine{MemoryMiB: 2048}},
-		{name: "memory below a whole MiB fails", opts: []string{"--memory=1500k"}, wantErr: "whole number of MiB"},
-		{name: "fractional memory fails", opts: []string{"--memory=1.5g"}, wantErr: "whole number of MiB"},
 		{name: "unsupported option fails", opts: []string{"--network", "host"}, wantErr: `"--network" is not supported`},
 		{name: "named volume fails", opts: []string{"-v", "cache:/cache"}, wantErr: "/host/path:/guest/path"},
 		{name: "unknown mode fails", opts: []string{"-v", dir + ":/data:z"}, wantErr: `unsupported mode "z"`},
@@ -179,8 +172,7 @@ func TestLaunchScript(t *testing.T) {
 		SecretEnv:      []string{"GH_TOKEN"},
 		Egress:         smolvm.Egress{AllowHosts: []string{"github.com"}, BlockPrivate: true},
 		Credentials:    []smolvm.Credential{{Name: "gh", Env: "GH_TOKEN", Hosts: []string{"api.github.com", "github.com"}, SetHeader: "authorization"}},
-		CPUs:           4,
-		MemoryMiB:      4096,
+		CreateOpts:     []string{"--mem", "4096"},
 	}
 	script := m.LaunchScript("echo 'agent'")
 
@@ -194,8 +186,8 @@ func TestLaunchScript(t *testing.T) {
 			name: "runs every step then deletes the machine",
 			wantCalls: []string{
 				"machine create --name org-repo-ws --from /images/vibe-dev.smolmachine -v /host/ws with space:/workspaces/ws-1234 " +
-					"-w /workspaces/ws-1234 -v /host/cache:/cache:ro --cpus 4 --mem 4096 --ssh-agent --net --allow-host github.com --block-private " +
-					"--credential gh=GH_TOKEN@api.github.com,github.com:set-header=authorization -e MODE=it's fast",
+					"-w /workspaces/ws-1234 -v /host/cache:/cache:ro --ssh-agent --net --allow-host github.com --block-private " +
+					"--credential gh=GH_TOKEN@api.github.com,github.com:set-header=authorization -e MODE=it's fast --mem 4096",
 				"machine start --name org-repo-ws",
 				"machine exec --name org-repo-ws -- mkdir -p /root/.codex /root",
 				"machine cp /host/.claude.json org-repo-ws:/root/.claude.json",

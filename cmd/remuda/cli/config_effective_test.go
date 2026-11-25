@@ -27,11 +27,39 @@ per_repo:
 
 func TestNewEffectiveConfig_PerRepoContainerOptsAppendToBase(t *testing.T) {
 	t.Parallel()
+	for _, key := range []string{"opts", "smolvm_opts"} {
+		t.Run(key, func(t *testing.T) {
+			t.Parallel()
+			cfg := parseTestConfig(t, `
+version: 1
+defaults:
+  container:
+    `+key+`: ["--base"]
+per_repo:
+  acme/utils:
+    defaults:
+      container:
+        `+key+`: ["--repo"]
+`)
+
+			eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{})
+			require.NoError(t, err)
+			require.Equal(t, []string{"--base", "--repo"}, eff.Strings("defaults.container."+key))
+		})
+	}
+}
+
+func TestNewEffectiveConfig_ProfileEmptyContainerOptsClearInherited(t *testing.T) {
+	t.Parallel()
 	cfg := parseTestConfig(t, `
 version: 1
 defaults:
   container:
     opts: ["--base"]
+profiles:
+  vm:
+    container:
+      opts: []
 per_repo:
   acme/utils:
     defaults:
@@ -39,9 +67,9 @@ per_repo:
         opts: ["--repo"]
 `)
 
-	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{})
+	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{Name: "vm"})
 	require.NoError(t, err)
-	require.Equal(t, []string{"--base", "--repo"}, eff.Strings("defaults.container.opts"))
+	require.Empty(t, eff.Strings("defaults.container.opts"))
 }
 
 func TestNewEffectiveConfig_PerRepoContainerOptsReplaceWhenBaseUnset(t *testing.T) {

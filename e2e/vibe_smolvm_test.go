@@ -23,6 +23,7 @@ func TestVibeSmolvmRuntime(t *testing.T) {
 	tests := []struct {
 		name         string
 		container    string
+		profiles     string
 		args         []string
 		wantErr      string
 		wantInCmd    []string
@@ -32,6 +33,7 @@ func TestVibeSmolvmRuntime(t *testing.T) {
 			name: "launches a machine with egress and credential bindings",
 			container: `
     runtime: smolvm
+    smolvm_opts: ["--mem 4096", "--cpus=2"]
     egress:
       allow_hosts: [github.com]
       block_private: true` + bothTokens,
@@ -41,6 +43,8 @@ func TestVibeSmolvmRuntime(t *testing.T) {
 				"'--ssh-agent'",
 				"'--allow-host' 'github.com' '--block-private'",
 				"'--credential' 'gh=GH_TOKEN@api.github.com'",
+				// User flags go last, after every flag Remuda sets.
+				"'--mem' '4096' '--cpus=2' >/dev/null",
 				"'smolvm' 'machine' 'exec' '-it'",
 				"safe.directory",
 				"smolvm machine delete --force --name 'org-repo-wk'",
@@ -68,10 +72,29 @@ func TestVibeSmolvmRuntime(t *testing.T) {
 			wantErr: `container runtime is "docker"; they require runtime smolvm`,
 		},
 		{
-			name:      "docker options smolvm cannot express fail",
+			name:      "docker run options on the smolvm runtime fail",
 			container: "\n    runtime: smolvm",
-			args:      []string{"--container-opt", "--network host"},
-			wantErr:   `container option "--network" is not supported by the smolvm runtime`,
+			args:      []string{"--container-opt", "--memory=4g"},
+			wantErr:   `container opts ["--memory=4g"] are docker run options, which the smolvm runtime does not take`,
+		},
+		{
+			name:      "a smolvm profile clears inherited docker opts",
+			container: "\n    opts: [\"--memory=4g\"]",
+			profiles: `
+profiles:
+  vm:
+    container:
+      runtime: smolvm
+      opts: []
+      smolvm_opts: ["--mem 4096"]`,
+			args:         []string{"-p", "vm"},
+			wantInCmd:    []string{"'--mem' '4096' >/dev/null"},
+			wantNotInCmd: []string{"--memory=4g"},
+		},
+		{
+			name:      "smolvm_opts on the docker runtime fail",
+			container: "\n    smolvm_opts: [\"--mem 4096\"]",
+			wantErr:   `container runtime is "docker"; they require runtime smolvm`,
 		},
 	}
 	for _, tt := range tests {
@@ -86,7 +109,7 @@ func TestVibeSmolvmRuntime(t *testing.T) {
 version: 1
 defaults:
   container:
-    image: /images/vibe-dev.smolmachine`+tt.container+"\n"), 0o644))
+    image: /images/vibe-dev.smolmachine`+tt.container+tt.profiles+"\n"), 0o644))
 
 			sessionMgr := &testutils.MockMultiplexer{}
 			h := testutils.NewHarness(t,
