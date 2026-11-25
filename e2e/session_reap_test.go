@@ -67,7 +67,7 @@ func TestSessionReapCleanupRemovesWorkspace(t *testing.T) {
 	t.Parallel()
 	h := testutils.NewHarness(t)
 	mgr := requireMockMultiplexer(t, h)
-	h.SetEnv("REMUDA_CONTAINER", "false")
+	h.SetEnv("REMUDA_ISOLATION", "false")
 
 	remoteURL := testutils.InitTestRemote(t)
 	name := "test-session"

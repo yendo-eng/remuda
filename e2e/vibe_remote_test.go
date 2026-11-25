@@ -27,7 +27,7 @@ func TestVibeRemoteControl_ClaudeUsesSessionName(t *testing.T) {
 		"--name", "wk-remote",
 		"--repo-url", remoteURL,
 		"--agent", "claude",
-		"--no-container",
+		"--no-isolation",
 		"--remote",
 		"hello",
 	)
@@ -59,7 +59,7 @@ func TestVibeRemoteControl_NonClaudeWarnsAndDoesNotChangeLauncher(t *testing.T) 
 		"--name", "wk-remote-codex",
 		"--repo-url", remoteURL,
 		"--agent", "codex",
-		"--no-container",
+		"--no-isolation",
 		"--remote",
 		"hello",
 	)

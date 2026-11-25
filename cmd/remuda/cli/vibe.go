@@ -19,7 +19,7 @@ type VibeCmd struct {
 	ContextEngineeringOptions
 	APIKeyOptions
 	SlugifyOptions
-	VibeContainerOptions
+	VibeIsolationOptions
 
 	Prompt            string
 	In                string
@@ -96,7 +96,7 @@ func (a *app) vibeCmd() *cobra.Command {
 	c.ContextEngineeringOptions.register(cmd, fl)
 	c.APIKeyOptions.register(cmd, fl)
 	c.SlugifyOptions.register(cmd, fl)
-	c.VibeContainerOptions.register(cmd, fl)
+	c.VibeIsolationOptions.register(cmd, fl)
 
 	fs := cmd.Flags()
 	fs.StringVar(&c.In, "in", "", "Launch inside an existing workspace folder instead of cloning.")
@@ -110,7 +110,7 @@ func (a *app) vibeCmd() *cobra.Command {
 }
 
 func (c *VibeCmd) validate() error {
-	if err := c.VibeContainerOptions.Validate(); err != nil {
+	if err := c.VibeIsolationOptions.Validate(); err != nil {
 		return err
 	}
 	if strings.TrimSpace(c.In) == "" {
@@ -174,7 +174,7 @@ func (c *VibeCmd) Run(ctx Context) error {
 	repoURL := repoSelection.RepoURL
 	repoSlug := repoSelection.RepoSlug
 
-	if err := validateContainerImageSelection(c.Container, c.ContainerName); err != nil {
+	if err := validateIsolationImageSelection(c.Isolation, c.IsolationImage); err != nil {
 		return err
 	}
 	agentArgs := effectiveAgentArgsFromKoanf(ctx.EffectiveConfig(), c.Agent, c.AgentArg)
@@ -190,10 +190,11 @@ func (c *VibeCmd) Run(ctx Context) error {
 		Detached:            c.DetachedMode(),
 		Attach:              c.Attach,
 		Yolo:                c.Yolo,
-		Container:           c.Container,
-		ContainerName:       c.ContainerName,
-		ContainerOpts:       c.ContainerOpt,
-		ContainerInheritEnv: c.ContainerInheritEnv,
+		IsolationRuntime:    c.IsolationRuntime,
+		Container:           c.Isolation,
+		ContainerName:       c.IsolationImage,
+		ContainerOpts:       c.IsolationOpt,
+		ContainerInheritEnv: c.IsolationInheritEnv,
 		RemoteControl:       c.Remote,
 		UsePromptsPosition:  c.effectiveUsePromptsPosition(),
 	}

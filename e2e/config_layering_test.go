@@ -18,37 +18,37 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-// containerLayeringConfig sets defaults.container.opts at the base layer and
+// isolationLayeringConfig sets defaults.isolation.opts at the base layer and
 // again at the per_repo layer for yendo-eng/remuda, plus a "review" profile
-// that sets its own container.opts.
-const containerLayeringConfig = `
+// that sets its own isolation.opts.
+const isolationLayeringConfig = `
 version: 1
 defaults:
-  container:
+  isolation:
     image: ghcr.io/acme/vibe-dev:latest
     opts:
       - "--base-opt"
 per_repo:
   yendo-eng/remuda:
     defaults:
-      container:
+      isolation:
         opts:
           - "--per-repo-opt"
 profiles:
   review:
-    container:
+    isolation:
       opts:
         - "--profile-opt"
 `
 
-func newContainerLayeringHarness(t *testing.T) (*testutils.Harness, *testutils.MockMultiplexer, string) {
+func newIsolationLayeringHarness(t *testing.T) (*testutils.Harness, *testutils.MockMultiplexer, string) {
 	t.Helper()
 	runDir := t.TempDir()
 	workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
 	testutils.InitWorkspace(t, workspace)
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(containerLayeringConfig), 0o644))
+	require.NoError(t, os.WriteFile(configPath, []byte(isolationLayeringConfig), 0o644))
 
 	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
@@ -63,18 +63,18 @@ func newContainerLayeringHarness(t *testing.T) (*testutils.Harness, *testutils.M
 	return h, sessionMgr, workspace
 }
 
-// TestConfigLayeringContainerOptsAppendAcrossBaseAndPerRepo is a regression
-// test for the bug fixed in b1069b5: per_repo container.opts must append to
+// TestConfigLayeringIsolationOptsAppendAcrossBaseAndPerRepo is a regression
+// test for the bug fixed in b1069b5: per_repo isolation.opts must append to
 // the base opts as distinct docker args, not get stringified into one
 // "[a b]" token (which docker rejects as an invalid reference).
-func TestConfigLayeringContainerOptsAppendAcrossBaseAndPerRepo(t *testing.T) {
+func TestConfigLayeringIsolationOptsAppendAcrossBaseAndPerRepo(t *testing.T) {
 	t.Parallel()
-	h, sessionMgr, workspace := newContainerLayeringHarness(t)
+	h, sessionMgr, workspace := newIsolationLayeringHarness(t)
 
 	h.RunOK(
 		"vibe",
 		"--in", workspace,
-		"--container",
+		"--isolation",
 		"prompt",
 	)
 
@@ -91,17 +91,17 @@ func TestConfigLayeringContainerOptsAppendAcrossBaseAndPerRepo(t *testing.T) {
 	)
 }
 
-// TestConfigLayeringProfileReplacesAppendedContainerOpts shows that a
-// selected profile's container.opts REPLACES the base+per_repo combination
+// TestConfigLayeringProfileReplacesAppendedIsolationOpts shows that a
+// selected profile's isolation.opts REPLACES the base+per_repo combination
 // entirely, unlike per_repo which appends onto base.
-func TestConfigLayeringProfileReplacesAppendedContainerOpts(t *testing.T) {
+func TestConfigLayeringProfileReplacesAppendedIsolationOpts(t *testing.T) {
 	t.Parallel()
-	h, sessionMgr, workspace := newContainerLayeringHarness(t)
+	h, sessionMgr, workspace := newIsolationLayeringHarness(t)
 
 	h.RunOK(
 		"vibe",
 		"--in", workspace,
-		"--container",
+		"--isolation",
 		"--profile", "review",
 		"prompt",
 	)
@@ -155,7 +155,7 @@ profiles:
 			"--name", "wk",
 			"--repo-url", remoteURL,
 			"--no-tmux",
-			"--no-container",
+			"--no-isolation",
 			"--profile", "ship",
 			"--agent-cmd", "echo ",
 			"--use", "small-commits",
@@ -176,7 +176,7 @@ profiles:
 			"--name", "wk",
 			"--repo-url", remoteURL,
 			"--no-tmux",
-			"--no-container",
+			"--no-isolation",
 			"--profile", "ship",
 			"--agent-cmd", "echo ",
 			"--use", "small-commits",
@@ -225,7 +225,7 @@ jira:
 		"vibe",
 		"--in", workspace,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"--jira", "PROJ-101",
 		"--jira-endpoint", "https://flag.example.atlassian.net",
@@ -265,7 +265,7 @@ func TestConfigLayeringSessionResumeAgentCoercion(t *testing.T) {
 			testutils.WithDocker(&docker.Mock{Running: false}),
 		)
 		h.SetEnv("REMUDA_CONFIG", configPath)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 		return h, sessionMgr, workspace
 	}
 
@@ -335,7 +335,7 @@ func TestConfigLayeringOpenAIAPIKeyExplicitness(t *testing.T) {
 		t.Parallel()
 		h, sessionMgr, workspace := newHarness(t)
 
-		h.RunOK("vibe", "--in", workspace, "--no-container", "--agent-cmd", "true", "--openai-api-key", "flag-secret", "prompt")
+		h.RunOK("vibe", "--in", workspace, "--no-isolation", "--agent-cmd", "true", "--openai-api-key", "flag-secret", "prompt")
 
 		recorded := sessionMgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
 		require.NotNil(t, recorded)
@@ -350,7 +350,7 @@ func TestConfigLayeringOpenAIAPIKeyExplicitness(t *testing.T) {
 		h, sessionMgr, workspace := newHarness(t)
 		h.SetEnv("OPENAI_API_KEY", "env-secret")
 
-		h.RunOK("vibe", "--in", workspace, "--no-container", "--agent-cmd", "true", "prompt")
+		h.RunOK("vibe", "--in", workspace, "--no-isolation", "--agent-cmd", "true", "prompt")
 
 		recorded := sessionMgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
 		require.NotNil(t, recorded)
@@ -368,7 +368,7 @@ func TestConfigLayeringOpenAIAPIKeyExplicitness(t *testing.T) {
 		// is distinguishable from truly unset.
 		delete(h.Env, "OPENAI_API_KEY")
 
-		h.RunOK("vibe", "--in", workspace, "--no-container", "--agent-cmd", "true", "prompt")
+		h.RunOK("vibe", "--in", workspace, "--no-isolation", "--agent-cmd", "true", "prompt")
 
 		recorded := sessionMgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
 		require.NotNil(t, recorded)

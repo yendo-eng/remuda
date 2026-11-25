@@ -430,49 +430,53 @@ func (o *SlugifyOptions) register(cmd *cobra.Command, fl *flagSet) {
 	registerStaticCompletionKeepOrder(cmd, "slugify-reasoning-level", enums.ValidSlugifyReasoningLevels)
 }
 
-type VibeContainerOptions struct {
-	Container           bool
-	ContainerName       string
-	ContainerOpt        []string
-	ContainerInheritEnv []string
+type VibeIsolationOptions struct {
+	Isolation           bool
+	IsolationRuntime    string
+	IsolationImage      string
+	IsolationOpt        []string
+	IsolationInheritEnv []string
 }
 
-func (o *VibeContainerOptions) register(cmd *cobra.Command, fl *flagSet) {
+func (o *VibeIsolationOptions) register(cmd *cobra.Command, fl *flagSet) {
 	fs := cmd.Flags()
-	fs.BoolVar(&o.Container, "container", false, "Run session inside a Docker container.")
-	fs.StringVar(&o.ContainerName, "container-name", "", "Container image to use when --container is set.")
+	fs.BoolVar(&o.Isolation, "isolation", false, "Run session in an isolated environment.")
+	fs.StringVar(&o.IsolationRuntime, "isolation-runtime", enums.DefaultIsolationRuntime, "Isolation runtime to use.")
+	fs.StringVar(&o.IsolationImage, "isolation-image", "", "Image to use when --isolation is set.")
 	fs.StringSliceVar(
-		&o.ContainerOpt, "container-opt", nil,
-		"Append raw docker run argument (repeatable). Each value is split on whitespace into "+
+		&o.IsolationOpt, "isolation-opt", nil,
+		"Append a raw docker run argument when the runtime is docker (repeatable). Each value is split on whitespace into "+
 			"separate docker CLI tokens; there is no shell quoting, $VAR expansion, or ~ expansion, "+
 			"so whitespace-containing values (eg. paths with spaces) cannot be passed this way.",
 	)
-	fs.StringSliceVar(&o.ContainerInheritEnv, "container-inherit-env", nil, "Forward host env var into container (repeatable).")
-	fl.negatable("container")
-	fl.bind("container", bindEnvs("REMUDA_CONTAINER"), bindKey("defaults.container.enabled"))
-	fl.bind("container-name", bindKey("defaults.container.image"))
-	fl.bind("container-opt", bindEnvs("REMUDA_CONTAINER_OPTS"), bindKey("defaults.container.opts"))
-	fl.bind("container-inherit-env", bindEnvs("REMUDA_CONTAINER_INHERIT_ENVS"), bindKey("defaults.container.inherit_env"))
+	fs.StringSliceVar(&o.IsolationInheritEnv, "isolation-inherit-env", nil, "Forward host env var into the isolated session (repeatable).")
+	fl.negatable("isolation")
+	fl.bind("isolation", bindEnvs("REMUDA_ISOLATION"), bindKey("defaults.isolation.enabled"))
+	fl.bind("isolation-runtime", bindEnvs("REMUDA_ISOLATION_RUNTIME"), bindKey("defaults.isolation.runtime"), bindEnum(enums.ValidIsolationRuntimes...))
+	fl.bind("isolation-image", bindKey("defaults.isolation.image"))
+	fl.bind("isolation-opt", bindEnvs("REMUDA_ISOLATION_OPTS"), bindKey("defaults.isolation.opts"))
+	fl.bind("isolation-inherit-env", bindEnvs("REMUDA_ISOLATION_INHERIT_ENVS"), bindKey("defaults.isolation.inherit_env"))
+	registerStaticCompletion(cmd, "isolation-runtime", enums.ValidIsolationRuntimes)
 }
 
-func (o VibeContainerOptions) Validate() error {
-	for _, name := range o.ContainerInheritEnv {
+func (o VibeIsolationOptions) Validate() error {
+	for _, name := range o.IsolationInheritEnv {
 		if err := util.ValidateEnvVarName(name); err != nil {
-			return pkgerrors.Wrap(err, "--container-inherit-env")
+			return pkgerrors.Wrap(err, "--isolation-inherit-env")
 		}
 	}
 	return nil
 }
 
-func validateContainerImageSelection(containerEnabled bool, containerImage string) error {
-	if !containerEnabled {
+func validateIsolationImageSelection(isolationEnabled bool, isolationImage string) error {
+	if !isolationEnabled {
 		return nil
 	}
-	if strings.TrimSpace(containerImage) != "" {
+	if strings.TrimSpace(isolationImage) != "" {
 		return nil
 	}
 	return pkgerrors.New(
-		"container mode requires an explicit image; pass --container-name or configure defaults.container.image (including profiles.<name>.container.image or per_repo.<slug>.defaults.container.image)",
+		"isolation mode requires an explicit image; pass --isolation-image or configure defaults.isolation.image (including profiles.<name>.isolation.image or per_repo.<slug>.defaults.isolation.image)",
 	)
 }
 

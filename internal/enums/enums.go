@@ -19,6 +19,12 @@ const (
 // Used by CLI and config file validation.
 var ValidUsePromptPositions = []string{UsePromptPositionBefore, UsePromptPositionAfter}
 
+// DefaultIsolationRuntime is the runtime selected when none is configured.
+const DefaultIsolationRuntime = "docker"
+
+// ValidIsolationRuntimes is the canonical set of supported isolation runtimes.
+var ValidIsolationRuntimes = []string{DefaultIsolationRuntime}
+
 // ValidSlugifyReasoningLevels is the canonical list of reasoning effort levels for slugify.
 // Slugify uses a lightweight title-generation call, so it intentionally excludes max and ultra.
 var ValidSlugifyReasoningLevels = []string{"none", "minimal", "low", "medium", "high", "xhigh"}

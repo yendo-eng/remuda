@@ -50,6 +50,7 @@ func TestWriteSessionManifest(t *testing.T) {
 	usePrompts := []string{"make-pr"}
 	usePromptsPosition := "before"
 	containerEnabled := true
+	isolationRuntime := "docker"
 	containerImage := "ghcr.io/acme/vibe-dev:latest"
 	manifest := SessionManifest{Defaults: configfile.DefaultsV1{
 		Agent:              &agent,
@@ -58,8 +59,9 @@ func TestWriteSessionManifest(t *testing.T) {
 		Yolo:               &yolo,
 		UsePrompts:         &usePrompts,
 		UsePromptsPosition: &usePromptsPosition,
-		Container: &configfile.ContainerV1{
+		Isolation: &configfile.IsolationV1{
 			Enabled: &containerEnabled,
+			Runtime: &isolationRuntime,
 			Image:   &containerImage,
 		},
 	}}

@@ -68,21 +68,22 @@ type DefaultsV1 struct {
 	Experiments           *[]string           `yaml:"experiments,omitempty"`
 	Yolo                  *bool               `yaml:"yolo,omitempty"`
 	Merge                 *MergeV1            `yaml:"merge,omitempty"`
-	Container             *ContainerV1        `yaml:"container,omitempty"`
+	Isolation             *IsolationV1        `yaml:"isolation,omitempty"`
 }
 
 type MergeV1 struct {
 	GHFlags *[]string `yaml:"gh_flags,omitempty"`
 }
 
-type ContainerV1 struct {
+type IsolationV1 struct {
 	Enabled    *bool     `yaml:"enabled,omitempty"`
+	Runtime    *string   `yaml:"runtime,omitempty"`
 	Image      *string   `yaml:"image,omitempty"`
 	Opts       *[]string `yaml:"opts,omitempty"`
 	InheritEnv *[]string `yaml:"inherit_env,omitempty"`
 }
 
-func (c *ContainerV1) UnmarshalYAML(value *yaml.Node) error {
+func (i *IsolationV1) UnmarshalYAML(value *yaml.Node) error {
 	if value == nil {
 		return nil
 	}
@@ -93,42 +94,59 @@ func (c *ContainerV1) UnmarshalYAML(value *yaml.Node) error {
 	switch value.Kind {
 	case yaml.ScalarNode:
 		if value.Tag == "!!null" {
-			*c = ContainerV1{}
+			*i = IsolationV1{}
 			return nil
 		}
 		var enabled bool
 		if err := value.Decode(&enabled); err != nil {
-			return pkgerrors.Errorf("container: expected mapping or boolean")
+			return pkgerrors.Errorf("isolation: expected mapping or boolean")
 		}
-		*c = ContainerV1{Enabled: &enabled}
+		*i = IsolationV1{Enabled: &enabled}
 		return nil
 	case yaml.MappingNode:
-		if err := validateContainerMappingKeys(value); err != nil {
+		if err := validateIsolationMappingKeys(value); err != nil {
 			return err
 		}
-		type plain ContainerV1
+		type plain IsolationV1
 		var out plain
 		if err := value.Decode(&out); err != nil {
 			return err
 		}
-		*c = ContainerV1(out)
+		*i = IsolationV1(out)
 		return nil
 	default:
-		return pkgerrors.Errorf("container: expected mapping or boolean")
+		return pkgerrors.Errorf("isolation: expected mapping or boolean")
 	}
 }
 
-func validateContainerMappingKeys(node *yaml.Node) error {
+func validateIsolationMappingKeys(node *yaml.Node) error {
 	if node == nil || node.Kind != yaml.MappingNode {
-		return pkgerrors.Errorf("container: expected mapping or boolean")
+		return pkgerrors.Errorf("isolation: expected mapping or boolean")
 	}
 	for i := 0; i < len(node.Content)-1; i += 2 {
 		key := node.Content[i].Value
 		switch key {
-		case "enabled", "image", "opts", "inherit_env":
+		case "enabled", "runtime", "image", "opts", "inherit_env":
 			continue
 		default:
-			return pkgerrors.Errorf("container.%s: unknown field", key)
+			return pkgerrors.Errorf("isolation.%s: unknown field", key)
+		}
+	}
+	return nil
+}
+
+func (i IsolationV1) validate(path string) error {
+	if i.Runtime != nil && !slices.Contains(enums.ValidIsolationRuntimes, *i.Runtime) {
+		return pkgerrors.Errorf("%s.runtime: invalid value %q (valid: %s)",
+			path, *i.Runtime, strings.Join(enums.ValidIsolationRuntimes, ", "))
+	}
+	if i.InheritEnv == nil {
+		return nil
+	}
+	for index, env := range *i.InheritEnv {
+		envPath := fmt.Sprintf("%s.inherit_env[%d]", path, index)
+		if err := validateEnvVarName(envPath, env); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -164,6 +182,13 @@ func ParseV1(yamlBytes []byte) (*V1, error) {
 	}
 	if h.Version != Version1 {
 		return nil, pkgerrors.Errorf("unsupported config version %d (expected %d)", h.Version, Version1)
+	}
+	var root yaml.Node
+	if err := yaml.Unmarshal(yamlBytes, &root); err != nil {
+		return nil, pkgerrors.Wrap(err, "parse config yaml")
+	}
+	if path := legacyContainerConfigPath(&root); path != "" {
+		return nil, pkgerrors.Errorf("%s: renamed to isolation (see docs/configuration.md)", path)
 	}
 
 	// Use strict YAML decoding to reject unknown keys.
@@ -412,8 +437,8 @@ func (d DefaultsV1) validate(path string) error {
 			return err
 		}
 	}
-	if d.Container != nil {
-		if err := d.Container.validate(path + ".container"); err != nil {
+	if d.Isolation != nil {
+		if err := d.Isolation.validate(path + ".isolation"); err != nil {
 			return err
 		}
 	}
@@ -433,14 +458,49 @@ func (m MergeV1) validate(path string) error {
 	return nil
 }
 
-func (c ContainerV1) validate(path string) error {
-	if c.InheritEnv == nil {
+func legacyContainerConfigPath(root *yaml.Node) string {
+	if root == nil || len(root.Content) == 0 {
+		return ""
+	}
+	root = mappingAlias(root.Content[0])
+	if defaults := mappingValue(root, "defaults"); mappingValue(defaults, "container") != nil {
+		return "defaults.container"
+	}
+	if profiles := mappingAlias(mappingValue(root, "profiles")); profiles != nil && profiles.Kind == yaml.MappingNode {
+		for index := 0; index < len(profiles.Content)-1; index += 2 {
+			name := profiles.Content[index].Value
+			if mappingValue(profiles.Content[index+1], "container") != nil {
+				return "profiles." + name + ".container"
+			}
+		}
+	}
+	if repos := mappingAlias(mappingValue(root, "per_repo")); repos != nil && repos.Kind == yaml.MappingNode {
+		for index := 0; index < len(repos.Content)-1; index += 2 {
+			slug := repos.Content[index].Value
+			defaults := mappingValue(repos.Content[index+1], "defaults")
+			if mappingValue(defaults, "container") != nil {
+				return "per_repo." + slug + ".defaults.container"
+			}
+		}
+	}
+	return ""
+}
+
+func mappingAlias(node *yaml.Node) *yaml.Node {
+	if node != nil && node.Kind == yaml.AliasNode {
+		return node.Alias
+	}
+	return node
+}
+
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
+	node = mappingAlias(node)
+	if node == nil || node.Kind != yaml.MappingNode {
 		return nil
 	}
-	for i, env := range *c.InheritEnv {
-		envPath := fmt.Sprintf("%s.inherit_env[%d]", path, i)
-		if err := validateEnvVarName(envPath, env); err != nil {
-			return err
+	for index := 0; index < len(node.Content)-1; index += 2 {
+		if node.Content[index].Value == key {
+			return node.Content[index+1]
 		}
 	}
 	return nil

@@ -59,31 +59,31 @@ func attachTestInvocation(t *testing.T, ctx *Context, cfg *configfile.V1, profil
 	newTestInvocation(t, ctx, cfg, profiled, nil, nil)
 }
 
-// attachTestInvocationWithContainerFlags is like attachTestInvocation, but
-// also registers VibeContainerOptions so tests can assert that flag-bound
+// attachTestInvocationWithIsolationFlags is like attachTestInvocation, but
+// also registers VibeIsolationOptions so tests can assert that flag-bound
 // struct fields (not just the effective config view) are re-resolved by
 // overlay re-resolution.
-func attachTestInvocationWithContainerFlags(t *testing.T, ctx *Context, cfg *configfile.V1, profiled bool) *VibeContainerOptions {
+func attachTestInvocationWithIsolationFlags(t *testing.T, ctx *Context, cfg *configfile.V1, profiled bool) *VibeIsolationOptions {
 	t.Helper()
-	container := &VibeContainerOptions{}
+	isolation := &VibeIsolationOptions{}
 	newTestInvocation(t, ctx, cfg, profiled, nil, func(cmd *cobra.Command, fl *flagSet) {
-		container.register(cmd, fl)
+		isolation.register(cmd, fl)
 	})
-	return container
+	return isolation
 }
 
-// attachTestInvocationWithFlags registers VibeContainerOptions and
+// attachTestInvocationWithFlags registers VibeIsolationOptions and
 // ContextEngineeringOptions, parses args (so flags set there are snapshotted
 // as explicit by beginResolution), and attaches the resulting invocation to
 // ctx. Used to assert that explicitly-set flags survive repeated overlay
 // re-resolution passes.
-func attachTestInvocationWithFlags(t *testing.T, ctx *Context, cfg *configfile.V1, args []string) (*VibeContainerOptions, *ContextEngineeringOptions) {
+func attachTestInvocationWithFlags(t *testing.T, ctx *Context, cfg *configfile.V1, args []string) (*VibeIsolationOptions, *ContextEngineeringOptions) {
 	t.Helper()
-	container := &VibeContainerOptions{}
+	isolation := &VibeIsolationOptions{}
 	contextEng := &ContextEngineeringOptions{}
 	newTestInvocation(t, ctx, cfg, false, args, func(cmd *cobra.Command, fl *flagSet) {
-		container.register(cmd, fl)
+		isolation.register(cmd, fl)
 		contextEng.register(cmd, fl)
 	})
-	return container, contextEng
+	return isolation, contextEng
 }

@@ -122,7 +122,7 @@ func goEnvPath(logger zerolog.Logger, key string) string {
 // bind-mounts the parent repository cache directory (which contains the
 // actual .git directory for a worktree) to the same absolute path inside the
 // container. This keeps the .git indirection inside the worktree valid when
-// running with --container.
+// running with --isolation.
 //
 // If the expected cache directory does not exist, it returns ("", false).
 func ExtraGitMountForWorktree(workspaceAbs string) (string, bool) {

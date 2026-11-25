@@ -30,10 +30,11 @@ func sessionManifest(agent, model string, yolo bool) *internal.SessionManifest {
 	agentCmd := ""
 	usePrompts := []string{}
 	usePosition := ""
-	containerEnabled := false
-	containerImage := ""
-	containerOpts := []string{}
-	containerInheritEnv := []string{}
+	isolationEnabled := false
+	isolationRuntime := "docker"
+	isolationImage := ""
+	isolationOpts := []string{}
+	isolationInheritEnv := []string{}
 	return &internal.SessionManifest{Defaults: configfile.DefaultsV1{
 		Agent:              &agent,
 		Model:              &model,
@@ -43,11 +44,12 @@ func sessionManifest(agent, model string, yolo bool) *internal.SessionManifest {
 		UsePrompts:         &usePrompts,
 		UsePromptsPosition: &usePosition,
 		Yolo:               &yolo,
-		Container: &configfile.ContainerV1{
-			Enabled:    &containerEnabled,
-			Image:      &containerImage,
-			Opts:       &containerOpts,
-			InheritEnv: &containerInheritEnv,
+		Isolation: &configfile.IsolationV1{
+			Enabled:    &isolationEnabled,
+			Runtime:    &isolationRuntime,
+			Image:      &isolationImage,
+			Opts:       &isolationOpts,
+			InheritEnv: &isolationInheritEnv,
 		},
 	}}
 }
@@ -58,19 +60,21 @@ func sessionManifestWithAllSettings() *internal.SessionManifest {
 	agentCmd := ""
 	usePrompts := []string{"make-pr"}
 	usePosition := "after"
-	containerEnabled := true
-	containerImage := "manifest-image"
-	containerOpts := []string{"--cpus=2"}
-	containerInheritEnv := []string{"MANIFEST_TOKEN"}
+	isolationEnabled := true
+	isolationRuntime := "docker"
+	isolationImage := "manifest-image"
+	isolationOpts := []string{"--cpus=2"}
+	isolationInheritEnv := []string{"MANIFEST_TOKEN"}
 	manifest.Defaults.ReasoningLevel = &reasoningLevel
 	manifest.Defaults.AgentCmd = &agentCmd
 	manifest.Defaults.UsePrompts = &usePrompts
 	manifest.Defaults.UsePromptsPosition = &usePosition
-	manifest.Defaults.Container = &configfile.ContainerV1{
-		Enabled:    &containerEnabled,
-		Image:      &containerImage,
-		Opts:       &containerOpts,
-		InheritEnv: &containerInheritEnv,
+	manifest.Defaults.Isolation = &configfile.IsolationV1{
+		Enabled:    &isolationEnabled,
+		Runtime:    &isolationRuntime,
+		Image:      &isolationImage,
+		Opts:       &isolationOpts,
+		InheritEnv: &isolationInheritEnv,
 	}
 	return manifest
 }
@@ -229,7 +233,7 @@ defaults:
   yolo: false
   use_prompts: [small-commits]
   use_prompts_position: before
-  container:
+  isolation:
     enabled: false
     image: base-image
     opts: [--memory=1g]

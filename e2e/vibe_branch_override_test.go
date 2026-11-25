@@ -25,7 +25,7 @@ func TestVibeBranchOverride(t *testing.T) {
 		"--branch", "feature/x",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	}

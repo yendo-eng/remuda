@@ -34,6 +34,7 @@ func TestVibe_WritesSessionManifest(t *testing.T) {
 		AgentArgs:           []string{"--extra-arg"},
 		UsePromptIDs:        []string{"make-pr"},
 		UsePromptsPosition:  "after",
+		IsolationRuntime:    "smolvm",
 		Container:           true,
 		ContainerName:       "manifest-image",
 		ContainerOpts:       []string{"--cpus=2"},
@@ -55,6 +56,7 @@ func TestVibe_WritesSessionManifest(t *testing.T) {
 	containerImage := "manifest-image"
 	containerOpts := []string{"--cpus=2"}
 	containerInheritEnv := []string{"MANIFEST_TOKEN"}
+	isolationRuntime := "smolvm"
 	require.Equal(t, configfile.DefaultsV1{
 		Agent:              &agent,
 		Model:              &model,
@@ -64,8 +66,9 @@ func TestVibe_WritesSessionManifest(t *testing.T) {
 		UsePrompts:         &usePrompts,
 		UsePromptsPosition: &usePromptsPosition,
 		Yolo:               &yolo,
-		Container: &configfile.ContainerV1{
+		Isolation: &configfile.IsolationV1{
 			Enabled:    &containerEnabled,
+			Runtime:    &isolationRuntime,
 			Image:      &containerImage,
 			Opts:       &containerOpts,
 			InheritEnv: &containerInheritEnv,

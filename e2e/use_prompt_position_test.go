@@ -66,7 +66,7 @@ func runVibeWithUsePromptPosition(t *testing.T, position, prompt string) string 
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
 
-	args := []string{"vibe", "--in", workspace, "--no-container", "--use", "minimal-change", "--jira", "ABC-1"}
+	args := []string{"vibe", "--in", workspace, "--no-isolation", "--use", "minimal-change", "--jira", "ABC-1"}
 	if position == "after" {
 		args = append(args, "--use-position", position)
 	}
@@ -124,7 +124,7 @@ func runSessionResumeWithUsePromptPosition(t *testing.T, position, prompt string
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
 
-	args := []string{"session", "resume", "--no-container", "--use", "minimal-change", "--jira", "ABC-1"}
+	args := []string{"session", "resume", "--no-isolation", "--use", "minimal-change", "--jira", "ABC-1"}
 	if position == "after" {
 		args = append(args, "--use-position", position)
 	}
@@ -150,7 +150,7 @@ func runSessionResumeWithExperiments(t *testing.T, prompt string, experiments ..
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
 
-	args := []string{"session", "resume", "--no-container", "--use", "minimal-change", "--jira", "ABC-1"}
+	args := []string{"session", "resume", "--no-isolation", "--use", "minimal-change", "--jira", "ABC-1"}
 	if len(experiments) > 0 {
 		args = append(args, "--experiments", strings.Join(experiments, ","))
 	}

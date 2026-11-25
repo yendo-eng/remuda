@@ -28,7 +28,7 @@ func TestVibeLaunchesClaudeWithoutContainer(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--agent", "claude",
-		"--no-container",
+		"--no-isolation",
 		"hello",
 	)
 

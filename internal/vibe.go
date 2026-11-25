@@ -93,6 +93,8 @@ type VibeCommand struct {
 	// For certain agents, enable "yolo" mode which skips sandboxing/approval steps.
 	Yolo bool
 
+	IsolationRuntime string
+
 	// Run the session inside a Docker container.
 	Container bool
 
@@ -190,8 +192,9 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 				AgentArgs:          map[string][]string{agentName: agentArgs},
 				UsePrompts:         &usePrompts,
 				UsePromptsPosition: &cmd.UsePromptsPosition,
-				Container: &configfile.ContainerV1{
+				Isolation: &configfile.IsolationV1{
 					Enabled:    &cmd.Container,
+					Runtime:    &cmd.IsolationRuntime,
 					Image:      &cmd.ContainerName,
 					Opts:       &containerOpts,
 					InheritEnv: &containerInheritEnv,
@@ -321,7 +324,7 @@ func (k Remuda) composeLaunchCommand(
 	containerImage := strings.TrimSpace(cmd.ContainerName)
 	if containerImage == "" {
 		return composedLaunchCommand{}, pkgerrors.New(
-			"container mode requires an explicit image; pass --container-name or configure defaults.container.image (including profiles.<name>.container.image or per_repo.<slug>.defaults.container.image)",
+			"isolation mode requires an explicit image; pass --isolation-image or configure defaults.isolation.image (including profiles.<name>.isolation.image or per_repo.<slug>.defaults.isolation.image)",
 		)
 	}
 
@@ -336,7 +339,7 @@ func (k Remuda) composeLaunchCommand(
 		absWS = workspace
 	}
 
-	// User-supplied --container-opt values are raw docker CLI text (eg. "-v
+	// User-supplied --isolation-opt values are raw docker CLI text (eg. "-v
 	// /base:/base" or "--cpus=4"); split each into its own argv tokens so they
 	// combine correctly with the argv opts built below instead of relying on a
 	// shell to word-split them later.
@@ -449,7 +452,7 @@ func wrapWithCrashRecoverySleep(cmd string) string {
 // codexDockerVolumeMountOptions prepares Docker volume mount options for the Codex CLI.
 // It forwards authentication artifacts (auth.json + config.toml) plus ~/.codex/prompts, ~/.codex/rules,
 // ~/.codex/skills, and ~/.codex/AGENTS.md whenever they are available so custom instructions and slash
-// command state work inside --container sessions.
+// command state work inside --isolation sessions.
 // If the OPENAI_API_KEY is not set or any file operations fail, it returns only the mounts that can be derived
 // (for example the prompts directory) and logs warnings for auth-related failures.
 func codexDockerVolumeMountOptions(logger zerolog.Logger, provider env.Provider) []string {

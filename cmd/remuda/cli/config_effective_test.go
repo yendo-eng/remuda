@@ -25,39 +25,39 @@ per_repo:
 	require.Equal(t, "repo-model", eff.String("defaults.model"))
 }
 
-func TestNewEffectiveConfig_PerRepoContainerOptsAppendToBase(t *testing.T) {
+func TestNewEffectiveConfig_PerRepoIsolationOptsAppendToBase(t *testing.T) {
 	t.Parallel()
 	cfg := parseTestConfig(t, `
 version: 1
 defaults:
-  container:
+  isolation:
     opts: ["--base"]
 per_repo:
   acme/utils:
     defaults:
-      container:
+      isolation:
         opts: ["--repo"]
 `)
 
 	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
-	require.Equal(t, []string{"--base", "--repo"}, eff.Strings("defaults.container.opts"))
+	require.Equal(t, []string{"--base", "--repo"}, eff.Strings("defaults.isolation.opts"))
 }
 
-func TestNewEffectiveConfig_PerRepoContainerOptsReplaceWhenBaseUnset(t *testing.T) {
+func TestNewEffectiveConfig_PerRepoIsolationOptsReplaceWhenBaseUnset(t *testing.T) {
 	t.Parallel()
 	cfg := parseTestConfig(t, `
 version: 1
 per_repo:
   acme/utils:
     defaults:
-      container:
+      isolation:
         opts: ["--repo"]
 `)
 
 	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
-	require.Equal(t, []string{"--repo"}, eff.Strings("defaults.container.opts"))
+	require.Equal(t, []string{"--repo"}, eff.Strings("defaults.isolation.opts"))
 }
 
 func TestNewEffectiveConfig_ProfileOverridesPerRepo(t *testing.T) {

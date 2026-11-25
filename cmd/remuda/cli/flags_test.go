@@ -23,7 +23,7 @@ func newResolutionFixture(t *testing.T, args ...string) (*flagSet, *flagResoluti
 	UsePosition  string
 	Experiments  string
 	Yolo         bool
-	ContainerOpt []string
+	IsolationOpt []string
 }) {
 	t.Helper()
 	vals := &struct {
@@ -33,7 +33,7 @@ func newResolutionFixture(t *testing.T, args ...string) (*flagSet, *flagResoluti
 		UsePosition  string
 		Experiments  string
 		Yolo         bool
-		ContainerOpt []string
+		IsolationOpt []string
 	}{}
 
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
@@ -43,7 +43,7 @@ func newResolutionFixture(t *testing.T, args ...string) (*flagSet, *flagResoluti
 	fs.StringVar(&vals.UsePosition, "use-position", "before", "")
 	fs.StringVar(&vals.Experiments, "experiments", "", "")
 	fs.BoolVar(&vals.Yolo, "yolo", false, "")
-	fs.StringSliceVar(&vals.ContainerOpt, "container-opt", nil, "")
+	fs.StringSliceVar(&vals.IsolationOpt, "isolation-opt", nil, "")
 
 	fl := newFlagSet(fs)
 	fl.bind("agent", bindEnvs("REMUDA_AGENT"), bindKey("defaults.agent"), bindEnum("codex", "opencode", "claude", "bash"))
@@ -52,7 +52,7 @@ func newResolutionFixture(t *testing.T, args ...string) (*flagSet, *flagResoluti
 	fl.bind("use-position", bindEnvs("REMUDA_USE_PROMPTS_POSITION"), bindKey("defaults.use_prompts_position"), bindEnum("before", "after"))
 	fl.bind("experiments", bindEnvs("REMUDA_EXPERIMENTS"), bindKey("defaults.experiments"))
 	fl.bind("yolo", bindEnvs("REMUDA_YOLO"), bindKey("defaults.yolo"))
-	fl.bind("container-opt", bindEnvs("REMUDA_CONTAINER_OPTS"), bindKey("defaults.container.opts"))
+	fl.bind("isolation-opt", bindEnvs("REMUDA_ISOLATION_OPTS"), bindKey("defaults.isolation.opts"))
 	fl.negatable("yolo")
 
 	require.NoError(t, fs.Parse(args))
@@ -135,7 +135,7 @@ version: 1
 defaults:
   use_prompts: [small-commits, make-pr]
   experiments: [exp-a, exp-b]
-  container:
+  isolation:
     opts: ["--net=host"]
 `)
 
@@ -145,23 +145,23 @@ defaults:
 	require.NoError(t, rs.apply(EnvMap{}, eff))
 	require.Equal(t, []string{"small-commits", "make-pr"}, vals.Use)
 	require.Equal(t, "exp-a,exp-b", vals.Experiments)
-	require.Equal(t, []string{"--net=host"}, vals.ContainerOpt)
+	require.Equal(t, []string{"--net=host"}, vals.IsolationOpt)
 }
 
-// Base and per_repo container opts concatenate in the effective config,
+// Base and per_repo isolation opts concatenate in the effective config,
 // which stores the merged list as []string rather than YAML's []any; the
 // flag must receive the elements, not a stringified slice.
-func TestFlagResolution_AppliesConcatenatedContainerOpts(t *testing.T) {
+func TestFlagResolution_AppliesConcatenatedIsolationOpts(t *testing.T) {
 	t.Parallel()
 	cfg := parseTestConfig(t, `
 version: 1
 defaults:
-  container:
+  isolation:
     opts: ["-v /base:/base"]
 per_repo:
   acme/utils:
     defaults:
-      container:
+      isolation:
         opts: ["-v /repo:/repo", "--cpus=4"]
 `)
 
@@ -169,7 +169,7 @@ per_repo:
 	eff, err := newEffectiveConfig(cfg, "acme/utils", profileRef{}, nil)
 	require.NoError(t, err)
 	require.NoError(t, rs.apply(EnvMap{}, eff))
-	require.Equal(t, []string{"-v /base:/base", "-v /repo:/repo", "--cpus=4"}, vals.ContainerOpt)
+	require.Equal(t, []string{"-v /base:/base", "-v /repo:/repo", "--cpus=4"}, vals.IsolationOpt)
 }
 
 func TestFlagResolution_EnvSliceSplitsOnComma(t *testing.T) {

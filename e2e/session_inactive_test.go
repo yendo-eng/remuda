@@ -14,7 +14,7 @@ func TestSessionInactive(t *testing.T) {
 	t.Parallel()
 	setup := func(t *testing.T) (*testutils.Harness, string) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		return h, remoteURL

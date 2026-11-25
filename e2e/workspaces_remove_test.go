@@ -17,7 +17,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 	t.Run("dry-run with absolute path", func(t *testing.T) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		baseDir := h.RemudaConfig.ReposBaseDir
@@ -33,7 +33,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 	t.Run("removes linked worktree via identifier", func(t *testing.T) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		baseDir := h.RemudaConfig.ReposBaseDir
@@ -57,7 +57,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 	t.Run("removes full clone directly", func(t *testing.T) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		baseDir := h.RemudaConfig.ReposBaseDir
@@ -74,7 +74,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 	t.Run("fails for active session target", func(t *testing.T) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		baseDir := h.RemudaConfig.ReposBaseDir
@@ -90,7 +90,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 	t.Run("fails for untracked linked worktree target without force", func(t *testing.T) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		baseDir := h.RemudaConfig.ReposBaseDir
@@ -121,7 +121,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 	t.Run("force removes untracked linked worktree target", func(t *testing.T) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		baseDir := h.RemudaConfig.ReposBaseDir
@@ -138,7 +138,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 	t.Run("protects repo cache from removal", func(t *testing.T) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		baseDir := h.RemudaConfig.ReposBaseDir
@@ -154,7 +154,7 @@ func TestWorkspacesRemove(t *testing.T) {
 
 	t.Run("removes multiple identifier targets", func(t *testing.T) {
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		baseDir := h.RemudaConfig.ReposBaseDir
