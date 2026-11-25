@@ -21,11 +21,9 @@ func TestVibeCheck(t *testing.T) {
 	t.Parallel()
 	t.Run("checks out and prepares a PR branch", func(t *testing.T) {
 		remoteURL := testutils.InitTestRemote(t)
-		baseRoot := filepath.Join(t.TempDir(), "repos")
 		org, repo, err := github.ParseRepo(remoteURL)
 		require.NoError(t, err)
 
-		sess := &testutils.MockMultiplexer{}
 		mockGitHub := &testutils.MockGitHub{
 			RepoURL: remoteURL,
 			FakePRData: `{
@@ -45,8 +43,6 @@ func TestVibeCheck(t *testing.T) {
 			}`,
 		}
 		h := testutils.NewHarness(t,
-			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-			testutils.WithMultiplexer(sess),
 			testutils.WithJira(jira.Mock{}),
 			testutils.WithDocker(&docker.Mock{}),
 			testutils.WithGitHub(mockGitHub),
@@ -56,7 +52,7 @@ func TestVibeCheck(t *testing.T) {
 		h.RunOK("clone", "--repo-url", remoteURL, "--name", "initial")
 
 		// Create a branch in the remote repo by going to the repo cache and using git.
-		cacheDir := filepath.Join(baseRoot, org, repo, ".repo_cache")
+		cacheDir := filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache")
 		require.NoError(t, h.Remuda.Git.Branch(cacheDir, "branch-under-review"))
 		testutils.RunGit(t, cacheDir, "push", "origin", "branch-under-review")
 
@@ -65,14 +61,14 @@ func TestVibeCheck(t *testing.T) {
 
 		// The session should be created with the correct name
 		expectedSessionName := filepath.Join(org, repo, "branch-under-review-code-review")
-		sessions, err := sess.List()
+		sessions, err := requireMockMultiplexer(t, h).List()
 		require.NoError(t, err)
 		require.Truef(t, slices.ContainsFunc(sessions, func(s session.SessionInfo) bool {
 			return s.Name == expectedSessionName
 		}), "expected session %q to exist", expectedSessionName)
 
 		// The workspace should be created with the correct path and branch.
-		workspacePath := filepath.Join(baseRoot, expectedSessionName)
+		workspacePath := filepath.Join(h.ReposBaseDir, expectedSessionName)
 		require.DirExists(t, workspacePath)
 		require.NoFileExists(t, filepath.Join(workspacePath, internal.SessionManifestFileName))
 		currentBranch := testutils.RunGit(t, workspacePath, "branch", "--show-current")
@@ -89,14 +85,10 @@ func TestVibeCheck(t *testing.T) {
 
 	t.Run("defaults to reviewing a branch name", func(t *testing.T) {
 		remoteURL := testutils.InitTestRemote(t)
-		baseRoot := filepath.Join(t.TempDir(), "repos")
 		org, repo, err := github.ParseRepo(remoteURL)
 		require.NoError(t, err)
 
-		sess := &testutils.MockMultiplexer{}
 		h := testutils.NewHarness(t,
-			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-			testutils.WithMultiplexer(sess),
 			testutils.WithJira(jira.Mock{}),
 			testutils.WithDocker(&docker.Mock{}),
 			testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
@@ -106,7 +98,7 @@ func TestVibeCheck(t *testing.T) {
 		h.RunOK("clone", "--repo-url", remoteURL, "--name", "initial")
 
 		// Create a branch in the remote repo by going to the repo cache and using git.
-		cacheDir := filepath.Join(baseRoot, org, repo, ".repo_cache")
+		cacheDir := filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache")
 		require.NoError(t, h.Remuda.Git.Branch(cacheDir, "branch-under-review"))
 		testutils.RunGit(t, cacheDir, "push", "origin", "branch-under-review")
 
@@ -114,18 +106,18 @@ func TestVibeCheck(t *testing.T) {
 		h.RunOK("vibe-check", "--repo-url", remoteURL, "branch-under-review")
 
 		expectedSessionName := filepath.Join(org, repo, "branch-under-review-code-review")
-		sessions, err := sess.List()
+		sessions, err := requireMockMultiplexer(t, h).List()
 		require.NoError(t, err)
 		require.Truef(t, slices.ContainsFunc(sessions, func(s session.SessionInfo) bool {
 			return s.Name == expectedSessionName
 		}), "expected session %q to exist", expectedSessionName)
 
-		workspacePath := filepath.Join(baseRoot, expectedSessionName)
+		workspacePath := filepath.Join(h.ReposBaseDir, expectedSessionName)
 		require.DirExists(t, workspacePath)
 		currentBranch := testutils.RunGit(t, workspacePath, "branch", "--show-current")
 		require.Equal(t, "branch-under-review\n", currentBranch)
 
-		foundSession := sess.FindSession(expectedSessionName)
+		foundSession := requireMockMultiplexer(t, h).FindSession(expectedSessionName)
 		require.NotNil(t, foundSession)
 		prompt := extractPromptFromCommand(t, foundSession.CommandRan)
 		require.Contains(t, prompt, "Pull Request Review")
@@ -137,11 +129,9 @@ func TestVibeCheck(t *testing.T) {
 
 	t.Run("respects --no-full-clone override", func(t *testing.T) {
 		remoteURL := testutils.InitTestRemote(t)
-		baseRoot := filepath.Join(t.TempDir(), "repos")
 		org, repo, err := github.ParseRepo(remoteURL)
 		require.NoError(t, err)
 
-		sess := &testutils.MockMultiplexer{}
 		mockGitHub := &testutils.MockGitHub{
 			RepoURL: remoteURL,
 			FakePRData: `{
@@ -161,8 +151,6 @@ func TestVibeCheck(t *testing.T) {
 			}`,
 		}
 		h := testutils.NewHarness(t,
-			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-			testutils.WithMultiplexer(sess),
 			testutils.WithJira(jira.Mock{}),
 			testutils.WithDocker(&docker.Mock{}),
 			testutils.WithGitHub(mockGitHub),
@@ -170,13 +158,13 @@ func TestVibeCheck(t *testing.T) {
 
 		h.RunOK("clone", "--repo-url", remoteURL, "--name", "initial")
 
-		cacheDir := filepath.Join(baseRoot, org, repo, ".repo_cache")
+		cacheDir := filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache")
 		require.NoError(t, h.Remuda.Git.Branch(cacheDir, "worktree-review-branch"))
 		testutils.RunGit(t, cacheDir, "push", "origin", "worktree-review-branch")
 
 		h.RunOK("vibe-check", "--repo-url", remoteURL, "--name", "worktree-review", "--no-full-clone", "--pr", "1")
 
-		workspacePath := filepath.Join(baseRoot, org, repo, "worktree-review")
+		workspacePath := filepath.Join(h.ReposBaseDir, org, repo, "worktree-review")
 		require.DirExists(t, workspacePath)
 		gitPath := filepath.Join(workspacePath, ".git")
 		gitInfo, err := os.Stat(gitPath)
@@ -188,7 +176,6 @@ func TestVibeCheck(t *testing.T) {
 func TestVibeCheckContextEngineering(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 
@@ -203,7 +190,6 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 		issueURL       = "https://github.com/" + issueSlug + "/issues/" + issueNumber
 	)
 
-	sess := &testutils.MockMultiplexer{}
 	mockGitHub := &testutils.MockGitHub{
 		RepoURL: remoteURL,
 		FakePRData: fmt.Sprintf(`{
@@ -234,8 +220,6 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 		},
 	}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-		testutils.WithMultiplexer(sess),
 		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{jiraID: {Key: jiraID, Summary: jiraBody}}}),
 		testutils.WithDocker(&docker.Mock{}),
 		testutils.WithGitHub(mockGitHub),
@@ -244,7 +228,7 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 
 	h.RunOK("clone", "--repo-url", remoteURL, "--name", "initial")
 
-	cacheDir := filepath.Join(baseRoot, org, repo, ".repo_cache")
+	cacheDir := filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache")
 	require.NoError(t, h.Remuda.Git.Branch(cacheDir, branchToReview))
 	testutils.RunGit(t, cacheDir, "push", "origin", branchToReview)
 
@@ -260,13 +244,13 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 	h.RunOK(args...)
 
 	expectedSessionName := filepath.Join(org, repo, "ctx-review")
-	sessions, err := sess.List()
+	sessions, err := requireMockMultiplexer(t, h).List()
 	require.NoError(t, err)
 	require.Truef(t, slices.ContainsFunc(sessions, func(s session.SessionInfo) bool {
 		return s.Name == expectedSessionName
 	}), "expected session %q to exist", expectedSessionName)
 
-	foundSession := sess.FindSession(expectedSessionName)
+	foundSession := requireMockMultiplexer(t, h).FindSession(expectedSessionName)
 	require.NotNil(t, foundSession)
 	prompt := extractPromptFromCommand(t, foundSession.CommandRan)
 
@@ -294,7 +278,9 @@ func TestVibeCheckContextEngineering(t *testing.T) {
 
 // extractPromptFromCommand pulls the agent prompt back out of the captured
 // shell command. The capture is of the form `cd <ws> && env... <agent> '<prompt>'`,
-// with single quotes inside the prompt escaped as `'\''`.
+// with single quotes inside the prompt escaped as:
+//
+//	'\''
 func extractPromptFromCommand(t *testing.T, command string) string {
 	t.Helper()
 	parts := strings.SplitN(command, " && ", 2)

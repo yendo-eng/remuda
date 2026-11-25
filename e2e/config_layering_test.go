@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
-	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/jira"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -43,19 +42,14 @@ profiles:
 
 func newIsolationLayeringHarness(t *testing.T) (*testutils.Harness, *testutils.MockMultiplexer, string) {
 	t.Helper()
-	runDir := t.TempDir()
-	workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
-	testutils.InitWorkspace(t, workspace)
 
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(isolationLayeringConfig), 0o644))
+	configPath := writeTempConfigFile(t, isolationLayeringConfig)
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
+	workspace := h.InitWorkspace("yendo-eng", "remuda", "wk")
+	sessionMgr := requireMockMultiplexer(t, h)
 	h.SetEnv("REMUDA_CONFIG", configPath)
 	h.SetEnv("GH_TOKEN", "test-token")
 	h.SetEnv("SSH_AUTH_SOCK", "")
@@ -133,12 +127,9 @@ profiles:
 	newHarness := func(t *testing.T) (*testutils.Harness, string) {
 		t.Helper()
 		remoteURL := testutils.InitTestRemote(t)
-		runDir := t.TempDir()
-		configPath := filepath.Join(t.TempDir(), "config.yaml")
-		require.NoError(t, os.WriteFile(configPath, []byte(config), 0o644))
+		configPath := writeTempConfigFile(t, config)
 
 		h := testutils.NewHarness(t,
-			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 			testutils.WithDocker(&docker.Mock{Running: true}),
 		)
 		h.SetEnv("REMUDA_CONFIG", configPath)
@@ -197,26 +188,22 @@ profiles:
 func TestConfigLayeringJiraAuthPrecedence(t *testing.T) {
 	t.Parallel()
 
-	base := t.TempDir()
-	workspace := filepath.Join(base, "org", "repo", "wk")
-	testutils.InitWorkspace(t, workspace)
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(`
+	configPath := writeTempConfigFile(t, `
 version: 1
 jira:
   endpoint: https://config.example.atlassian.net
   user: config@example.com
   api_token: config-token
-`), 0o644))
+`)
 
 	jiraClient := &requestCountingJira{tickets: map[string]jira.Issue{
 		"PROJ-101": {Key: "PROJ-101", Summary: "ticket details"},
 	}}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 		testutils.WithJira(jiraClient),
 	)
+	workspace := h.InitWorkspace("org", "repo", "wk")
 	h.SetEnv("REMUDA_CONFIG", configPath)
 	h.SetEnv("REMUDA_JIRA_ENDPOINT", "https://env.example.atlassian.net")
 	h.SetEnv("REMUDA_JIRA_USER", "env@example.com")
@@ -250,20 +237,16 @@ func TestConfigLayeringSessionResumeAgentCoercion(t *testing.T) {
 
 	newHarness := func(t *testing.T, configuredAgent string) (*testutils.Harness, *testutils.MockMultiplexer, string) {
 		t.Helper()
-		runDir := t.TempDir()
-		workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
-		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
 		config := "version: 1\nper_repo:\n  yendo-eng/remuda:\n    defaults:\n      agent: " + configuredAgent + "\n"
-		configPath := filepath.Join(t.TempDir(), "config.yaml")
-		require.NoError(t, os.WriteFile(configPath, []byte(config), 0o644))
+		configPath := writeTempConfigFile(t, config)
 
-		sessionMgr := &testutils.MockMultiplexer{}
 		h := testutils.NewHarness(t,
-			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-			testutils.WithMultiplexer(sessionMgr),
 			testutils.WithDocker(&docker.Mock{Running: false}),
 		)
+		workspace := filepath.Join(h.ReposBaseDir, "yendo-eng", "remuda", "wk")
+		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
+		sessionMgr := requireMockMultiplexer(t, h)
 		h.SetEnv("REMUDA_CONFIG", configPath)
 		h.SetEnv("REMUDA_ISOLATION", "false")
 		return h, sessionMgr, workspace
@@ -315,16 +298,12 @@ func TestConfigLayeringOpenAIAPIKeyExplicitness(t *testing.T) {
 
 	newHarness := func(t *testing.T) (*testutils.Harness, *testutils.MockMultiplexer, string) {
 		t.Helper()
-		workspaceRoot := t.TempDir()
-		workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-		testutils.InitWorkspace(t, workspace)
 
-		sessionMgr := &testutils.MockMultiplexer{}
 		h := testutils.NewHarness(t,
-			testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-			testutils.WithMultiplexer(sessionMgr),
 			testutils.WithDocker(&docker.Mock{Running: true}),
 		)
+		workspace := h.InitWorkspace("org", "repo", "wk")
+		sessionMgr := requireMockMultiplexer(t, h)
 		// Load-bearing: SanitizeProcessEnv does not allowlist OPENAI_API_KEY, so
 		// without this the host's real value would leak into the harness.
 		h.SetEnv("OPENAI_API_KEY", "")

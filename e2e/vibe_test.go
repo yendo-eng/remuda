@@ -19,9 +19,7 @@ import (
 func TestVibeIsolationFailsWhenDockerUnavailable(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithJira(jira.Mock{}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
@@ -43,16 +41,12 @@ func TestVibeIsolationFailsWhenDockerUnavailable(t *testing.T) {
 
 func TestVibeIsolationRequiresExplicitImage(t *testing.T) {
 	t.Parallel()
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-	testutils.InitWorkspace(t, workspace)
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
+	workspace := h.InitWorkspace("org", "repo", "wk")
+	sessionMgr := requireMockMultiplexer(t, h)
 
 	res := h.Run(
 		"vibe",
@@ -70,24 +64,19 @@ func TestVibeIsolationRequiresExplicitImage(t *testing.T) {
 
 func TestVibeIsolationUsesConfiguredImageWithoutImageFlag(t *testing.T) {
 	t.Parallel()
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-	testutils.InitWorkspace(t, workspace)
 
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(`
+	configPath := writeTempConfigFile(t, `
 version: 1
 defaults:
   isolation:
     image: ghcr.io/acme/vibe-dev:latest
-`), 0o644))
+`)
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
+	workspace := h.InitWorkspace("org", "repo", "wk")
+	sessionMgr := requireMockMultiplexer(t, h)
 	h.SetEnv("REMUDA_CONFIG", configPath)
 	h.SetEnv("GH_TOKEN", "test-token")
 
@@ -120,14 +109,10 @@ func TestVibeRejectsLegacyContainerEnvironmentVariables(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			workspaceRoot := t.TempDir()
-			workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-			testutils.InitWorkspace(t, workspace)
-
 			h := testutils.NewHarness(t,
-				testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
 				testutils.WithDocker(&docker.Mock{Running: true}),
 			)
+			workspace := h.InitWorkspace("org", "repo", "wk")
 			h.SetEnv(tt.oldEnv, tt.value)
 
 			res := h.Run("vibe", "--in", workspace, "--no-tmux", "--agent-cmd", "true", "prompt")
@@ -151,12 +136,8 @@ func TestVibeRejectsLegacyContainerFlags(t *testing.T) {
 	for _, flag := range flags {
 		t.Run(flag, func(t *testing.T) {
 			t.Parallel()
-			workspaceRoot := t.TempDir()
-			workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-			testutils.InitWorkspace(t, workspace)
-			h := testutils.NewHarness(t,
-				testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-			)
+			h := testutils.NewHarness(t)
+			workspace := h.InitWorkspace("org", "repo", "wk")
 
 			res := h.Run("vibe", "--in", workspace, flag, "--agent-cmd", "true", "prompt")
 			require.Error(t, res.Err)
@@ -167,12 +148,8 @@ func TestVibeRejectsLegacyContainerFlags(t *testing.T) {
 
 func TestVibeIsolationPerRepoBeadsDirOverridesHostEnv(t *testing.T) {
 	t.Parallel()
-	runDir := t.TempDir()
-	workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
-	testutils.InitWorkspace(t, workspace)
 
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(`
+	configPath := writeTempConfigFile(t, `
 version: 1
 per_repo:
   yendo-eng/remuda:
@@ -181,14 +158,13 @@ per_repo:
         opts:
           - "-v /host/.beads:/workspaces/.beads-issues/.beads"
           - "-e BEADS_DIR=/workspaces/.beads-issues/.beads"
-`), 0o644))
+`)
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
+	workspace := h.InitWorkspace("yendo-eng", "remuda", "wk")
+	sessionMgr := requireMockMultiplexer(t, h)
 	h.SetEnv("REMUDA_CONFIG", configPath)
 	h.SetEnv("BEADS_DIR", "/host/system/beads")
 	h.SetEnv("GH_TOKEN", "test-token")
@@ -214,9 +190,7 @@ per_repo:
 func TestVibeAutoGeneratesWorkspaceName(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 	)
@@ -241,7 +215,7 @@ func TestVibeAutoGeneratesWorkspaceName(t *testing.T) {
 	require.NoError(t, err)
 
 	const expectedName = "hello-world"
-	expectedWorkspace := filepath.Join(runDir, org, repo, expectedName)
+	expectedWorkspace := filepath.Join(h.ReposBaseDir, org, repo, expectedName)
 	testutils.RequireDirExists(t, expectedWorkspace)
 
 	gotBranch := strings.TrimSpace(testutils.RunGit(t, expectedWorkspace, "branch", "--show-current"))
@@ -251,10 +225,8 @@ func TestVibeAutoGeneratesWorkspaceName(t *testing.T) {
 func TestVibeAutoGeneratesWorkspaceNameFromStdinPrompt(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 		testutils.WithStdin(strings.NewReader("implement pagination\n")),
@@ -280,7 +252,7 @@ func TestVibeAutoGeneratesWorkspaceNameFromStdinPrompt(t *testing.T) {
 	require.NoError(t, err)
 
 	const expectedName = "implement-pagination"
-	expectedWorkspace := filepath.Join(runDir, org, repo, expectedName)
+	expectedWorkspace := filepath.Join(h.ReposBaseDir, org, repo, expectedName)
 	testutils.RequireDirExists(t, expectedWorkspace)
 
 	gotBranch := strings.TrimSpace(testutils.RunGit(t, expectedWorkspace, "branch", "--show-current"))
@@ -290,7 +262,6 @@ func TestVibeAutoGeneratesWorkspaceNameFromStdinPrompt(t *testing.T) {
 func TestVibeAutoGeneratesWorkspaceNameFromFirstJiraTicket(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 	jiraClient := &requestCountingJira{
 		tickets: map[string]jira.Issue{
 			"RBL-1234": {Key: "RBL-1234", Summary: "Fix login timeout handling"},
@@ -299,7 +270,6 @@ func TestVibeAutoGeneratesWorkspaceNameFromFirstJiraTicket(t *testing.T) {
 	}
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 		testutils.WithJira(jiraClient),
@@ -320,7 +290,7 @@ func TestVibeAutoGeneratesWorkspaceNameFromFirstJiraTicket(t *testing.T) {
 	require.NoError(t, err)
 
 	const expectedName = "RBL-1234-fix-login-timeout-handling"
-	expectedWorkspace := filepath.Join(runDir, org, repo, expectedName)
+	expectedWorkspace := filepath.Join(h.ReposBaseDir, org, repo, expectedName)
 	testutils.RequireDirExists(t, expectedWorkspace)
 
 	gotBranch := strings.TrimSpace(testutils.RunGit(t, expectedWorkspace, "branch", "--show-current"))
@@ -356,10 +326,8 @@ func (j *requestCountingJira) GetTicket(id string, auth jira.AuthConfig) (jira.I
 func TestVibeAutoGeneratesWorkspaceNameFromJiraFallsBackToKeyWhenSummaryMissing(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 		testutils.WithJira(jira.Mock{
@@ -383,7 +351,7 @@ func TestVibeAutoGeneratesWorkspaceNameFromJiraFallsBackToKeyWhenSummaryMissing(
 	require.NoError(t, err)
 
 	const expectedName = "RBL-1234"
-	expectedWorkspace := filepath.Join(runDir, org, repo, expectedName)
+	expectedWorkspace := filepath.Join(h.ReposBaseDir, org, repo, expectedName)
 	testutils.RequireDirExists(t, expectedWorkspace)
 
 	gotBranch := strings.TrimSpace(testutils.RunGit(t, expectedWorkspace, "branch", "--show-current"))
@@ -393,10 +361,8 @@ func TestVibeAutoGeneratesWorkspaceNameFromJiraFallsBackToKeyWhenSummaryMissing(
 func TestVibeAutoGeneratesWorkspaceNameFromJiraErrorsWhenFirstTicketMissing(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 		testutils.WithJira(jira.Mock{
@@ -423,7 +389,6 @@ func TestVibeAutoGeneratesWorkspaceNameFromJiraErrorsWhenFirstTicketMissing(t *t
 func TestVibeContextEngineering(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	const threadURL = "https://example.slack.com/threads/1234567890"
 	const issueSlug = "acme/project"
@@ -432,7 +397,6 @@ func TestVibeContextEngineering(t *testing.T) {
 	issueURL := "https://github.com/" + issueSlug + "/issues/" + issueNumber
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-123": {Key: "ABC-123", Summary: "product requirements here"}}}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 		testutils.WithGitHub(&testutils.MockGitHub{
@@ -490,10 +454,8 @@ func TestVibeContextEngineering(t *testing.T) {
 func TestVibeUseBuiltInPrompts(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 
@@ -522,10 +484,8 @@ func TestVibeUseBuiltInPrompts(t *testing.T) {
 func TestVibeNoUseExcludesDefaultPrompts(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_USE_PROMPTS", "make-pr,small-commits")
@@ -551,10 +511,8 @@ func TestVibeNoUseExcludesDefaultPrompts(t *testing.T) {
 func TestVibeNoUseExcludesExplicitPrompts(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 
@@ -581,10 +539,8 @@ func TestVibeNoUseExcludesExplicitPrompts(t *testing.T) {
 func TestVibeNoUseAllowsEmptyPrompt(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_USE_PROMPTS", "make-pr")
@@ -634,17 +590,15 @@ func TestVibeDoesNotAutoConfigureBeads(t *testing.T) {
 		testutils.RunGit(t, ".", "--git-dir", remotePath, "symbolic-ref", "HEAD", "refs/heads/main")
 		return remotePath
 	}()
-	runDir := t.TempDir()
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("BEADS_DIR", "/tmp/explicit-beads")
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
-	beadsWorktree := filepath.Join(runDir, org, repo, ".beads_worktree")
+	beadsWorktree := filepath.Join(h.ReposBaseDir, org, repo, ".beads_worktree")
 
 	args := []string{
 		"vibe",
@@ -664,13 +618,11 @@ func TestVibeDoesNotAutoConfigureBeads(t *testing.T) {
 func TestVibeUseCustomPrompts(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 	customDir := t.TempDir()
 	content := "please end your work by telling a joke"
 	require.NoError(t, os.WriteFile(filepath.Join(customDir, "tell-jokes"), []byte(content), 0o644))
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_PROMPTS_DIR", customDir)
@@ -695,13 +647,11 @@ func TestVibeUseCustomPrompts(t *testing.T) {
 func TestVibeUsePromptPrefersCustomOverride(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 	customDir := t.TempDir()
 	content := "OVERRIDE small commits"
 	require.NoError(t, os.WriteFile(filepath.Join(customDir, "small-commits"), []byte(content), 0o644))
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 	h.SetEnv("REMUDA_PROMPTS_DIR", customDir)
@@ -727,7 +677,6 @@ func TestVibeUsePromptPrefersCustomOverride(t *testing.T) {
 func TestVibeRunsCloneHooks(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "vibing")
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 
@@ -741,7 +690,6 @@ func TestVibeRunsCloneHooks(t *testing.T) {
 	registry.Register(org, repo, hook)
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
 		testutils.WithCloneHooks(registry),
 	)
 	h.SetEnv("REMUDA_ISOLATION", "false")
@@ -762,15 +710,13 @@ func TestVibeRunsCloneHooks(t *testing.T) {
 func TestVibeForceReplacesExistingWorkspace(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
-	workspacePath := filepath.Join(runDir, org, repo, "wk")
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
+	workspacePath := filepath.Join(h.ReposBaseDir, org, repo, "wk")
 
 	args := []string{
 		"vibe",
@@ -808,13 +754,8 @@ func TestVibeForceReplacesExistingWorkspace(t *testing.T) {
 func TestVibeForceKillsExistingSession(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
-	sessionMgr := &testutils.MockMultiplexer{}
 
-	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithMultiplexer(sessionMgr),
-	)
+	h := testutils.NewHarness(t)
 	h.SetEnv("REMUDA_ISOLATION", "false")
 
 	args := []string{
@@ -827,7 +768,7 @@ func TestVibeForceKillsExistingSession(t *testing.T) {
 	}
 
 	h.RunOK(args...)
-	sessions, err := sessionMgr.List()
+	sessions, err := requireMockMultiplexer(t, h).List()
 	require.NoError(t, err)
 	require.Len(t, sessions, 1)
 
@@ -842,26 +783,21 @@ func TestVibeForceKillsExistingSession(t *testing.T) {
 	}
 
 	h.RunOK(forceArgs...)
-	sessions, err = sessionMgr.List()
+	sessions, err = requireMockMultiplexer(t, h).List()
 	require.NoError(t, err)
 	require.Len(t, sessions, 1)
 }
 
 func TestVibeLaunchesInExistingWorkspace(t *testing.T) {
 	t.Parallel()
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-existing")
-	testutils.InitWorkspace(t, workspace)
 
 	relPath := "." + string(os.PathSeparator) + filepath.Join("org", "repo", "wk-existing")
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
-	h.SetWorkingDir(workspaceRoot)
+	workspace := h.InitWorkspace("org", "repo", "wk-existing")
+	h.SetWorkingDir(h.ReposBaseDir)
 	h.SetEnv("REMUDA_MODEL", "")
 
 	args := []string{
@@ -875,7 +811,7 @@ func TestVibeLaunchesInExistingWorkspace(t *testing.T) {
 	h.RunOK(args...)
 
 	expectedSession := session.SessionNameFromWorkspaceName(workspace)
-	recorded := sessionMgr.FindSession(expectedSession)
+	recorded := requireMockMultiplexer(t, h).FindSession(expectedSession)
 	require.NotNil(t, recorded, "expected detached session to be created")
 	// Verify the command contains expected components
 	require.NotContains(t, recorded.CommandRan, "export BD_ACTOR=")
@@ -894,19 +830,16 @@ func TestVibeLaunchesInExistingWorkspace(t *testing.T) {
 
 func TestVibeRejectsStaleWorktree(t *testing.T) {
 	t.Parallel()
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-stale")
-	require.NoError(t, os.MkdirAll(workspace, 0o755))
-	// A pruned worktree: the checkout survives, its gitdir does not.
-	gitdir := filepath.Join(workspaceRoot, "gone", "worktrees", "wk-stale")
-	require.NoError(t, os.WriteFile(filepath.Join(workspace, ".git"), []byte("gitdir: "+gitdir+"\n"), 0o644))
-
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
+	workspace := filepath.Join(h.ReposBaseDir, "org", "repo", "wk-stale")
+	require.NoError(t, os.MkdirAll(workspace, 0o755))
+	// A pruned worktree: the checkout survives, its gitdir does not.
+	gitdir := filepath.Join(h.ReposBaseDir, "gone", "worktrees", "wk-stale")
+	require.NoError(t, os.WriteFile(filepath.Join(workspace, ".git"), []byte("gitdir: "+gitdir+"\n"), 0o644))
+
+	sessionMgr := requireMockMultiplexer(t, h)
 
 	res := h.Run("vibe", "--in", workspace, "--no-isolation", "--agent-cmd", "true", "prompt")
 	var staleErr internal.StaleWorktreeError
@@ -917,17 +850,12 @@ func TestVibeRejectsStaleWorktree(t *testing.T) {
 
 func TestVibeClaudeContainerComposesHermeticDockerCommand(t *testing.T) {
 	t.Parallel()
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-claude-container")
-	testutils.InitWorkspace(t, workspace)
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
-	h.SetWorkingDir(workspaceRoot)
+	workspace := h.InitWorkspace("org", "repo", "wk-claude-container")
+	h.SetWorkingDir(h.ReposBaseDir)
 	h.SetEnv("GH_TOKEN", "gh-token")
 	h.SetEnv("SSH_AUTH_SOCK", "")
 
@@ -950,7 +878,7 @@ func TestVibeClaudeContainerComposesHermeticDockerCommand(t *testing.T) {
 	h.RunOK(args...)
 
 	expectedSession := session.SessionNameFromWorkspaceName(workspace)
-	recorded := sessionMgr.FindSession(expectedSession)
+	recorded := requireMockMultiplexer(t, h).FindSession(expectedSession)
 	require.NotNil(t, recorded, "expected detached session to be created")
 
 	expectedContainer := docker.ContainerNameFromSession(expectedSession)
@@ -988,19 +916,14 @@ func TestVibeClaudeContainerComposesHermeticDockerCommand(t *testing.T) {
 
 func TestVibeOmittedPromptDoesNotAppendEmptyPromptArg(t *testing.T) {
 	t.Parallel()
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk-existing")
-	testutils.InitWorkspace(t, workspace)
 
 	relPath := "." + string(os.PathSeparator) + filepath.Join("org", "repo", "wk-existing")
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
-	h.SetWorkingDir(workspaceRoot)
+	workspace := h.InitWorkspace("org", "repo", "wk-existing")
+	h.SetWorkingDir(h.ReposBaseDir)
 	h.SetEnv("REMUDA_MODEL", "")
 
 	args := []string{
@@ -1013,7 +936,7 @@ func TestVibeOmittedPromptDoesNotAppendEmptyPromptArg(t *testing.T) {
 	h.RunOK(args...)
 
 	expectedSession := session.SessionNameFromWorkspaceName(workspace)
-	recorded := sessionMgr.FindSession(expectedSession)
+	recorded := requireMockMultiplexer(t, h).FindSession(expectedSession)
 	require.NotNil(t, recorded, "expected detached session to be created")
 	require.NotContains(t, recorded.CommandRan, "REMUDA_AGENT=")
 	value, ok := sessionEnvValue(recorded.StartEnv, "REMUDA_AGENT")
@@ -1037,12 +960,8 @@ func TestVibeRejectsInvalidIsolationRuntime(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			workspaceRoot := t.TempDir()
-			workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-			testutils.InitWorkspace(t, workspace)
-			h := testutils.NewHarness(t,
-				testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-			)
+			h := testutils.NewHarness(t)
+			workspace := h.InitWorkspace("org", "repo", "wk")
 			for key, value := range tt.env {
 				h.SetEnv(key, value)
 			}

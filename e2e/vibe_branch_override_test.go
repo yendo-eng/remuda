@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
-	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/github"
 )
 
@@ -14,7 +13,6 @@ import (
 func TestVibeBranchOverride(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -30,10 +28,10 @@ func TestVibeBranchOverride(t *testing.T) {
 		"prompt",
 	}
 
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}))
+	h := testutils.NewHarness(t)
 	h.RunOK(args...)
 
-	workspace := filepath.Join(runDir, org, repo, "wk")
+	workspace := filepath.Join(h.ReposBaseDir, org, repo, "wk")
 	branch := testutils.RunGit(t, workspace, "rev-parse", "--abbrev-ref", "HEAD")
 	require.Equal(t, "feature/x\n", branch)
 }

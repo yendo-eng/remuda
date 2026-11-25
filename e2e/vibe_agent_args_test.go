@@ -1,13 +1,11 @@
 package e2e_test
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
-	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -17,12 +15,7 @@ import (
 func TestVibeAgentArgs_ConfigPerRepoAndCLIApplyWithShellQuoting(t *testing.T) {
 	t.Parallel()
 
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "owner", "repo", "wk")
-	testutils.InitWorkspace(t, workspace)
-
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(`
+	configPath := writeTempConfigFile(t, `
 version: 1
 defaults:
   agent_args:
@@ -34,14 +27,13 @@ per_repo:
       agent_args:
         codex:
           - --repo-arg
-`), 0o644))
+`)
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
+	workspace := h.InitWorkspace("owner", "repo", "wk")
+	sessionMgr := requireMockMultiplexer(t, h)
 	h.SetEnv("REMUDA_CONFIG", configPath)
 
 	h.RunOK(
@@ -70,25 +62,19 @@ per_repo:
 func TestVibeAgentArgs_IgnoredWhenAgentCmdIsSet(t *testing.T) {
 	t.Parallel()
 
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "owner", "repo", "wk")
-	testutils.InitWorkspace(t, workspace)
-
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(`
+	configPath := writeTempConfigFile(t, `
 version: 1
 defaults:
   agent_args:
     codex:
       - --from-config
-`), 0o644))
+`)
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
+	workspace := h.InitWorkspace("owner", "repo", "wk")
+	sessionMgr := requireMockMultiplexer(t, h)
 	h.SetEnv("REMUDA_CONFIG", configPath)
 
 	h.RunOK(
@@ -110,31 +96,27 @@ func TestVibeCheckAgentArgs_ConfigAndCLIApplyWithShellQuoting(t *testing.T) {
 	t.Parallel()
 
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 
-	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(`
+	configPath := writeTempConfigFile(t, `
 version: 1
 defaults:
   agent_args:
     codex:
       - --cfg-check
-`), 0o644))
+`)
 
-	sessionMgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
-		testutils.WithMultiplexer(sessionMgr),
 		testutils.WithDocker(&docker.Mock{}),
 		testutils.WithGitHub(&testutils.MockGitHub{RepoURL: remoteURL}),
 	)
+	sessionMgr := requireMockMultiplexer(t, h)
 	h.SetEnv("REMUDA_CONFIG", configPath)
 
 	h.RunOK("clone", "--repo-url", remoteURL, "--name", "initial")
 
-	cacheDir := filepath.Join(baseRoot, org, repo, ".repo_cache")
+	cacheDir := filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache")
 	require.NoError(t, h.Remuda.Git.Branch(cacheDir, "branch-under-review"))
 	testutils.RunGit(t, cacheDir, "push", "origin", "branch-under-review")
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
-	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/session"
@@ -66,24 +65,15 @@ pwd > "$MARKER"
 
 func TestSessionShellExecsShellInContainerWorkingDirectory(t *testing.T) {
 	t.Parallel()
-	workspaceRoot := t.TempDir()
-	workspace := filepath.Join(workspaceRoot, "org", "repo", "container-shell")
-	testutils.InitWorkspace(t, workspace)
+	dock := &docker.Mock{Running: true}
+	h := testutils.NewHarness(t, testutils.WithDocker(dock))
+	multiplexer := requireMockMultiplexer(t, h)
 
+	workspace := h.InitWorkspace("org", "repo", "container-shell")
 	sessionName := session.SessionNameFromWorkspaceName(workspace)
 	containerName := docker.ContainerNameFromSession(sessionName)
-	dock := &docker.Mock{
-		Running:           true,
-		RunningContainers: map[string]bool{containerName: true},
-	}
-	multiplexer := &testutils.MockMultiplexer{}
+	dock.RunningContainers = map[string]bool{containerName: true}
 	require.NoError(t, multiplexer.Start(session.AgentStart{SessionName: sessionName, Command: ""}))
-
-	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-		testutils.WithMultiplexer(multiplexer),
-		testutils.WithDocker(dock),
-	)
 
 	h.RunOK("session", "shell", "--name", sessionName)
 

@@ -190,8 +190,7 @@ func TestSessionResume(t *testing.T) {
 		fzfPath := filepath.Join(binDir, "fzf")
 		require.NoError(t, os.WriteFile(fzfPath, []byte("#!/bin/sh\nread -r line1\nprintf '%s\\n' \"$line1\"\n"), 0o755))
 
-		configPath := filepath.Join(t.TempDir(), "config.yaml")
-		require.NoError(t, os.WriteFile(configPath, []byte(`
+		configPath := writeTempConfigFile(t, `
 version: 1
 defaults:
   agent: codex
@@ -201,7 +200,7 @@ profiles:
 per_repo:
   org/repo:
     profile: review
-`), 0o644))
+`)
 
 		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
 		pickEnv["REMUDA_ISOLATION"] = "false"
@@ -235,8 +234,7 @@ per_repo:
 		fzfPath := filepath.Join(binDir, "fzf")
 		require.NoError(t, os.WriteFile(fzfPath, []byte("#!/bin/sh\nread -r line1\nprintf '%s\\n' \"$line1\"\n"), 0o755))
 
-		configPath := filepath.Join(t.TempDir(), "config.yaml")
-		require.NoError(t, os.WriteFile(configPath, []byte(`
+		configPath := writeTempConfigFile(t, `
 version: 1
 per_repo:
   org/repo:
@@ -246,7 +244,7 @@ per_repo:
         image: ghcr.io/acme/vibe-dev:latest
         opts:
           - --memory=2g
-`), 0o644))
+`)
 
 		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
 		delete(pickEnv, "REMUDA_ISOLATION")
@@ -278,8 +276,7 @@ per_repo:
 		fzfPath := filepath.Join(binDir, "fzf")
 		require.NoError(t, os.WriteFile(fzfPath, []byte("#!/bin/sh\nread -r line1\nprintf '%s\\n' \"$line1\"\n"), 0o755))
 
-		configPath := filepath.Join(t.TempDir(), "config.yaml")
-		require.NoError(t, os.WriteFile(configPath, []byte(`
+		configPath := writeTempConfigFile(t, `
 version: 1
 profiles:
   review:
@@ -287,7 +284,7 @@ profiles:
 per_repo:
   org/repo:
     profile: review
-`), 0o644))
+`)
 
 		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
 		pickEnv["REMUDA_ISOLATION"] = "false"
@@ -326,14 +323,13 @@ per_repo:
 		fzfPath := filepath.Join(binDir, "fzf")
 		require.NoError(t, os.WriteFile(fzfPath, []byte("#!/bin/sh\nread -r line1\nprintf '%s\\n' \"$line1\"\n"), 0o755))
 
-		configPath := filepath.Join(t.TempDir(), "config.yaml")
-		require.NoError(t, os.WriteFile(configPath, []byte(`
+		configPath := writeTempConfigFile(t, `
 version: 1
 session:
   prune:
     ignore:
       - org/repo/.beads_worktree
-`), 0o644))
+`)
 
 		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
 		pickEnv["REMUDA_ISOLATION"] = "false"
@@ -370,13 +366,12 @@ session:
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
 		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
-		configPath := filepath.Join(t.TempDir(), "config.yaml")
-		require.NoError(t, os.WriteFile(configPath, []byte(`
+		configPath := writeTempConfigFile(t, `
 version: 1
 defaults:
   isolation:
     image: ghcr.io/acme/vibe-dev:latest
-`), 0o644))
+`)
 
 		containerEnv := cli.EnvMap(testutils.ProcessEnvMap())
 		containerEnv["REMUDA_ISOLATION"] = "false"
@@ -413,17 +408,12 @@ func TestSessionResumeRejectsOutdatedManifest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			workspaceRoot := t.TempDir()
-			workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
-			testutils.InitWorkspace(t, workspace)
-			manifestPath := filepath.Join(workspace, internal.SessionManifestFileName)
-			require.NoError(t, os.WriteFile(manifestPath, []byte(tt.data), 0o600))
-
 			h := testutils.NewHarness(t,
-				testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
-				testutils.WithMultiplexer(&testutils.MockMultiplexer{}),
 				testutils.WithDocker(&docker.Mock{Running: true}),
 			)
+			workspace := h.InitWorkspace("org", "repo", "wk")
+			manifestPath := filepath.Join(workspace, internal.SessionManifestFileName)
+			require.NoError(t, os.WriteFile(manifestPath, []byte(tt.data), 0o600))
 
 			res := h.Run("session", "resume", workspace)
 			require.Error(t, res.Err)
