@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
-	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/session"
 )
@@ -15,13 +14,9 @@ import (
 func TestVibeLaunchesClaudeWithoutContainer(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	runDir := t.TempDir()
-	sessionMgr := &testutils.MockMultiplexer{}
 
-	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
-		testutils.WithMultiplexer(sessionMgr),
-	)
+	h := testutils.NewHarness(t)
+	sessionMgr := requireMockMultiplexer(t, h)
 
 	h.RunOK(
 		"vibe",
@@ -35,7 +30,7 @@ func TestVibeLaunchesClaudeWithoutContainer(t *testing.T) {
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 
-	workspace := filepath.Join(runDir, org, repo, "wk")
+	workspace := filepath.Join(h.ReposBaseDir, org, repo, "wk")
 	testutils.RequireDirExists(t, workspace)
 
 	expectedSession := session.SessionNameFromWorkspaceName(workspace)

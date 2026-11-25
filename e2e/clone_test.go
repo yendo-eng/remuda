@@ -30,9 +30,8 @@ func TestRemudaCollisionErrors(t *testing.T) {
 		t.Run(cloneMode.name+" without --force", func(t *testing.T) {
 			t.Parallel()
 			remoteURL := testutils.InitTestRemote(t)
-			runDir := t.TempDir()
 			name := "wk"
-			h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}))
+			h := testutils.NewHarness(t)
 
 			args := []string{"clone", "--name", name, "--repo-url", remoteURL}
 			args = append(args, cloneMode.flags...)
@@ -41,7 +40,7 @@ func TestRemudaCollisionErrors(t *testing.T) {
 
 			org, repo, err := github.ParseRepo(remoteURL)
 			require.NoError(t, err)
-			workspace := filepath.Join(runDir, org, repo, name)
+			workspace := filepath.Join(h.ReposBaseDir, org, repo, name)
 			preciousFile := filepath.Join(workspace, "precious.txt")
 			require.NoError(t, os.WriteFile(preciousFile, []byte("work"), 0o644))
 
@@ -53,11 +52,10 @@ func TestRemudaCollisionErrors(t *testing.T) {
 
 	t.Run("without --force", func(t *testing.T) {
 		remoteURL := testutils.InitTestRemote(t)
-		runDir := t.TempDir()
 
 		name := "wk"
 
-		h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}))
+		h := testutils.NewHarness(t)
 
 		args := []string{"clone", "--name", name, "--repo-url", remoteURL}
 
@@ -75,11 +73,10 @@ func TestRemudaCollisionErrors(t *testing.T) {
 
 	t.Run("with --force", func(t *testing.T) {
 		remoteURL := testutils.InitTestRemote(t)
-		runDir := t.TempDir()
 
 		name := "wk"
 
-		h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}))
+		h := testutils.NewHarness(t)
 
 		args := []string{"clone", "--name", name, "--repo-url", remoteURL, "--force"}
 
@@ -101,8 +98,7 @@ func TestRemudaCollisionErrors(t *testing.T) {
 func TestRemudaBranchEqualsName(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposDir := t.TempDir()
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposDir}))
+	h := testutils.NewHarness(t)
 
 	org, repo, _ := github.ParseRepo(remoteURL)
 
@@ -111,7 +107,7 @@ func TestRemudaBranchEqualsName(t *testing.T) {
 	res := h.Run(args...)
 	require.NoError(t, res.Err, res.String())
 
-	dir := filepath.Join(reposDir, org, repo, name)
+	dir := filepath.Join(h.ReposBaseDir, org, repo, name)
 	testutils.RequireDirExists(t, dir)
 
 	out := testutils.RunGit(t, dir, "rev-parse", "--abbrev-ref", "HEAD")
@@ -122,10 +118,8 @@ func TestRemudaBranchEqualsName(t *testing.T) {
 func TestClonePlacesWorkspaceUnderConfiguredBaseDir(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "vibing")
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
 		testutils.WithCloneHooks(internal.NewCloneHookRegistry()),
 	)
 
@@ -138,7 +132,7 @@ func TestClonePlacesWorkspaceUnderConfiguredBaseDir(t *testing.T) {
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 
-	expectedBase := filepath.Join(baseRoot, org, repo)
+	expectedBase := filepath.Join(h.ReposBaseDir, org, repo)
 	require.Equal(t, filepath.Join(expectedBase, "wk"), workspace)
 	require.DirExists(t, filepath.Join(expectedBase, ".repo_cache"))
 }
@@ -146,8 +140,7 @@ func TestClonePlacesWorkspaceUnderConfiguredBaseDir(t *testing.T) {
 func TestCloneAcceptsRegisteredExperimentFlag(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposDir := t.TempDir()
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposDir}))
+	h := testutils.NewHarness(t)
 
 	res := h.Run("clone", "--experiments", "use-prompts-context-wrapper", "--name", "wk", "--repo-url", remoteURL)
 	require.NoError(t, res.Err, res.String())
@@ -156,8 +149,7 @@ func TestCloneAcceptsRegisteredExperimentFlag(t *testing.T) {
 func TestCloneRejectsUnknownExperimentFlag(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposDir := t.TempDir()
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposDir}))
+	h := testutils.NewHarness(t)
 
 	res := h.Run("clone", "--experiments", "not-real", "--name", "wk", "--repo-url", remoteURL)
 	require.ErrorContains(t, res.Err, `--experiments: unknown experiment "not-real"`)
@@ -166,10 +158,8 @@ func TestCloneRejectsUnknownExperimentFlag(t *testing.T) {
 func TestCloneCreatesBranchMatchingBaseName(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "vibing")
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
 		testutils.WithCloneHooks(internal.NewCloneHookRegistry()),
 	)
 
@@ -187,9 +177,8 @@ func TestCloneCreatesBranchMatchingBaseName(t *testing.T) {
 func TestCloneBranchOverride(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "vibing")
 
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -199,7 +188,7 @@ func TestCloneBranchOverride(t *testing.T) {
 	res := h.Run(args...)
 	require.NoError(t, res.Err, res.String())
 
-	workspace := filepath.Join(baseRoot, org, repo, "wk")
+	workspace := filepath.Join(h.ReposBaseDir, org, repo, "wk")
 	out := testutils.RunGit(t, workspace, "rev-parse", "--abbrev-ref", "HEAD")
 	require.Equal(t, "feature/xyz\n", out)
 }
@@ -207,7 +196,6 @@ func TestCloneBranchOverride(t *testing.T) {
 func TestCloneRunsRegisteredHooks(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "vibing")
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 
@@ -221,7 +209,6 @@ func TestCloneRunsRegisteredHooks(t *testing.T) {
 	registry.Register(org, repo, hook)
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
 		testutils.WithCloneHooks(registry),
 	)
 
@@ -243,7 +230,6 @@ func TestCloneRunsRegisteredHooks(t *testing.T) {
 func TestCloneHookFailureCleansWorktree(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -258,7 +244,6 @@ func TestCloneHookFailureCleansWorktree(t *testing.T) {
 	)
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
 		testutils.WithCloneHooks(registry),
 	)
 
@@ -269,7 +254,7 @@ func TestCloneHookFailureCleansWorktree(t *testing.T) {
 	require.Contains(t, res.Err.Error(), "hook fail failed")
 
 	// Worktree should be cleaned up on hook failure.
-	require.NoDirExists(t, filepath.Join(baseRoot, org, repo, "wk"))
+	require.NoDirExists(t, filepath.Join(h.ReposBaseDir, org, repo, "wk"))
 }
 
 // Inside a container, no workspace is at the path git recorded for it, so a
@@ -278,14 +263,13 @@ func TestCloneHookFailureCleansWorktree(t *testing.T) {
 func TestCloneWorktreeSurvivesPruneInContainer(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
-	cacheDir := filepath.Join(baseRoot, org, repo, ".repo_cache")
-	workspace := filepath.Join(baseRoot, org, repo, "wk")
+	cacheDir := filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache")
+	workspace := filepath.Join(h.ReposBaseDir, org, repo, "wk")
 
 	h.RunOK("clone", "--name", "wk", "--repo-url", remoteURL)
 
@@ -306,7 +290,6 @@ func TestCloneWorktreeSurvivesPruneInContainer(t *testing.T) {
 func TestSkipCloneHooksOption(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -322,7 +305,6 @@ func TestSkipCloneHooksOption(t *testing.T) {
 	)
 
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
 		testutils.WithCloneHooks(registry),
 	)
 
@@ -334,29 +316,28 @@ func TestSkipCloneHooksOption(t *testing.T) {
 	require.False(t, ran, "hook should not run when --no-clone-hooks is used")
 
 	// Verify the workspace was still created successfully.
-	require.DirExists(t, filepath.Join(baseRoot, org, repo, "wk"))
+	require.DirExists(t, filepath.Join(h.ReposBaseDir, org, repo, "wk"))
 }
 
 func TestFullCloneCreatesStandaloneRepository(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 
 	// Baseline: standard clone should create a worktree with .git as a file pointing to cache.
 	h.RunOK("clone", "--name", "wk-worktree", "--repo-url", remoteURL)
-	gitPath := filepath.Join(baseRoot, org, repo, "wk-worktree", ".git")
+	gitPath := filepath.Join(h.ReposBaseDir, org, repo, "wk-worktree", ".git")
 	info, err := os.Stat(gitPath)
 	require.NoError(t, err)
 	require.False(t, info.IsDir(), ".git should be a file when using worktrees")
 
 	// With --full-clone the workspace should contain a standalone repo (.git directory).
 	h.RunOK("clone", "--name", "wk-full", "--repo-url", remoteURL, "--full-clone")
-	fullGitPath := filepath.Join(baseRoot, org, repo, "wk-full", ".git")
+	fullGitPath := filepath.Join(h.ReposBaseDir, org, repo, "wk-full", ".git")
 	fullInfo, err := os.Stat(fullGitPath)
 	require.NoError(t, err)
 	require.True(t, fullInfo.IsDir(), ".git should be a directory when --full-clone is used")
@@ -368,16 +349,15 @@ func TestFullCloneCreatesStandaloneRepository(t *testing.T) {
 func TestFullCloneWithCoWExperiment(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
 
 	h.RunOK("clone", "--name", "wk-cow", "--repo-url", remoteURL, "--full-clone", "--experiments", "cow-clone")
 
-	wkPath := filepath.Join(baseRoot, org, repo, "wk-cow")
+	wkPath := filepath.Join(h.ReposBaseDir, org, repo, "wk-cow")
 	gitInfo, err := os.Stat(filepath.Join(wkPath, ".git"))
 	require.NoError(t, err)
 	require.True(t, gitInfo.IsDir(), ".git should be a directory when --full-clone is used")
@@ -388,9 +368,8 @@ func TestFullCloneWithCoWExperiment(t *testing.T) {
 func TestCloneConcurrentSameRepo(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}))
+	h := testutils.NewHarness(t)
 
 	const cloneCount = 8
 
@@ -430,19 +409,18 @@ func TestCloneConcurrentSameRepo(t *testing.T) {
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
-	require.DirExists(t, filepath.Join(baseRoot, org, repo, ".repo_cache"))
+	require.DirExists(t, filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache"))
 }
 
 func TestCloneSkipCacheRefresh(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	baseRoot := filepath.Join(t.TempDir(), "repos")
 
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
-	cacheDir := filepath.Join(baseRoot, org, repo, ".repo_cache")
+	cacheDir := filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache")
 
 	// Seed the cache with an initial clone.
 	res := h.Run("clone", "--name", "seed", "--repo-url", remoteURL)
@@ -463,7 +441,7 @@ func TestCloneSkipCacheRefresh(t *testing.T) {
 	postSHA := strings.TrimSpace(testutils.RunGit(t, cacheDir, "rev-parse", "HEAD"))
 	require.Equal(t, preSHA, postSHA, "cache HEAD advanced — refresh ran despite --skip-cache-refresh")
 
-	skipWorkspace := filepath.Join(baseRoot, org, repo, "skip")
+	skipWorkspace := filepath.Join(h.ReposBaseDir, org, repo, "skip")
 	reachable := testutils.RunGit(t, skipWorkspace, "rev-list", "--all")
 	require.NotContains(t, reachable, newSHA,
 		"new commit is reachable from workspace — cache was refreshed despite --skip-cache-refresh")

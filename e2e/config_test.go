@@ -365,8 +365,7 @@ profiles:
     use_prompts:
       - make-pr
 `)
-	workspace := filepath.Join(h.ReposBaseDir, "acme", "rocket", "wk")
-	testutils.InitWorkspace(t, workspace)
+	workspace := h.InitWorkspace("acme", "rocket", "wk")
 
 	resNoProfile := h.RunOK(
 		"vibe",
@@ -412,8 +411,7 @@ per_repo:
   acme/rocket:
     profile: fast
 `)
-	workspace := filepath.Join(h.ReposBaseDir, "acme", "rocket", "wk")
-	testutils.InitWorkspace(t, workspace)
+	workspace := h.InitWorkspace("acme", "rocket", "wk")
 
 	resPerRepoProfile := h.RunOK(
 		"vibe",
@@ -678,10 +676,9 @@ func TestConfigDiscovery_InvalidConfigErrors(t *testing.T) {
 	h.SetEnv("XDG_CONFIG_HOME", "")
 
 	// Create an invalid config file
-	configPath := filepath.Join(h.HomeDir, ".config", "remuda", "config.yaml")
-	writeFile(t, configPath, []byte(`
+	writeConfigFile(t, h, `
 version: 999
-`))
+`)
 
 	remoteURL := testutils.InitTestRemote(t)
 
@@ -815,13 +812,12 @@ func TestConfig_ValidationRejectsUnknownKeys(t *testing.T) {
 	h.SetEnv("XDG_CONFIG_HOME", "")
 
 	// Create a config with unknown keys
-	configPath := filepath.Join(h.HomeDir, ".config", "remuda", "config.yaml")
-	writeFile(t, configPath, []byte(`
+	writeConfigFile(t, h, `
 version: 1
 defaults:
   agent: codex
   unknown_field: "should fail"
-`))
+`)
 
 	remoteURL := testutils.InitTestRemote(t)
 
@@ -844,12 +840,11 @@ func TestConfig_ValidationRejectsInvalidEnumValues(t *testing.T) {
 	h.SetEnv("XDG_CONFIG_HOME", "")
 
 	// Create a config with invalid enum value
-	configPath := filepath.Join(h.HomeDir, ".config", "remuda", "config.yaml")
-	writeFile(t, configPath, []byte(`
+	writeConfigFile(t, h, `
 version: 1
 defaults:
   agent: invalid_agent_name
-`))
+`)
 
 	remoteURL := testutils.InitTestRemote(t)
 

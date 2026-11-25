@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
-	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/github"
 )
 
@@ -43,8 +42,7 @@ func seedReviewBranch(t *testing.T, h *testutils.Harness, remoteURL, org, repo, 
 func TestConfigCloneHooksRunForCloneCommand(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposBaseDir := t.TempDir()
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposBaseDir}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -58,8 +56,7 @@ func TestConfigCloneHooksRunForCloneCommand(t *testing.T) {
 func TestConfigCloneHooksRunForVibeCommand(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposBaseDir := t.TempDir()
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposBaseDir}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -74,14 +71,13 @@ func TestConfigCloneHooksRunForVibeCommand(t *testing.T) {
 		"--agent-cmd", "true",
 		"prompt",
 	)
-	require.FileExists(t, filepath.Join(reposBaseDir, org, repo, "wk", configCloneHookMarker))
+	require.FileExists(t, filepath.Join(h.ReposBaseDir, org, repo, "wk", configCloneHookMarker))
 }
 
 func TestConfigCloneHooksRunForVibeCheckCommand(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposBaseDir := t.TempDir()
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposBaseDir}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -91,14 +87,13 @@ func TestConfigCloneHooksRunForVibeCheckCommand(t *testing.T) {
 	seedReviewBranch(t, h, remoteURL, org, repo, branch)
 
 	h.RunOK("vibe-check", "--name", "review", "--repo-url", remoteURL, "--agent-cmd", "true", branch)
-	require.FileExists(t, filepath.Join(reposBaseDir, org, repo, "review", configCloneHookMarker))
+	require.FileExists(t, filepath.Join(h.ReposBaseDir, org, repo, "review", configCloneHookMarker))
 }
 
 func TestNoCloneHooksSkipsConfigCloneHooksForVibeCheck(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposBaseDir := t.TempDir()
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposBaseDir}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -115,14 +110,13 @@ func TestNoCloneHooksSkipsConfigCloneHooksForVibeCheck(t *testing.T) {
 		"--no-clone-hooks",
 		branch,
 	)
-	require.NoFileExists(t, filepath.Join(reposBaseDir, org, repo, "review-skip", configCloneHookMarker))
+	require.NoFileExists(t, filepath.Join(h.ReposBaseDir, org, repo, "review-skip", configCloneHookMarker))
 }
 
 func TestVibeCheckCloneHooksRunOnReviewedBranch(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposBaseDir := t.TempDir()
-	h := testutils.NewHarness(t, testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposBaseDir}))
+	h := testutils.NewHarness(t)
 
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
@@ -133,7 +127,7 @@ func TestVibeCheckCloneHooksRunOnReviewedBranch(t *testing.T) {
 
 	h.RunOK("vibe-check", "--name", "review-branch", "--repo-url", remoteURL, "--agent-cmd", "true", branch)
 
-	data, err := os.ReadFile(filepath.Join(reposBaseDir, org, repo, "review-branch", configCloneHookBranchMarker))
+	data, err := os.ReadFile(filepath.Join(h.ReposBaseDir, org, repo, "review-branch", configCloneHookBranchMarker))
 	require.NoError(t, err)
 	require.Equal(t, branch, strings.TrimSpace(string(data)))
 }
@@ -141,7 +135,6 @@ func TestVibeCheckCloneHooksRunOnReviewedBranch(t *testing.T) {
 func TestVibeCheckPRCloneHooksRunOnPRHeadBranch(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
-	reposBaseDir := t.TempDir()
 
 	const headBranch = "pr-head-ref"
 	mockGitHub := &testutils.MockGitHub{
@@ -158,7 +151,6 @@ func TestVibeCheckPRCloneHooksRunOnPRHeadBranch(t *testing.T) {
 		}`,
 	}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: reposBaseDir}),
 		testutils.WithGitHub(mockGitHub),
 	)
 
@@ -169,7 +161,7 @@ func TestVibeCheckPRCloneHooksRunOnPRHeadBranch(t *testing.T) {
 
 	h.RunOK("vibe-check", "--name", "review-pr", "--repo-url", remoteURL, "--agent-cmd", "true", "--pr", "1")
 
-	data, err := os.ReadFile(filepath.Join(reposBaseDir, org, repo, "review-pr", configCloneHookBranchMarker))
+	data, err := os.ReadFile(filepath.Join(h.ReposBaseDir, org, repo, "review-pr", configCloneHookBranchMarker))
 	require.NoError(t, err)
 	require.Equal(t, headBranch, strings.TrimSpace(string(data)))
 }

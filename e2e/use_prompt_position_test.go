@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yendo-eng/remuda/e2e/testutils"
-	"github.com/yendo-eng/remuda/internal"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/github"
 	"github.com/yendo-eng/remuda/internal/jira"
@@ -55,16 +54,11 @@ func TestSessionResumeUsePromptsContextWrapperExperiment(t *testing.T) {
 func runVibeWithUsePromptPosition(t *testing.T, position, prompt string) string {
 	t.Helper()
 
-	base := t.TempDir()
-	workspace := filepath.Join(base, "org", "repo", "vibe")
-	testutils.InitWorkspace(t, workspace)
-	mgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
-		testutils.WithMultiplexer(mgr),
 		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-1": {Key: "ABC-1", Summary: "reference context"}}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
+	workspace := h.InitWorkspace("org", "repo", "vibe")
 
 	args := []string{"vibe", "--in", workspace, "--no-isolation", "--use", "minimal-change", "--jira", "ABC-1"}
 	if position == "after" {
@@ -73,7 +67,7 @@ func runVibeWithUsePromptPosition(t *testing.T, position, prompt string) string 
 	args = append(args, prompt)
 	h.RunOK(args...)
 
-	recorded := mgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
+	recorded := requireMockMultiplexer(t, h).FindSession(session.SessionNameFromWorkspaceName(workspace))
 	require.NotNil(t, recorded)
 	return extractPromptFromCommand(t, recorded.CommandRan)
 }
@@ -82,19 +76,15 @@ func runVibeCheckWithUsePromptPosition(t *testing.T, position, prompt string) st
 	t.Helper()
 
 	remoteURL := testutils.InitTestRemote(t)
-	base := filepath.Join(t.TempDir(), "repos")
 	branch := "branch-under-review"
-	mgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
-		testutils.WithMultiplexer(mgr),
 		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-1": {Key: "ABC-1", Summary: "reference context"}}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
 	h.RunOK("clone", "--repo-url", remoteURL, "--name", "initial")
 	org, repo, err := github.ParseRepo(remoteURL)
 	require.NoError(t, err)
-	cacheDir := filepath.Join(base, org, repo, ".repo_cache")
+	cacheDir := filepath.Join(h.ReposBaseDir, org, repo, ".repo_cache")
 	require.NoError(t, h.Remuda.Git.Branch(cacheDir, branch))
 	testutils.RunGit(t, cacheDir, "push", "origin", branch)
 
@@ -105,7 +95,7 @@ func runVibeCheckWithUsePromptPosition(t *testing.T, position, prompt string) st
 	args = append(args, branch)
 	h.RunOK(args...)
 
-	recorded := mgr.FindSession(filepath.Join(org, repo, "review"))
+	recorded := requireMockMultiplexer(t, h).FindSession(filepath.Join(org, repo, "review"))
 	require.NotNil(t, recorded)
 	return extractPromptFromCommand(t, recorded.CommandRan)
 }
@@ -113,16 +103,13 @@ func runVibeCheckWithUsePromptPosition(t *testing.T, position, prompt string) st
 func runSessionResumeWithUsePromptPosition(t *testing.T, position, prompt string) string {
 	t.Helper()
 
-	base := t.TempDir()
-	workspace := filepath.Join(base, "org", "repo", "resume")
-	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
-	mgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
-		testutils.WithMultiplexer(mgr),
 		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-1": {Key: "ABC-1", Summary: "reference context"}}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
+	base := h.ReposBaseDir
+	workspace := filepath.Join(base, "org", "repo", "resume")
+	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
 	args := []string{"session", "resume", "--no-isolation", "--use", "minimal-change", "--jira", "ABC-1"}
 	if position == "after" {
@@ -131,7 +118,7 @@ func runSessionResumeWithUsePromptPosition(t *testing.T, position, prompt string
 	args = append(args, workspace, prompt)
 	h.RunOK(args...)
 
-	recorded := mgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
+	recorded := requireMockMultiplexer(t, h).FindSession(session.SessionNameFromWorkspaceName(workspace))
 	require.NotNil(t, recorded)
 	return extractPromptFromCommand(t, recorded.CommandRan)
 }
@@ -139,16 +126,13 @@ func runSessionResumeWithUsePromptPosition(t *testing.T, position, prompt string
 func runSessionResumeWithExperiments(t *testing.T, prompt string, experiments ...string) string {
 	t.Helper()
 
-	base := t.TempDir()
-	workspace := filepath.Join(base, "org", "repo", "resume")
-	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
-	mgr := &testutils.MockMultiplexer{}
 	h := testutils.NewHarness(t,
-		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: base}),
-		testutils.WithMultiplexer(mgr),
 		testutils.WithJira(jira.Mock{Tickets: map[string]jira.Issue{"ABC-1": {Key: "ABC-1", Summary: "reference context"}}}),
 		testutils.WithDocker(&docker.Mock{Running: false}),
 	)
+	base := h.ReposBaseDir
+	workspace := filepath.Join(base, "org", "repo", "resume")
+	require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
 	args := []string{"session", "resume", "--no-isolation", "--use", "minimal-change", "--jira", "ABC-1"}
 	if len(experiments) > 0 {
@@ -157,7 +141,7 @@ func runSessionResumeWithExperiments(t *testing.T, prompt string, experiments ..
 	args = append(args, workspace, prompt)
 	h.RunOK(args...)
 
-	recorded := mgr.FindSession(session.SessionNameFromWorkspaceName(workspace))
+	recorded := requireMockMultiplexer(t, h).FindSession(session.SessionNameFromWorkspaceName(workspace))
 	require.NotNil(t, recorded)
 	return extractPromptFromCommand(t, recorded.CommandRan)
 }

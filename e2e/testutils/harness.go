@@ -286,3 +286,8 @@ func (h *Harness) SetWorkingDir(dir string) {
 	h.t.Helper()
 	h.WorkingDir = dir
 }
+
+func (h *Harness) InitWorkspace(org, repo, name string) string {
+	h.t.Helper()
+	return InitWorkspace(h.t, filepath.Join(h.ReposBaseDir, org, repo, name))
+}
