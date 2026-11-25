@@ -159,12 +159,28 @@ func (r *flagResolution) captureExplicitFlags(parsed *pflag.FlagSet) {
 // default. Safe to call repeatedly with progressively richer configs.
 func (r *flagResolution) apply(env EnvProvider, cfg *koanf.Koanf) error {
 	env = envOrDefault(env)
+	if err := rejectRemovedContainerEnvVars(env); err != nil {
+		return err
+	}
 	for _, set := range r.sets {
 		for name, b := range set.bindings {
 			fl := set.fs.Lookup(name)
 			if err := r.applyOne(fl, b, env, cfg); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func rejectRemovedContainerEnvVars(env EnvProvider) error {
+	for _, entry := range []struct{ old, replacement string }{
+		{old: "REMUDA_CONTAINER", replacement: "REMUDA_ISOLATION"},
+		{old: "REMUDA_CONTAINER_OPTS", replacement: "REMUDA_ISOLATION_OPTS"},
+		{old: "REMUDA_CONTAINER_INHERIT_ENVS", replacement: "REMUDA_ISOLATION_INHERIT_ENVS"},
+	} {
+		if _, ok := env.Lookup(entry.old); ok {
+			return pkgerrors.Errorf("environment variable %s was renamed to %s", entry.old, entry.replacement)
 		}
 	}
 	return nil

@@ -13,7 +13,7 @@ import (
 
 // SessionManifestSchemaVersion identifies the shape of SessionManifest. Bump
 // it whenever a field is added, removed, or reinterpreted.
-const SessionManifestSchemaVersion = 2
+const SessionManifestSchemaVersion = 3
 
 // SessionManifestFileName is the manifest written to the workspace root by
 // vibe and read back by session resume.
@@ -73,7 +73,7 @@ func ReadSessionManifest(workspace string) (manifest SessionManifest, ok bool, e
 	}
 	if manifest.SchemaVersion != SessionManifestSchemaVersion {
 		return SessionManifest{}, false, pkgerrors.Errorf(
-			"%s has unsupported schema version %d; expected %d",
+			"%s has unsupported schema version %d; expected %d; delete it to resume with config defaults",
 			path,
 			manifest.SchemaVersion,
 			SessionManifestSchemaVersion,

@@ -23,7 +23,7 @@ func TestSessionPath(t *testing.T) {
 			"--name", "feature",
 			"--repo-url", remoteURL,
 			"--agent-cmd", "echo ",
-			"--no-container",
+			"--no-isolation",
 			"prompt",
 		)
 

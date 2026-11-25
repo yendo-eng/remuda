@@ -11,21 +11,21 @@ import (
 )
 
 type VibeStartWizardPrefill struct {
-	Prompt        string
-	Use           []string
-	NoUse         []string
-	RepoURL       string
-	RepoAlias     string
-	Name          string
-	Agent         string
-	Model         string
-	AgentCmd      string
-	Yolo          bool
-	Jira          []string
-	SlackThreads  []string
-	NoTmux        bool
-	Container     bool
-	ContainerName string
+	Prompt         string
+	Use            []string
+	NoUse          []string
+	RepoURL        string
+	RepoAlias      string
+	Name           string
+	Agent          string
+	Model          string
+	AgentCmd       string
+	Yolo           bool
+	Jira           []string
+	SlackThreads   []string
+	NoTmux         bool
+	Isolation      bool
+	IsolationImage string
 }
 
 func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
@@ -150,13 +150,13 @@ func launchVibeStartWizard(ctx Context, pref VibeCmd) (VibeCmd, error) {
 	}
 	sel.Detached = detached
 
-	// Step: container mode?
-	err = huh.NewConfirm().Title("Run in Docker container").Value(&sel.Container).Run()
+	// Step: isolation mode?
+	err = huh.NewConfirm().Title("Run isolated").Value(&sel.Isolation).Run()
 	if err != nil {
 		return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 	}
-	if sel.Container {
-		err = huh.NewInput().Title("Container image").Description("(optional)").Placeholder("vibe-dev").Value(&sel.ContainerName).Run()
+	if sel.Isolation {
+		err = huh.NewInput().Title("Isolation image").Description("(optional)").Placeholder("vibe-dev").Value(&sel.IsolationImage).Run()
 		if err != nil {
 			return VibeCmd{}, pkgerrors.Wrap(err, "wizard cancelled or failed")
 		}

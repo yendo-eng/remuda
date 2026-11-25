@@ -16,7 +16,7 @@ import (
 	"github.com/yendo-eng/remuda/internal/session"
 )
 
-func TestVibeContainerFailsWhenDockerUnavailable(t *testing.T) {
+func TestVibeIsolationFailsWhenDockerUnavailable(t *testing.T) {
 	t.Parallel()
 	remoteURL := testutils.InitTestRemote(t)
 	runDir := t.TempDir()
@@ -30,8 +30,8 @@ func TestVibeContainerFailsWhenDockerUnavailable(t *testing.T) {
 		"vibe",
 		"--name", "wk",
 		"--repo-url", remoteURL,
-		"--container",
-		"--container-name", "ghcr.io/acme/vibe-dev:latest",
+		"--isolation",
+		"--isolation-image", "ghcr.io/acme/vibe-dev:latest",
 		"--agent-cmd", "true",
 		"--no-tmux",
 		"prompt",
@@ -41,7 +41,7 @@ func TestVibeContainerFailsWhenDockerUnavailable(t *testing.T) {
 	require.ErrorContains(t, res.Err, "docker is not running")
 }
 
-func TestVibeContainerRequiresExplicitImage(t *testing.T) {
+func TestVibeIsolationRequiresExplicitImage(t *testing.T) {
 	t.Parallel()
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
@@ -57,18 +57,18 @@ func TestVibeContainerRequiresExplicitImage(t *testing.T) {
 	res := h.Run(
 		"vibe",
 		"--in", workspace,
-		"--container",
+		"--isolation",
 		"prompt",
 	)
 	require.Error(t, res.Err)
-	require.ErrorContains(t, res.Err, "container mode requires an explicit image")
+	require.ErrorContains(t, res.Err, "isolation mode requires an explicit image")
 
 	sessions, err := sessionMgr.List()
 	require.NoError(t, err)
 	require.Empty(t, sessions)
 }
 
-func TestVibeContainerUsesConfiguredImageWithoutContainerNameFlag(t *testing.T) {
+func TestVibeIsolationUsesConfiguredImageWithoutImageFlag(t *testing.T) {
 	t.Parallel()
 	workspaceRoot := t.TempDir()
 	workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
@@ -78,7 +78,7 @@ func TestVibeContainerUsesConfiguredImageWithoutContainerNameFlag(t *testing.T) 
 	require.NoError(t, os.WriteFile(configPath, []byte(`
 version: 1
 defaults:
-  container:
+  isolation:
     image: ghcr.io/acme/vibe-dev:latest
 `), 0o644))
 
@@ -94,7 +94,7 @@ defaults:
 	h.RunOK(
 		"vibe",
 		"--in", workspace,
-		"--container",
+		"--isolation",
 		"prompt",
 	)
 
@@ -165,7 +165,7 @@ func TestVibeRejectsLegacyContainerFlags(t *testing.T) {
 	}
 }
 
-func TestVibeContainerPerRepoBeadsDirOverridesHostEnv(t *testing.T) {
+func TestVibeIsolationPerRepoBeadsDirOverridesHostEnv(t *testing.T) {
 	t.Parallel()
 	runDir := t.TempDir()
 	workspace := filepath.Join(runDir, "yendo-eng", "remuda", "wk")
@@ -177,7 +177,7 @@ version: 1
 per_repo:
   yendo-eng/remuda:
     defaults:
-      container:
+      isolation:
         opts:
           - "-v /host/.beads:/workspaces/.beads-issues/.beads"
           - "-e BEADS_DIR=/workspaces/.beads-issues/.beads"
@@ -197,8 +197,8 @@ per_repo:
 	h.RunOK(
 		"vibe",
 		"--in", workspace,
-		"--container",
-		"--container-name", "ghcr.io/acme/vibe-dev:latest",
+		"--isolation",
+		"--isolation-image", "ghcr.io/acme/vibe-dev:latest",
 		"--agent-cmd", "true",
 		"prompt",
 	)
@@ -230,7 +230,7 @@ func TestVibeAutoGeneratesWorkspaceName(t *testing.T) {
 		"vibe",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		prompt,
 	}
@@ -268,7 +268,7 @@ func TestVibeAutoGeneratesWorkspaceNameFromStdinPrompt(t *testing.T) {
 		"vibe",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"-",
 	}
@@ -309,7 +309,7 @@ func TestVibeAutoGeneratesWorkspaceNameFromFirstJiraTicket(t *testing.T) {
 		"vibe",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo",
 		"--jira", "rbl-1234",
 		"--jira", "RBL-9999",
@@ -373,7 +373,7 @@ func TestVibeAutoGeneratesWorkspaceNameFromJiraFallsBackToKeyWhenSummaryMissing(
 		"vibe",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"--jira", "RBL-1234",
 		"implement fix",
@@ -410,7 +410,7 @@ func TestVibeAutoGeneratesWorkspaceNameFromJiraErrorsWhenFirstTicketMissing(t *t
 		"vibe",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"--jira", "RBL-1234",
 		"--jira", "RBL-9999",
@@ -457,7 +457,7 @@ func TestVibeContextEngineering(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--jira", "ABC-123",
 		"--slack-thread", threadURL,
 		"--github-issue", issueSlug + "#" + issueNumber,
@@ -502,7 +502,7 @@ func TestVibeUseBuiltInPrompts(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"--use", "small-commits",
 		"implement caching",
@@ -535,7 +535,7 @@ func TestVibeNoUseExcludesDefaultPrompts(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"--no-use", "make-pr",
 		"implement caching",
@@ -563,7 +563,7 @@ func TestVibeNoUseExcludesExplicitPrompts(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"--use", "small-commits",
 		"--use", "make-pr",
@@ -594,7 +594,7 @@ func TestVibeNoUseAllowsEmptyPrompt(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"--no-use", "make-pr",
 	}
@@ -651,7 +651,7 @@ func TestVibeDoesNotAutoConfigureBeads(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", `bash -lc "echo $BEADS_DIR"`,
 		"prompt",
 	}
@@ -680,7 +680,7 @@ func TestVibeUseCustomPrompts(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"--use", "tell-jokes",
 		"implement caching",
@@ -711,7 +711,7 @@ func TestVibeUsePromptPrefersCustomOverride(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"--use", "small-commits",
 		"implement caching",
@@ -744,7 +744,7 @@ func TestVibeRunsCloneHooks(t *testing.T) {
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: baseRoot}),
 		testutils.WithCloneHooks(registry),
 	)
-	h.SetEnv("REMUDA_CONTAINER", "false")
+	h.SetEnv("REMUDA_ISOLATION", "false")
 
 	// Vibe in a completely different repo to ensure the hook does not run.
 	otherRemote := testutils.InitTestRemote(t)
@@ -777,7 +777,7 @@ func TestVibeForceReplacesExistingWorkspace(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	}
@@ -795,7 +795,7 @@ func TestVibeForceReplacesExistingWorkspace(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"--force",
 		"prompt",
@@ -815,13 +815,13 @@ func TestVibeForceKillsExistingSession(t *testing.T) {
 		testutils.WithRemudaConfig(internal.Config{ReposBaseDir: runDir}),
 		testutils.WithMultiplexer(sessionMgr),
 	)
-	h.SetEnv("REMUDA_CONTAINER", "false")
+	h.SetEnv("REMUDA_ISOLATION", "false")
 
 	args := []string{
 		"vibe",
 		"--name", "wk",
 		"--repo-url", remoteURL,
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	}
@@ -835,7 +835,7 @@ func TestVibeForceKillsExistingSession(t *testing.T) {
 		"vibe",
 		"--name", "wk",
 		"--repo-url", remoteURL,
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"--force",
 		"prompt",
@@ -867,7 +867,7 @@ func TestVibeLaunchesInExistingWorkspace(t *testing.T) {
 	args := []string{
 		"vibe",
 		"--in", relPath,
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	}
@@ -908,7 +908,7 @@ func TestVibeRejectsStaleWorktree(t *testing.T) {
 		testutils.WithDocker(&docker.Mock{Running: true}),
 	)
 
-	res := h.Run("vibe", "--in", workspace, "--no-container", "--agent-cmd", "true", "prompt")
+	res := h.Run("vibe", "--in", workspace, "--no-isolation", "--agent-cmd", "true", "prompt")
 	var staleErr internal.StaleWorktreeError
 	require.ErrorAs(t, res.Err, &staleErr)
 	require.Equal(t, workspace, staleErr.Dir)
@@ -939,8 +939,8 @@ func TestVibeClaudeContainerComposesHermeticDockerCommand(t *testing.T) {
 	args := []string{
 		"vibe",
 		"--in", workspace,
-		"--container",
-		"--container-name", "ghcr.io/acme/vibe-dev:latest",
+		"--isolation",
+		"--isolation-image", "ghcr.io/acme/vibe-dev:latest",
 		"--agent", "claude",
 		"--model", "claude-sonnet-4",
 		"--reasoning-level", "high",
@@ -1006,7 +1006,7 @@ func TestVibeOmittedPromptDoesNotAppendEmptyPromptArg(t *testing.T) {
 	args := []string{
 		"vibe",
 		"--in", relPath,
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 	}
 

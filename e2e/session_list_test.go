@@ -21,7 +21,7 @@ func TestSessionList_PrintsNamesOnly(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--agent-cmd", "echo ",
-		"--no-container",
+		"--no-isolation",
 		"prompt",
 	)
 

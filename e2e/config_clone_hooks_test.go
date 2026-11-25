@@ -70,7 +70,7 @@ func TestConfigCloneHooksRunForVibeCommand(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	)

@@ -22,7 +22,7 @@ func TestWorkspacesList(t *testing.T) {
 		t.Helper()
 
 		h := testutils.NewHarness(t)
-		h.SetEnv("REMUDA_CONTAINER", "false")
+		h.SetEnv("REMUDA_ISOLATION", "false")
 
 		remoteURL := testutils.InitTestRemote(t)
 		org, repo, _ := github.ParseRepo(remoteURL)

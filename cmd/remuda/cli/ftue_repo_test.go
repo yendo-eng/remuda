@@ -289,7 +289,7 @@ func TestResolveRepoSelectionWithFTUE_AppliesPerRepoOverlay(t *testing.T) {
 	require.Equal(t, "https://github.com/acme/utils.git", url)
 }
 
-func TestResolveRepoSelectionWithFTUE_AppliesPerRepoContainerOverlay(t *testing.T) {
+func TestResolveRepoSelectionWithFTUE_AppliesPerRepoIsolationOverlay(t *testing.T) {
 	installFTUEAliases(t)
 
 	tty := openDevNullTTY(t)
@@ -309,7 +309,7 @@ func TestResolveRepoSelectionWithFTUE_AppliesPerRepoContainerOverlay(t *testing.
 		PerRepo: map[string]configfile.OverlayV1{
 			"acme/remuda": {
 				Defaults: &configfile.DefaultsV1{
-					Container: &configfile.ContainerV1{
+					Isolation: &configfile.IsolationV1{
 						Enabled: &enabled,
 						Image:   &image,
 						Opts:    &opts,
@@ -332,7 +332,7 @@ func TestResolveRepoSelectionWithFTUE_AppliesPerRepoContainerOverlay(t *testing.
 		WithEnv(env),
 	)
 	ctx.ConfigFile = cfg
-	container := attachTestInvocationWithContainerFlags(t, &ctx, cfg, false)
+	isolation := attachTestInvocationWithIsolationFlags(t, &ctx, cfg, false)
 
 	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
 		AllowFallback: true,
@@ -343,9 +343,9 @@ func TestResolveRepoSelectionWithFTUE_AppliesPerRepoContainerOverlay(t *testing.
 	// Assert the bound Go struct fields, not just the effective config view:
 	// this is the re-entrant resolution surface that mutates flag.Value state
 	// directly (flags.go), which a config-only assertion would not catch.
-	require.True(t, container.Container)
-	require.Equal(t, image, container.ContainerName)
-	require.Equal(t, opts, container.ContainerOpt)
+	require.True(t, isolation.Isolation)
+	require.Equal(t, image, isolation.IsolationImage)
+	require.Equal(t, opts, isolation.IsolationOpt)
 }
 
 // Guards the re-entrant resolution contract: a flag set explicitly on the
@@ -376,7 +376,7 @@ func TestResolveRepoSelectionWithFTUE_ExplicitFlagsSurviveReResolution(t *testin
 		PerRepo: map[string]configfile.OverlayV1{
 			"acme/remuda": {
 				Defaults: &configfile.DefaultsV1{
-					Container:  &configfile.ContainerV1{Image: &overlayImage},
+					Isolation:  &configfile.IsolationV1{Image: &overlayImage},
 					UsePrompts: &overlayUsePrompts,
 				},
 			},
@@ -396,12 +396,12 @@ func TestResolveRepoSelectionWithFTUE_ExplicitFlagsSurviveReResolution(t *testin
 		WithEnv(env),
 	)
 	ctx.ConfigFile = cfg
-	container, contextEng := attachTestInvocationWithFlags(t, &ctx, cfg,
-		[]string{"--container-name", "explicit-image", "--use", "explicit-prompt"})
+	isolation, contextEng := attachTestInvocationWithFlags(t, &ctx, cfg,
+		[]string{"--isolation-image", "explicit-image", "--use", "explicit-prompt"})
 
 	// Simulate prepare()'s first overlay pass, before the repo slug is known.
 	require.NoError(t, ctx.ApplyRepoOverlays(""))
-	require.Equal(t, "explicit-image", container.ContainerName)
+	require.Equal(t, "explicit-image", isolation.IsolationImage)
 	require.Equal(t, []string{"base-prompt", "explicit-prompt"}, contextEng.Use)
 
 	selection, err := resolveRepoSelectionWithFTUE(ctx, CloneRepoOption{}, RepoResolutionOptions{
@@ -410,9 +410,9 @@ func TestResolveRepoSelectionWithFTUE_ExplicitFlagsSurviveReResolution(t *testin
 	require.NoError(t, err)
 	require.Equal(t, RepoSourceExplicit, selection.Source)
 
-	// --container-name has no merge semantics: it must stay exactly what the
+	// --isolation-image has no merge semantics: it must stay exactly what the
 	// user passed, even though the per_repo overlay sets a different image.
-	require.Equal(t, "explicit-image", container.ContainerName)
+	require.Equal(t, "explicit-image", isolation.IsolationImage)
 	// --use merges with config, but must recompute against the ORIGINAL flag
 	// value each pass: "explicit-prompt" alone, not "base-prompt" carried over
 	// from the first pass's merge.

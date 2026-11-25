@@ -46,7 +46,7 @@ func selectProfile(flagValue string, flagIsExplicit bool, env EnvProvider, cfg *
 
 // newEffectiveConfig flattens config and manifest layers into a key-value view
 // in ascending precedence: base, per_repo.<slug>, manifest, then profile.
-// Per-repo container.opts append to base values as a historic exception.
+// Per-repo isolation.opts append to base values as a historic exception.
 func newEffectiveConfig(cfg *configfile.V1, slug string, profile profileRef, manifest *configfile.DefaultsV1) (*koanf.Koanf, error) {
 	k := koanf.New(".")
 	if cfg == nil && profile.Name != "" {
@@ -65,9 +65,9 @@ func newEffectiveConfig(cfg *configfile.V1, slug string, profile profileRef, man
 		if slug != "" {
 			if overlay, ok := cfg.PerRepo[slug]; ok {
 				var appendedOpts []string
-				if overlay.Defaults != nil && overlay.Defaults.Container != nil && overlay.Defaults.Container.Opts != nil &&
-					len(*overlay.Defaults.Container.Opts) > 0 && k.Exists("defaults.container.opts") {
-					appendedOpts = append(append([]string{}, k.Strings("defaults.container.opts")...), (*overlay.Defaults.Container.Opts)...)
+				if overlay.Defaults != nil && overlay.Defaults.Isolation != nil && overlay.Defaults.Isolation.Opts != nil &&
+					len(*overlay.Defaults.Isolation.Opts) > 0 && k.Exists("defaults.isolation.opts") {
+					appendedOpts = append(append([]string{}, k.Strings("defaults.isolation.opts")...), (*overlay.Defaults.Isolation.Opts)...)
 				}
 				err := loadIntoKoanf(k, configfile.V1{
 					Repos:    overlay.Repos,
@@ -78,7 +78,7 @@ func newEffectiveConfig(cfg *configfile.V1, slug string, profile profileRef, man
 					return nil, err
 				}
 				if appendedOpts != nil {
-					if err := k.Set("defaults.container.opts", appendedOpts); err != nil {
+					if err := k.Set("defaults.isolation.opts", appendedOpts); err != nil {
 						return nil, err
 					}
 				}

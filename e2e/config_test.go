@@ -139,6 +139,20 @@ defaults:
 	require.ErrorContains(t, res.Err, "docker")
 }
 
+func TestConfigValidateAcceptsDockerIsolationRuntime(t *testing.T) {
+	t.Parallel()
+	h := testutils.NewHarness(t)
+	writeConfigFile(t, h, `
+version: 1
+defaults:
+  isolation:
+    runtime: docker
+`)
+
+	res := h.Run("config", "validate")
+	require.NoError(t, res.Err, res.String())
+}
+
 // =============================================================================
 // Config Precedence Tests (using use_prompts as observable field)
 // =============================================================================
@@ -166,7 +180,7 @@ defaults:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -199,7 +213,7 @@ defaults:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -232,7 +246,7 @@ profiles:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"--profile", "fast",
 		"implement caching",
@@ -266,7 +280,7 @@ profiles:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -299,7 +313,7 @@ profiles:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"--profile", "fast",
 		"--use", "custom-flag-prompt",
@@ -358,7 +372,7 @@ profiles:
 		"vibe",
 		"--in", workspace,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -371,7 +385,7 @@ profiles:
 		"--in", workspace,
 		"--profile", "fast",
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -405,7 +419,7 @@ per_repo:
 		"vibe",
 		"--in", workspace,
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -419,7 +433,7 @@ per_repo:
 		"--in", workspace,
 		"--profile", "review",
 		"--no-tmux",
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -457,7 +471,7 @@ defaults:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"--use", "custom-flag-prompt",
 		"implement caching",
@@ -480,7 +494,7 @@ func TestConfigPrecedence_BuiltInDefaultsWhenNoConfig(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -536,7 +550,7 @@ defaults:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -586,7 +600,7 @@ defaults:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -623,7 +637,7 @@ defaults:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -648,7 +662,7 @@ func TestConfigDiscovery_MissingConfigIsNotError(t *testing.T) {
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -676,7 +690,7 @@ version: 999
 		"vibe",
 		"--name", "wk",
 		"--repo-url", remoteURL,
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	)
@@ -700,7 +714,7 @@ func TestConfigDiscovery_StrictModeFailsOnMissingFile(t *testing.T) {
 		"vibe",
 		"--name", "wk",
 		"--repo-url", remoteURL,
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	)
@@ -735,7 +749,7 @@ defaults:
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--no-tmux", // Run in foreground to capture output
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "echo ",
 		"implement caching",
 	)
@@ -746,20 +760,20 @@ defaults:
 	require.Contains(t, outStr, "implement caching", "user prompt should be included")
 }
 
-func TestConfig_ContainerSettingsDisabled(t *testing.T) {
+func TestConfig_IsolationSettingsDisabled(t *testing.T) {
 	t.Parallel()
 	h := testutils.NewHarness(t)
 
-	// Test that container.enabled=false in config is respected
+	// Test that isolation.enabled=false in config is respected
 	writeConfigFile(t, h, `
 version: 1
 defaults:
-  container:
+  isolation:
     enabled: false
 `)
 	remoteURL := testutils.InitTestRemote(t)
 
-	// Should succeed because container is disabled in config
+	// Should succeed because isolation is disabled in config
 	res := h.Run(
 		"vibe",
 		"--name", "wk",
@@ -770,25 +784,25 @@ defaults:
 	require.NoError(t, res.Err, res.String())
 }
 
-func TestConfig_ContainerFlagOverridesConfig(t *testing.T) {
+func TestConfig_IsolationFlagOverridesConfig(t *testing.T) {
 	t.Parallel()
 	h := testutils.NewHarness(t)
 
-	// Test that --no-container flag overrides container.enabled=true in config
+	// Test that --no-isolation flag overrides isolation.enabled=true in config
 	writeConfigFile(t, h, `
 version: 1
 defaults:
-  container:
+  isolation:
     enabled: true
 `)
 	remoteURL := testutils.InitTestRemote(t)
 
-	// Should succeed because --no-container overrides config
+	// Should succeed because --no-isolation overrides config
 	res := h.Run(
 		"vibe",
 		"--name", "wk",
 		"--repo-url", remoteURL,
-		"--no-container", // Should override config
+		"--no-isolation", // Should override config
 		"--agent-cmd", "true",
 		"prompt",
 	)
@@ -816,7 +830,7 @@ defaults:
 		"vibe",
 		"--name", "wk",
 		"--repo-url", remoteURL,
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	)
@@ -844,7 +858,7 @@ defaults:
 		"vibe",
 		"--name", "wk",
 		"--repo-url", remoteURL,
-		"--no-container",
+		"--no-isolation",
 		"--agent-cmd", "true",
 		"prompt",
 	)

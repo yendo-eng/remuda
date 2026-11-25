@@ -22,7 +22,7 @@ func isolatedSessionEnvNames(agent string, extraEnvNames, overrideEnvNames []str
 // isolatedContainerEnvNames returns env var names that should be explicitly exported
 // before running containerized commands in isolated sessions.
 //
-// This includes user-requested --container-inherit-env values plus implicit env
+// This includes user-requested --isolation-inherit-env values plus implicit env
 // forwards added by launch composition (currently ANTHROPIC_API_KEY for
 // claude/bash) so the cleared session environment doesn't drop those values.
 func isolatedContainerEnvNames(agent string, containerInheritEnv []string) []string {

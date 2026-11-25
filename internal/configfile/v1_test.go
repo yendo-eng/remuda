@@ -128,7 +128,7 @@ func TestParseV1_ProfileDefaultsRoundTrip(t *testing.T) {
 profiles:
   fast:
     yolo: true
-    container:
+    isolation:
       inherit_env:
         - FOO
         - BAR
@@ -139,24 +139,24 @@ profiles:
 	profile := cfg.Profiles["fast"]
 	require.NotNil(t, profile.Yolo)
 	require.True(t, *profile.Yolo)
-	require.NotNil(t, profile.Container)
-	require.NotNil(t, profile.Container.InheritEnv)
-	require.Equal(t, []string{"FOO", "BAR"}, *profile.Container.InheritEnv)
+	require.NotNil(t, profile.Isolation)
+	require.NotNil(t, profile.Isolation.InheritEnv)
+	require.Equal(t, []string{"FOO", "BAR"}, *profile.Isolation.InheritEnv)
 }
 
-func TestParseV1_ProfileContainerBoolShorthand(t *testing.T) {
+func TestParseV1_ProfileIsolationBoolShorthand(t *testing.T) {
 	yaml := `version: 1
 profiles:
   fast:
-    container: false
+    isolation: false
 `
 	cfg, err := ParseV1([]byte(yaml))
 	require.NoError(t, err)
 
 	profile := cfg.Profiles["fast"]
-	require.NotNil(t, profile.Container)
-	require.NotNil(t, profile.Container.Enabled)
-	require.False(t, *profile.Container.Enabled)
+	require.NotNil(t, profile.Isolation)
+	require.NotNil(t, profile.Isolation.Enabled)
+	require.False(t, *profile.Isolation.Enabled)
 }
 
 func TestParseV1_InvalidAgentInProfile(t *testing.T) {
@@ -215,7 +215,7 @@ func TestParseV1_PointerFields(t *testing.T) {
 	require.Nil(t, cfg.Defaults.AgentArgs)
 	require.Nil(t, cfg.Defaults.Yolo)
 	require.Nil(t, cfg.Defaults.Merge)
-	require.Nil(t, cfg.Defaults.Container)
+	require.Nil(t, cfg.Defaults.Isolation)
 }
 
 func TestParseV1_UsePromptsPosition(t *testing.T) {
@@ -321,10 +321,10 @@ func TestParseV1_UnknownNestedKey(t *testing.T) {
 	require.Contains(t, err.Error(), "bad_field")
 }
 
-func TestParseV1_UnknownContainerKey(t *testing.T) {
-	_, err := ParseV1([]byte("version: 1\ndefaults:\n  container:\n    bogus: true\n"))
+func TestParseV1_UnknownIsolationKey(t *testing.T) {
+	_, err := ParseV1([]byte("version: 1\ndefaults:\n  isolation:\n    bogus: true\n"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "container.bogus")
+	require.Contains(t, err.Error(), "isolation.bogus")
 }
 
 func TestParseV1_UnknownKeyInPerRepo(t *testing.T) {
@@ -681,15 +681,15 @@ per_repo:
 	require.Equal(t, []string{"auto-workspace-name"}, *cfg.PerRepo["acme/widgets"].Defaults.Experiments)
 }
 
-func TestParseV1_InvalidContainerInheritEnvName(t *testing.T) {
+func TestParseV1_InvalidIsolationInheritEnvName(t *testing.T) {
 	yaml := `version: 1
 defaults:
-  container:
+  isolation:
     inherit_env:
       - "BAD=NOPE"
 `
 	_, err := ParseV1([]byte(yaml))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "defaults.container.inherit_env[0]")
+	require.Contains(t, err.Error(), "defaults.isolation.inherit_env[0]")
 	require.Contains(t, err.Error(), "invalid env var name")
 }

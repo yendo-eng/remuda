@@ -17,7 +17,7 @@ import (
 func TestSessionResume(t *testing.T) {
 	t.Parallel()
 	env := cli.EnvMap(testutils.ProcessEnvMap())
-	env["REMUDA_CONTAINER"] = "false"
+	env["REMUDA_ISOLATION"] = "false"
 
 	setup := func(t *testing.T) (string, *testutils.MockMultiplexer, internal.Remuda) {
 		baseDir := t.TempDir()
@@ -59,7 +59,7 @@ func TestSessionResume(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
 		claudeEnv := cli.EnvMap(testutils.ProcessEnvMap())
-		claudeEnv["REMUDA_CONTAINER"] = "false"
+		claudeEnv["REMUDA_ISOLATION"] = "false"
 		claudeEnv["REMUDA_AGENT"] = "claude"
 
 		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(claudeEnv), cli.WithHomeDir(claudeEnv["HOME"]))
@@ -99,7 +99,7 @@ func TestSessionResume(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
 		keyEnv := cli.EnvMap(testutils.ProcessEnvMap())
-		keyEnv["REMUDA_CONTAINER"] = "false"
+		keyEnv["REMUDA_ISOLATION"] = "false"
 		keyEnv["OPENAI_API_KEY"] = "sk-live-never-show"
 
 		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(keyEnv), cli.WithHomeDir(keyEnv["HOME"]))
@@ -204,7 +204,7 @@ per_repo:
 `), 0o644))
 
 		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
-		pickEnv["REMUDA_CONTAINER"] = "false"
+		pickEnv["REMUDA_ISOLATION"] = "false"
 		pickEnv["REMUDA_CONFIG"] = configPath
 		pickEnv["PATH"] = binDir + string(os.PathListSeparator) + pickEnv["PATH"]
 
@@ -221,7 +221,7 @@ per_repo:
 		require.Equal(t, "claude", value)
 	})
 
-	t.Run("pick applies per_repo container defaults", func(t *testing.T) {
+	t.Run("pick applies per_repo isolation defaults", func(t *testing.T) {
 		baseDir, mgr, k := setup(t)
 		k.Docker = &docker.Mock{Running: true}
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
@@ -241,7 +241,7 @@ version: 1
 per_repo:
   org/repo:
     defaults:
-      container:
+      isolation:
         enabled: true
         image: ghcr.io/acme/vibe-dev:latest
         opts:
@@ -249,7 +249,7 @@ per_repo:
 `), 0o644))
 
 		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
-		delete(pickEnv, "REMUDA_CONTAINER")
+		delete(pickEnv, "REMUDA_ISOLATION")
 		pickEnv["REMUDA_CONFIG"] = configPath
 		pickEnv["GH_TOKEN"] = "test-token"
 		pickEnv["PATH"] = binDir + string(os.PathListSeparator) + pickEnv["PATH"]
@@ -290,7 +290,7 @@ per_repo:
 `), 0o644))
 
 		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
-		pickEnv["REMUDA_CONTAINER"] = "false"
+		pickEnv["REMUDA_ISOLATION"] = "false"
 		pickEnv["REMUDA_CONFIG"] = configPath
 		pickEnv["PATH"] = binDir + string(os.PathListSeparator) + pickEnv["PATH"]
 
@@ -336,7 +336,7 @@ session:
 `), 0o644))
 
 		pickEnv := cli.EnvMap(testutils.ProcessEnvMap())
-		pickEnv["REMUDA_CONTAINER"] = "false"
+		pickEnv["REMUDA_ISOLATION"] = "false"
 		pickEnv["REMUDA_CONFIG"] = configPath
 		pickEnv["PATH"] = binDir + string(os.PathListSeparator) + pickEnv["PATH"]
 
@@ -348,23 +348,23 @@ session:
 		require.Nil(t, mgr.FindSession("org/repo/.beads_worktree"))
 	})
 
-	t.Run("container resume fails when image is missing", func(t *testing.T) {
+	t.Run("isolation resume fails when image is missing", func(t *testing.T) {
 		baseDir, mgr, k := setup(t)
 		k.Docker = &docker.Mock{Running: true}
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
 		require.NoError(t, os.MkdirAll(filepath.Join(workspace, ".beads"), 0o755))
 
 		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(env), cli.WithHomeDir(env["HOME"]))
-		err := cli.Run(ctx, []string{"session", "resume", "--container", workspace})
+		err := cli.Run(ctx, []string{"session", "resume", "--isolation", workspace})
 		require.Error(t, err)
-		require.ErrorContains(t, err, "container mode requires an explicit image")
+		require.ErrorContains(t, err, "isolation mode requires an explicit image")
 
 		sessions, listErr := mgr.List()
 		require.NoError(t, listErr)
 		require.Empty(t, sessions)
 	})
 
-	t.Run("container resume uses configured image without --container-name", func(t *testing.T) {
+	t.Run("isolation resume uses configured image without --isolation-image", func(t *testing.T) {
 		baseDir, mgr, k := setup(t)
 		k.Docker = &docker.Mock{Running: true}
 		workspace := filepath.Join(baseDir, "org", "repo", "folder")
@@ -374,17 +374,17 @@ session:
 		require.NoError(t, os.WriteFile(configPath, []byte(`
 version: 1
 defaults:
-  container:
+  isolation:
     image: ghcr.io/acme/vibe-dev:latest
 `), 0o644))
 
 		containerEnv := cli.EnvMap(testutils.ProcessEnvMap())
-		containerEnv["REMUDA_CONTAINER"] = "false"
+		containerEnv["REMUDA_ISOLATION"] = "false"
 		containerEnv["REMUDA_CONFIG"] = configPath
 		containerEnv["GH_TOKEN"] = "test-token"
 
 		ctx := cli.NewContext(t.Context(), k, cli.WithEnv(containerEnv), cli.WithHomeDir(containerEnv["HOME"]))
-		err := cli.Run(ctx, []string{"session", "resume", "--container", workspace})
+		err := cli.Run(ctx, []string{"session", "resume", "--isolation", workspace})
 		require.NoError(t, err)
 
 		sess := mgr.FindSession("org/repo/folder")

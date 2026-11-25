@@ -41,7 +41,7 @@ func TestComposeLaunchCommand_ForwardsContainerInheritEnv(t *testing.T) {
 }
 
 // TestComposeLaunchCommand_SplitsMultiTokenContainerOpt verifies that a raw
-// --container-opt value carrying more than one docker CLI token (eg. "-v
+// --isolation-opt value carrying more than one docker CLI token (eg. "-v
 // /a:/b", typed by the operator as a single flag value) is field-split into
 // separate argv elements before docker's own quoting boundary, matching the
 // word-splitting a shell would previously have done. Executes the built
@@ -129,7 +129,7 @@ func TestComposeLaunchCommand_ContainerRequiresExplicitImage(t *testing.T) {
 
 	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
 	require.Error(t, err)
-	require.ErrorContains(t, err, "container mode requires an explicit image")
+	require.ErrorContains(t, err, "isolation mode requires an explicit image")
 }
 
 func TestComposeLaunchCommand_BashAgentIncludesCodexStateMounts(t *testing.T) {

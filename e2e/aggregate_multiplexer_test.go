@@ -129,7 +129,7 @@ func TestAggregateMultiplexerRoutesAndRejectsCrossBackendDuplicate(t *testing.T)
 		"--name", "wk",
 		"--repo-url", remoteURL,
 		"--agent-cmd", "echo",
-		"--no-container",
+		"--no-isolation",
 		"prompt",
 	)
 	require.ErrorContains(t, start.Err, "session \""+sessionName+"\" already exists")
@@ -170,7 +170,7 @@ func TestAggregateMultiplexerFailsWhenABackendFails(t *testing.T) {
 		{name: "workspaces remove", cloned: true, args: func(_, workspace string) []string { return []string{"workspaces", "remove", workspace} }},
 		{name: "session resume", cloned: true, args: func(_, workspace string) []string { return []string{"session", "resume", workspace} }},
 		{name: "vibe", args: func(remoteURL, _ string) []string {
-			return []string{"vibe", "--name", "wk", "--repo-url", remoteURL, "--agent-cmd", "echo", "--no-container", "prompt"}
+			return []string{"vibe", "--name", "wk", "--repo-url", remoteURL, "--agent-cmd", "echo", "--no-isolation", "prompt"}
 		}},
 	}
 
@@ -178,7 +178,7 @@ func TestAggregateMultiplexerFailsWhenABackendFails(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			h, backends := newAggregateMultiplexerHarness(t)
-			h.SetEnv("REMUDA_CONTAINER", "false")
+			h.SetEnv("REMUDA_ISOLATION", "false")
 			remoteURL := testutils.InitTestRemote(t)
 			org, repo, err := github.ParseRepo(remoteURL)
 			require.NoError(t, err)

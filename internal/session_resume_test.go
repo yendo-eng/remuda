@@ -239,7 +239,7 @@ func TestSessionResume_ContainerRequiresExplicitImage(t *testing.T) {
 		Container: true,
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "container mode requires an explicit image")
+	require.ErrorContains(t, err, "isolation mode requires an explicit image")
 	require.Empty(t, mgr.Started)
 }
 
