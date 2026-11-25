@@ -84,6 +84,61 @@ defaults:
 	require.NotContains(t, res.Stderr, `auto-workspace-name`)
 }
 
+func TestConfigValidateRejectsLegacyContainerConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		yaml string
+		path string
+	}{
+		{
+			name: "defaults",
+			yaml: "version: 1\ndefaults:\n  container: true\n",
+			path: "defaults.container",
+		},
+		{
+			name: "profile",
+			yaml: "version: 1\nprofiles:\n  fast:\n    container: true\n",
+			path: "profiles.fast.container",
+		},
+		{
+			name: "per repo defaults",
+			yaml: "version: 1\nper_repo:\n  acme/repo:\n    defaults:\n      container: true\n",
+			path: "per_repo.acme/repo.defaults.container",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			h := testutils.NewHarness(t)
+			writeConfigFile(t, h, tt.yaml)
+
+			res := h.Run("config", "validate")
+			require.Error(t, res.Err)
+			require.ErrorContains(t, res.Err, tt.path)
+			require.ErrorContains(t, res.Err, "renamed to isolation")
+		})
+	}
+}
+
+func TestConfigValidateRejectsInvalidIsolationRuntime(t *testing.T) {
+	t.Parallel()
+	h := testutils.NewHarness(t)
+	writeConfigFile(t, h, `
+version: 1
+defaults:
+  isolation:
+    runtime: smolvm
+`)
+
+	res := h.Run("config", "validate")
+	require.Error(t, res.Err)
+	require.ErrorContains(t, res.Err, "defaults.isolation.runtime")
+	require.ErrorContains(t, res.Err, `invalid value "smolvm"`)
+	require.ErrorContains(t, res.Err, "docker")
+}
+
 // =============================================================================
 // Config Precedence Tests (using use_prompts as observable field)
 // =============================================================================
