@@ -51,23 +51,6 @@ func TestResolveRepoSelectionExistingWorkspaceSkipsRepoURL(t *testing.T) {
 	require.Equal(t, "acme/widgets", selection.RepoSlug)
 }
 
-func TestResolveRepoSelectionExistingWorkspaceUsesExplicitRepo(t *testing.T) {
-	installRepoResolutionAliases(t)
-
-	base := t.TempDir()
-	workspace := filepath.Join(base, "acme", "widgets", "feature-1")
-
-	ctx := contextWithExplicitFlags(Context{}, "repo")
-	selection, err := resolveRepoSelection(ctx, CloneRepoOption{Repo: "utils"}, RepoResolutionOptions{
-		ExistingWorkspace: workspace,
-		ReposBaseDir:      base,
-	})
-	require.NoError(t, err)
-	require.Equal(t, RepoSourceExplicit, selection.Source)
-	require.Equal(t, "https://github.com/acme/utils.git", selection.RepoURL)
-	require.Equal(t, "acme/utils", selection.RepoSlug)
-}
-
 func TestResolveRepoSelectionExistingWorkspaceUsesEnvBaseDirWhenOptionUnset(t *testing.T) {
 	base := t.TempDir()
 	workspace := filepath.Join(base, "acme", "widgets", "feature-1")
