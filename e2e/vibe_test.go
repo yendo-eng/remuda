@@ -104,6 +104,67 @@ defaults:
 	require.Contains(t, recorded.CommandRan, "ghcr.io/acme/vibe-dev:latest")
 }
 
+func TestVibeRejectsLegacyContainerEnvironmentVariables(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		oldEnv      string
+		replacement string
+		value       string
+	}{
+		{name: "enabled", oldEnv: "REMUDA_CONTAINER", replacement: "REMUDA_ISOLATION", value: "false"},
+		{name: "opts", oldEnv: "REMUDA_CONTAINER_OPTS", replacement: "REMUDA_ISOLATION_OPTS", value: "--network=host"},
+		{name: "inherit env", oldEnv: "REMUDA_CONTAINER_INHERIT_ENVS", replacement: "REMUDA_ISOLATION_INHERIT_ENVS", value: "TOKEN"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			workspaceRoot := t.TempDir()
+			workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
+			testutils.InitWorkspace(t, workspace)
+
+			h := testutils.NewHarness(t,
+				testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
+				testutils.WithDocker(&docker.Mock{Running: true}),
+			)
+			h.SetEnv(tt.oldEnv, tt.value)
+
+			res := h.Run("vibe", "--in", workspace, "--no-tmux", "--agent-cmd", "true", "prompt")
+			require.Error(t, res.Err)
+			require.ErrorContains(t, res.Err, tt.oldEnv)
+			require.ErrorContains(t, res.Err, tt.replacement)
+		})
+	}
+}
+
+func TestVibeRejectsLegacyContainerFlags(t *testing.T) {
+	t.Parallel()
+
+	flags := []string{
+		"--container",
+		"--no-container",
+		"--container-name=legacy-image",
+		"--container-opt=--network=host",
+		"--container-inherit-env=TOKEN",
+	}
+	for _, flag := range flags {
+		t.Run(flag, func(t *testing.T) {
+			t.Parallel()
+			workspaceRoot := t.TempDir()
+			workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
+			testutils.InitWorkspace(t, workspace)
+			h := testutils.NewHarness(t,
+				testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
+			)
+
+			res := h.Run("vibe", "--in", workspace, flag, "--agent-cmd", "true", "prompt")
+			require.Error(t, res.Err)
+			require.ErrorContains(t, res.Err, "unknown flag")
+		})
+	}
+}
+
 func TestVibeContainerPerRepoBeadsDirOverridesHostEnv(t *testing.T) {
 	t.Parallel()
 	runDir := t.TempDir()
@@ -960,4 +1021,39 @@ func TestVibeOmittedPromptDoesNotAppendEmptyPromptArg(t *testing.T) {
 	require.Equal(t, "custom", value)
 	require.Contains(t, recorded.CommandRan, "true")
 	require.NotContains(t, recorded.CommandRan, "true ''")
+}
+
+func TestVibeRejectsInvalidIsolationRuntime(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+		env  map[string]string
+	}{
+		{name: "flag", args: []string{"--isolation-runtime", "smolvm"}},
+		{name: "environment", env: map[string]string{"REMUDA_ISOLATION_RUNTIME": "smolvm"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			workspaceRoot := t.TempDir()
+			workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
+			testutils.InitWorkspace(t, workspace)
+			h := testutils.NewHarness(t,
+				testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
+			)
+			for key, value := range tt.env {
+				h.SetEnv(key, value)
+			}
+
+			args := append([]string{"vibe", "--in", workspace}, tt.args...)
+			args = append(args, "--no-tmux", "--agent-cmd", "true", "prompt")
+			res := h.Run(args...)
+			require.Error(t, res.Err)
+			require.ErrorContains(t, res.Err, "--isolation-runtime")
+			require.ErrorContains(t, res.Err, `"smolvm"`)
+			require.ErrorContains(t, res.Err, "docker")
+		})
+	}
 }

@@ -393,3 +393,42 @@ defaults:
 		require.Contains(t, sess.CommandRan, "'docker' 'run' '--rm' '-it'")
 	})
 }
+
+func TestSessionResumeRejectsOutdatedManifest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		data string
+	}{
+		{
+			name: "experiment manifest with top-level container",
+			data: `{"schema_version":1,"agent":"codex","container":{"enabled":true}}`,
+		},
+		{
+			name: "manifest with defaults container",
+			data: `{"schema_version":2,"defaults":{"Container":{"Enabled":true}}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			workspaceRoot := t.TempDir()
+			workspace := filepath.Join(workspaceRoot, "org", "repo", "wk")
+			testutils.InitWorkspace(t, workspace)
+			manifestPath := filepath.Join(workspace, internal.SessionManifestFileName)
+			require.NoError(t, os.WriteFile(manifestPath, []byte(tt.data), 0o600))
+
+			h := testutils.NewHarness(t,
+				testutils.WithRemudaConfig(internal.Config{ReposBaseDir: workspaceRoot}),
+				testutils.WithMultiplexer(&testutils.MockMultiplexer{}),
+				testutils.WithDocker(&docker.Mock{Running: true}),
+			)
+
+			res := h.Run("session", "resume", workspace)
+			require.Error(t, res.Err)
+			require.ErrorContains(t, res.Err, "unsupported schema version")
+			require.ErrorContains(t, res.Err, "delete it to resume with config defaults")
+		})
+	}
+}
