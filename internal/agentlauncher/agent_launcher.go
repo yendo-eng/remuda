@@ -64,7 +64,7 @@ func DefaultModel(agent string) string {
 	case AgentClaude:
 		return ""
 	case AgentOpenCode:
-		return "openai/gpt-5" // TODO: confirm/update OpenCode default model
+		return "openai/gpt-6.2-astra"
 	default:
 		return ""
 	}
