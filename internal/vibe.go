@@ -252,10 +252,12 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 
 	agentCommand := agent.Command(prompt)
 	var agentArgs []string
+	var agentEnvironment map[string]string
 	if cmd.AgentCmd == "" {
 		extraArgs := slices.Concat(cmd.AgentArgs, sessionAgentArgs(k.Multiplexer, cmd.Detached, agentName))
 		agentCommand = agent.Command(prompt, extraArgs...)
 		agentArgs = agent.Arguments("", extraArgs...)
+		agentEnvironment = agent.Environment()
 	}
 
 	_, err = k.launchAgentSession(agentLaunchCommand{
@@ -265,6 +267,7 @@ func (k Remuda) Vibe(ctx context.Context, cmd VibeCommand) error {
 		Model:               cmd.Model,
 		Command:             agentCommand,
 		Args:                agentArgs,
+		AgentEnvironment:    agentEnvironment,
 		Prompt:              prompt,
 		Detached:            cmd.Detached,
 		Attach:              cmd.Attach,
@@ -314,6 +317,7 @@ type composedLaunchCommand struct {
 func (k Remuda) composeLaunchCommand(
 	cmd VibeCommand,
 	workspace, agentCmd, sessionName, containerName string,
+	agentEnvironment map[string]string,
 	envProvider env.Provider,
 ) (composedLaunchCommand, error) {
 	logger := k.Logger
@@ -355,6 +359,15 @@ func (k Remuda) composeLaunchCommand(
 		containerOpts = append(containerOpts, inheritOpts...)
 	}
 	containerOpts = append([]string{"-e", "BD_ACTOR"}, containerOpts...)
+	agentEnvNames := make([]string, 0, len(agentEnvironment))
+	for name := range agentEnvironment {
+		agentEnvNames = append(agentEnvNames, name)
+	}
+	agentEnvOpts, err := containerInheritEnvOpts(agentEnvNames)
+	if err != nil {
+		return composedLaunchCommand{}, err
+	}
+	containerOpts = append(containerOpts, agentEnvOpts...)
 	if _, ok := envProvider.LookupEnv("BEADS_DIR"); ok && !containerOptsDefineEnv(containerOpts, "BEADS_DIR") {
 		containerOpts = append(containerOpts, "-e", "BEADS_DIR")
 	}

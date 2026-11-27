@@ -20,11 +20,12 @@ type agentLaunchCommand struct {
 
 	SessionName string
 
-	AgentName string
-	Model     string
-	Command   string
-	Args      []string
-	Prompt    string
+	AgentName        string
+	Model            string
+	Command          string
+	Args             []string
+	AgentEnvironment map[string]string
+	Prompt           string
 
 	Detached bool
 	Attach   bool
@@ -78,6 +79,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 		cmd.Command,
 		sessionName,
 		containerName,
+		cmd.AgentEnvironment,
 		envProvider,
 	)
 	if err != nil {
@@ -120,9 +122,12 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 	// OPENAI_API_KEY never appear in shell history, multiplexer buffers, or logs.
 	startCmd := fmt.Sprintf("cd %s && %s", shell.SingleQuote(workspaceAbs), launchCmd)
 	startCmd = wrapWithCrashRecoverySleep(startCmd)
-	overrideEnvNames := make([]string, 0, len(cmd.EnvOverrides))
+	launchEnvNames := make([]string, 0, len(cmd.EnvOverrides)+len(cmd.AgentEnvironment))
 	for key := range cmd.EnvOverrides {
-		overrideEnvNames = append(overrideEnvNames, key)
+		launchEnvNames = append(launchEnvNames, key)
+	}
+	for key := range cmd.AgentEnvironment {
+		launchEnvNames = append(launchEnvNames, key)
 	}
 	if err := k.Multiplexer.Start(session.AgentStart{
 		SessionName: sessionName,
@@ -134,7 +139,7 @@ func (k Remuda) launchAgentSession(cmd agentLaunchCommand) (agentLaunchResult, e
 		Args:        cmd.Args,
 		Prompt:      cmd.Prompt,
 		Env:         launchEnvValues(envProvider),
-		ForwardEnv:  isolatedSessionEnvNames(cmd.AgentName, cmd.ContainerInheritEnv, overrideEnvNames),
+		ForwardEnv:  isolatedSessionEnvNames(cmd.AgentName, cmd.ContainerInheritEnv, launchEnvNames),
 	}); err != nil {
 		return agentLaunchResult{}, pkgerrors.Wrapf(err, "starting %s session %s", k.Multiplexer.Name(), sessionName)
 	}
@@ -176,6 +181,9 @@ func (k Remuda) launchEnvProvider(cmd agentLaunchCommand, sessionName string) en
 		if strings.TrimSpace(key) == "" {
 			continue
 		}
+		provider.Setenv(key, value)
+	}
+	for key, value := range cmd.AgentEnvironment {
 		provider.Setenv(key, value)
 	}
 

@@ -29,6 +29,8 @@ func (c codexLauncher) Arguments(prompt string, extraArgs ...string) []string {
 	return c.launch(prompt, extraArgs...).argv()
 }
 
+func (codexLauncher) Environment() map[string]string { return nil }
+
 func (c codexLauncher) Command(prompt string, extraArgs ...string) string {
 	return c.launch(prompt, extraArgs...).command()
 }

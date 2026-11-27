@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yendo-eng/remuda/internal/agentlauncher"
 	"github.com/yendo-eng/remuda/internal/docker"
 	"github.com/yendo-eng/remuda/internal/env"
 	"github.com/yendo-eng/remuda/internal/logging"
@@ -196,6 +197,60 @@ func TestLaunchAgentSessionStartsContainer(t *testing.T) {
 	require.True(t, sm.LastStart.Container)
 	require.Equal(t, []string{"docker", "run"}, sm.LastStart.CommandArgv[:2])
 	require.Contains(t, sm.LastStart.Command, "'docker' 'run'")
+}
+
+func TestLaunchAgentSessionForwardsLauncherEnvironment(t *testing.T) {
+	t.Parallel()
+
+	launcher := agentlauncher.OpenCode("openai/gpt-5#variant")
+	for _, tt := range []struct {
+		name      string
+		container bool
+	}{
+		{name: "session environment"},
+		{name: "container environment", container: true},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			sm := &testutils.MockMultiplexer{MultiplexerName: "tmux"}
+			k := Remuda{
+				Multiplexer: sm,
+				Docker:      &docker.Mock{Running: true},
+				IO:          DefaultIO(),
+				Env: env.StaticProvider{Values: map[string]string{
+					"PATH":     "/usr/bin:/bin",
+					"GH_TOKEN": "test-token",
+				}},
+			}
+
+			_, err := k.launchAgentSession(agentLaunchCommand{
+				Workspace:        t.TempDir(),
+				SessionName:      "org/repo/folder",
+				AgentName:        launcher.Name(),
+				Command:          launcher.Command("hello"),
+				AgentEnvironment: launcher.Environment(),
+				Detached:         true,
+				Container:        tt.container,
+				ContainerImage:   "ghcr.io/acme/vibe-dev:latest",
+			})
+			require.NoError(t, err)
+			config, ok := envValue(sm.LastStart.Env, "OPENCODE_CONFIG_CONTENT")
+			require.True(t, ok)
+			require.Equal(t, `{"model":"openai/gpt-5#variant"}`, config)
+			require.Contains(t, sm.LastStart.ForwardEnv, "OPENCODE_CONFIG_CONTENT")
+			require.NotContains(t, sm.LastStart.Command, "OPENCODE_CONFIG_CONTENT='")
+
+			if tt.container {
+				argv := sm.LastStart.CommandArgv
+				require.True(t, containerOptsDefineEnv(argv, "OPENCODE_CONFIG_CONTENT"))
+				require.False(t, containerOptsDefineEnv(argv, "NOT_FORWARDED"))
+				require.Contains(t, argv[len(argv)-1], "opencode --prompt 'hello'")
+				require.NotContains(t, argv[len(argv)-1], "OPENCODE_CONFIG_CONTENT")
+			}
+		})
+	}
 }
 
 func envValue(values []string, key string) (string, bool) {

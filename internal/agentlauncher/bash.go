@@ -12,6 +12,8 @@ func (b bashLauncher) Arguments(_ string, extraArgs ...string) []string {
 	return b.launch(extraArgs...).argv()
 }
 
+func (bashLauncher) Environment() map[string]string { return nil }
+
 func (b bashLauncher) Command(prompt string, extraArgs ...string) string {
 	return b.launch(extraArgs...).command()
 }

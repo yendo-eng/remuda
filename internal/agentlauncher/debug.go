@@ -10,6 +10,8 @@ func (b debugLauncher) Name() string { return "debug" }
 
 func (b debugLauncher) Arguments(_ string, _ ...string) []string { return nil }
 
+func (debugLauncher) Environment() map[string]string { return nil }
+
 func (b debugLauncher) Command(prompt string, extraArgs ...string) string { return prompt }
 
 func (b debugLauncher) WithRemoteControl(sessionName string) (AgentLauncher, bool) {
