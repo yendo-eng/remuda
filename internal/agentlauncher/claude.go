@@ -43,6 +43,8 @@ func (c claudeLauncher) Arguments(prompt string, extraArgs ...string) []string {
 	return c.launch(prompt, extraArgs...).argv()
 }
 
+func (claudeLauncher) Environment() map[string]string { return nil }
+
 func (c claudeLauncher) Command(prompt string, extraArgs ...string) string {
 	return c.launch(prompt, extraArgs...).command()
 }

@@ -21,6 +21,8 @@ func (c customLauncher) Name() string { return "custom" }
 
 func (c customLauncher) Arguments(_ string, _ ...string) []string { return nil }
 
+func (customLauncher) Environment() map[string]string { return nil }
+
 func (c customLauncher) Command(prompt string, extraArgs ...string) string {
 	if strings.TrimSpace(prompt) == "" {
 		return c.Cmd

@@ -33,7 +33,7 @@ func TestComposeLaunchCommand_ForwardsContainerInheritEnv(t *testing.T) {
 		ContainerInheritEnv: []string{"AWS_REGION", "FOO_BAR", "GOPRIVATE"},
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", nil, k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launch.shell, "'-e' 'AWS_REGION'")
 	require.Contains(t, launch.shell, "'-e' 'FOO_BAR'")
@@ -68,7 +68,7 @@ func TestComposeLaunchCommand_SplitsMultiTokenContainerOpt(t *testing.T) {
 		ContainerOpts: []string{"-v /a:/b"},
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", nil, k.envProvider())
 	require.NoError(t, err)
 
 	binDir := t.TempDir()
@@ -113,7 +113,7 @@ func TestComposeLaunchCommand_InvalidContainerInheritEnvFails(t *testing.T) {
 		ContainerInheritEnv: []string{"BAD=NOPE"},
 	}
 
-	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", nil, k.envProvider())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "invalid env var name")
 }
@@ -127,7 +127,7 @@ func TestComposeLaunchCommand_ContainerRequiresExplicitImage(t *testing.T) {
 		Container: true,
 	}
 
-	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	_, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", nil, k.envProvider())
 	require.Error(t, err)
 	require.ErrorContains(t, err, "isolation mode requires an explicit image")
 }
@@ -158,7 +158,7 @@ func TestComposeLaunchCommand_BashAgentIncludesCodexStateMounts(t *testing.T) {
 		ContainerName: "vibe-dev",
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", nil, k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
 	require.Contains(t, launch.shell, ":/root/.codex/history.jsonl:rw")
@@ -194,7 +194,7 @@ func TestComposeLaunchCommand_ClaudeAgentIncludesClaudeStateMountsAndEnv(t *test
 		ContainerName: "vibe-dev",
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", nil, k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
 	require.NotContains(t, launch.shell, "IS_SANDBOX")
@@ -229,7 +229,7 @@ func TestComposeLaunchCommand_ClaudeYoloSetsSandboxEnv(t *testing.T) {
 		ContainerName: "vibe-dev",
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", nil, k.envProvider())
 	require.NoError(t, err)
 	require.Contains(t, launch.shell, "'-e' 'ANTHROPIC_API_KEY'")
 	require.Contains(t, launch.shell, "'-e' 'IS_SANDBOX'")
@@ -261,7 +261,7 @@ func TestComposeLaunchCommand_CodexAgentOmitsClaudeStateMountsAndEnv(t *testing.
 		ContainerName: "vibe-dev",
 	}
 
-	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", k.envProvider())
+	launch, err := k.composeLaunchCommand(cmd, "/tmp/ws", "echo hi", "sess", "cont", nil, k.envProvider())
 	require.NoError(t, err)
 	require.NotContains(t, launch.shell, "ANTHROPIC_API_KEY")
 	require.NotContains(t, launch.shell, "/root/.claude")

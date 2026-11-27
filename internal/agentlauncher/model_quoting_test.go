@@ -16,3 +16,12 @@ func TestOpenCodeLauncher_Command_OmitsModel(t *testing.T) {
 	l := OpenCode("foo'bar; rm -rf /#variant")
 	require.Equal(t, "opencode --prompt 'do stuff'", l.Command("do stuff"))
 }
+
+func TestOpenCodeLauncher_EnvironmentEncodesModelAsJSON(t *testing.T) {
+	t.Parallel()
+
+	l := OpenCode("foo'bar; rm -rf /#variant")
+	require.Equal(t, map[string]string{
+		"OPENCODE_CONFIG_CONTENT": `{"model":"foo'bar; rm -rf /#variant"}`,
+	}, l.Environment())
+}

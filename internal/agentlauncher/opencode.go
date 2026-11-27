@@ -1,6 +1,9 @@
 package agentlauncher
 
-import "strings"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // Model IDs are sourced from https://models.dev/api.json.
 var openCodeSupportedModels = []string{
@@ -257,16 +260,25 @@ func (o opencodeLauncher) Arguments(prompt string, extraArgs ...string) []string
 	return o.launch(prompt, extraArgs...).argv()
 }
 
+func (o opencodeLauncher) Environment() map[string]string {
+	if o.Model == "" || o.Model == ModelAgentDefault {
+		return nil
+	}
+	configContent, err := json.Marshal(struct {
+		Model string `json:"model"`
+	}{Model: o.Model})
+	if err != nil {
+		panic(err)
+	}
+	return map[string]string{"OPENCODE_CONFIG_CONTENT": string(configContent)}
+}
+
 func (o opencodeLauncher) Command(prompt string, extraArgs ...string) string {
 	return o.launch(prompt, extraArgs...).command()
 }
 
 func (o opencodeLauncher) launch(prompt string, extraArgs ...string) launch {
 	command := launch{executable: "opencode"}
-	if o.Model != "" && o.Model != ModelAgentDefault {
-		command.raw("--model")
-		command.quoted(o.Model)
-	}
 	command.quoted(extraArgs...)
 	if strings.TrimSpace(prompt) != "" {
 		command.raw("--prompt")

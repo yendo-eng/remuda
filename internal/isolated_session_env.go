@@ -8,9 +8,9 @@ import (
 
 // isolatedSessionEnvNames is the session.AgentStart ForwardEnv of an agent's
 // launch.
-func isolatedSessionEnvNames(agent string, extraEnvNames, overrideEnvNames []string) []string {
+func isolatedSessionEnvNames(agent string, extraEnvNames, launchEnvNames []string) []string {
 	names := isolatedContainerEnvNames(agent, extraEnvNames)
-	for _, name := range overrideEnvNames {
+	for _, name := range launchEnvNames {
 		name = strings.TrimSpace(name)
 		if util.IsValidEnvVarName(name) {
 			names = append(names, name)
