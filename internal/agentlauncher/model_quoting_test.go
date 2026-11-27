@@ -12,8 +12,7 @@ func TestCodexLauncher_Model_IsShellQuoted(t *testing.T) {
 	require.Contains(t, cmd, "--model 'foo'\\''bar; rm -rf /'")
 }
 
-func TestOpenCodeLauncher_Model_IsShellQuoted(t *testing.T) {
-	l := OpenCode("foo'bar; rm -rf /")
-	cmd := l.Command("do stuff")
-	require.Contains(t, cmd, "--model 'foo'\\''bar; rm -rf /'")
+func TestOpenCodeLauncher_Command_OmitsModel(t *testing.T) {
+	l := OpenCode("foo'bar; rm -rf /#variant")
+	require.Equal(t, "opencode --prompt 'do stuff'", l.Command("do stuff"))
 }

@@ -17,7 +17,7 @@ func TestCodexLauncher_Command_EmptyPromptOmitsPositionalArg(t *testing.T) {
 func TestOpenCodeLauncher_Command_EmptyPromptOmitsPromptFlag(t *testing.T) {
 	l := OpenCode("gpt-4o")
 	cmd := l.Command("")
-	require.Equal(t, "opencode --model 'gpt-4o'", cmd)
+	require.Equal(t, "opencode", cmd)
 }
 
 func TestCustomLauncher_Command_EmptyPromptOmitsPositionalArg(t *testing.T) {
