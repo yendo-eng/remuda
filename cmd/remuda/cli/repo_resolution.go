@@ -40,10 +40,47 @@ func resolveRepoSelection(ctx Context, repo CloneRepoOption, opts RepoResolution
 	repoURLArg := github.ExpandRepoURL(opts.RepoURLArg)
 	explicitRepoURLFlag := ctx.FlagExplicit("repo-url")
 	usedRepoURLArg := false
+	workspaceRepoSlug := ""
 
 	if repoURLArg != "" && !explicitRepoURLFlag {
 		repoURL = repoURLArg
 		usedRepoURLArg = true
+	}
+
+	if strings.TrimSpace(opts.ExistingWorkspace) != "" {
+		baseDir := reposBaseDirForExistingWorkspace(ctx, opts.ReposBaseDir)
+		workspaceRepoSlug = repoSlugFromExistingWorkspace(ctx, baseDir, opts.ExistingWorkspace)
+		if workspaceRepoSlug != "" {
+			if repoSourceForRepoURL(ctx.env(), ctx, usedRepoURLArg, repo.RepoURL, opts.SourceHint) == RepoSourceConfig {
+				repoURL = ""
+			}
+			if repoSourceForAlias(ctx.env(), ctx, repo.Repo) == RepoSourceConfig {
+				repoAlias = ""
+			}
+
+			explicitURL := explicitRepoURLFlag && repoURL != ""
+			explicitAlias := ctx.FlagExplicit("repo") && repoAlias != ""
+			if explicitURL {
+				if err := validateExplicitRepoSlug("--repo-url", repoSlugFromURL(repoURL), workspaceRepoSlug); err != nil {
+					return RepoSelection{}, err
+				}
+			}
+			if explicitAlias {
+				url, err := github.RepoOrURL("", repoAlias)
+				if err != nil {
+					return RepoSelection{}, err
+				}
+				if err := validateExplicitRepoSlug("--repo", repoSlugFromURL(url), workspaceRepoSlug); err != nil {
+					return RepoSelection{}, err
+				}
+			}
+
+			if explicitURL {
+				repoAlias = ""
+			} else if explicitAlias {
+				repoURL = ""
+			}
+		}
 	}
 
 	if repoURL != "" {
@@ -69,9 +106,7 @@ func resolveRepoSelection(ctx Context, repo CloneRepoOption, opts RepoResolution
 	}
 
 	if strings.TrimSpace(opts.ExistingWorkspace) != "" {
-		baseDir := reposBaseDirForExistingWorkspace(ctx, opts.ReposBaseDir)
-		repoSlug := repoSlugFromExistingWorkspace(ctx, baseDir, opts.ExistingWorkspace)
-		return RepoSelection{RepoSlug: repoSlug, Source: RepoSourceWorkspace}, nil
+		return RepoSelection{RepoSlug: workspaceRepoSlug, Source: RepoSourceWorkspace}, nil
 	}
 
 	if opts.AllowFallback {
@@ -85,6 +120,16 @@ func errRepoSelectionRequired() error {
 	return pkgerrors.Errorf(
 		"repository is not configured: specify --repo-url/--repo, set REMUDA_DEFAULT_REPO_URL or REMUDA_DEFAULT_REPO, or set repos.default_repo_url/repos.default_repo in config",
 	)
+}
+
+func validateExplicitRepoSlug(flag, repoSlug, workspaceRepoSlug string) error {
+	if repoSlug == "" {
+		return pkgerrors.Errorf("%s cannot be matched to workspace repo %s", flag, workspaceRepoSlug)
+	}
+	if repoSlug == workspaceRepoSlug {
+		return nil
+	}
+	return pkgerrors.Errorf("%s selects %s, but workspace belongs to %s", flag, repoSlug, workspaceRepoSlug)
 }
 
 func repoSourceForRepoURL(env EnvProvider, ctx Context, repoURLArg bool, repoURL string, hint RepoSelectionSource) RepoSelectionSource {
